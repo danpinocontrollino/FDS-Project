@@ -25,7 +25,8 @@ jobs:
       env:
         KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
         KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
-      run: kaggle kernels pull <KAGGLE_USERNAME>/<NOTEBOOK_NAME> -p .
+      run: kaggle kernels pull <KAGGLE_USERNAME>/wafaaelhusseini/worklife-balance-synthetic-daily-wellness-dataset -p .
+      
 
     - name: Commit and push changes
       run: |
