@@ -135,8 +135,8 @@ def parse_args() -> argparse.Namespace:
                         help="Number of attention heads")
     parser.add_argument("--num-layers", type=int, default=2, 
                         help="Number of encoder layers")
-    parser.add_argument("--sample-users", type=float, default=1.0, 
-                        help="Fraction of USERS to include (preserves user patterns)")
+    parser.add_argument("--sample-users", type=float, default=0.1, 
+                        help="Fraction of USERS to include (default 0.1 = 10%% for CPU training)")
     return parser.parse_args()
 
 

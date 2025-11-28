@@ -75,30 +75,27 @@ MODEL_DIR = Path("models/saved")
 
 # Daily behavioral features used for sequence modeling
 # These capture the key dimensions of work-life balance:
+# Ordered by correlation with burnout_level (highest first)
 FEATURE_COLS = [
-    # Sleep metrics (recovery indicators)
-    "sleep_hours",           # Total sleep duration
-    "sleep_quality",         # Subjective sleep quality (1-10)
+    # Highest correlation features (added)
+    "stress_level",          # Self-reported stress (1-10) - corr: 0.345
+    "commute_minutes",       # Daily commute time - corr: 0.340
+    "exercise_minutes",      # Physical activity - corr: 0.222
+    "work_hours",            # Hours worked that day - corr: 0.201
+    "mood_score",            # Emotional state (1-10) - corr: 0.175
+    "sleep_quality",         # Subjective sleep quality (1-10) - corr: 0.142
+    "emails_received",       # Email volume (workload proxy) - corr: 0.123
+    "caffeine_mg",           # Stimulant consumption - corr: 0.116
+    "energy_level",          # Fatigue indicator (1-10) - corr: 0.112
+    "sleep_hours",           # Total sleep duration - corr: 0.094
+    "focus_score",           # Cognitive performance (1-10) - corr: 0.090
     
-    # Work metrics (stress sources)
-    "work_hours",            # Hours worked that day
+    # Secondary features (lower correlation but potentially useful)
     "meetings_count",        # Number of meetings (interruption proxy)
     "tasks_completed",       # Productivity metric
-    
-    # Physical health metrics
-    "exercise_minutes",      # Physical activity
     "steps_count",           # Daily movement
-    
-    # Consumption metrics (coping behaviors)
-    "caffeine_mg",           # Stimulant consumption
     "alcohol_units",         # Depressant consumption
     "screen_time_hours",     # Digital exposure
-    
-    # Psychological metrics (outcome indicators)
-    "stress_level",          # Self-reported stress (1-10)
-    "mood_score",            # Emotional state (1-10)
-    "energy_level",          # Fatigue indicator (1-10)
-    "focus_score",           # Cognitive performance (1-10)
     
     # Work environment (categorical -> numeric)
     "work_pressure",         # Converted: low=0, medium=1, high=2
@@ -129,8 +126,8 @@ def parse_args() -> argparse.Namespace:
                         help="Mini-batch size (larger = faster on CPU)")
     parser.add_argument("--lr", type=float, default=1e-3,
                         help="Learning rate for Adam optimizer")
-    parser.add_argument("--sample-users", type=float, default=1.0,
-                        help="Fraction of USERS to include (preserves complete user patterns)")
+    parser.add_argument("--sample-users", type=float, default=0.1,
+                        help="Fraction of USERS to include (default 0.1 = 10%% for CPU training)")
     return parser.parse_args()
 
 
@@ -408,6 +405,21 @@ def train(args: argparse.Namespace) -> None:
     seq_X, seq_y = load_daily(args.window, args.sample_users)
     print(f"Total sequences: {len(seq_X):,}")
     
+    # ========== FEATURE STANDARDIZATION ==========
+    # Normalize features to zero mean and unit variance for better gradient flow
+    # Reshape to (N*window, features), compute stats, then reshape back
+    original_shape = seq_X.shape  # (N, window, features)
+    seq_X_flat = seq_X.reshape(-1, seq_X.shape[2])  # (N*window, features)
+    
+    # Compute mean and std per feature
+    mean = seq_X_flat.mean(axis=0)
+    std = seq_X_flat.std(axis=0) + 1e-8  # Avoid division by zero
+    
+    # Standardize
+    seq_X_flat = (seq_X_flat - mean) / std
+    seq_X = seq_X_flat.reshape(original_shape)
+    print(f"Features standardized (mean≈0, std≈1)")
+    
     # Build data loaders
     train_loader, val_loader, y_val = build_loaders(seq_X, seq_y, args.batch_size)
     num_classes = len(np.unique(seq_y))
@@ -419,8 +431,14 @@ def train(args: argparse.Namespace) -> None:
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     
+    # Learning rate scheduler - reduce LR when validation loss plateaus
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.5, patience=3, verbose=True
+    )
+    
     # Tracking
     best_val = float("inf")
+    best_acc = 0.0
     history = []
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     model_path = MODEL_DIR / f"{args.model}_sequence.pt"
@@ -457,18 +475,25 @@ def train(args: argparse.Namespace) -> None:
         val_loss = float(np.mean(val_losses))
         history.append(val_loss)
         
-        # Log progress
-        if epoch % 5 == 0:
-            print(f"Epoch {epoch}: val_loss={val_loss:.4f}")
+        # Compute accuracy for this epoch
+        epoch_acc = accuracy_score(y_val, preds)
         
-        # Save best model
-        if val_loss < best_val:
+        # Step the scheduler based on validation loss
+        scheduler.step(val_loss)
+        
+        # Log progress every epoch (more visibility)
+        print(f"Epoch {epoch:3d}: val_loss={val_loss:.4f}, val_acc={epoch_acc:.4f}")
+        
+        # Save best model (based on accuracy, not just loss)
+        if epoch_acc > best_acc:
+            best_acc = epoch_acc
             best_val = val_loss
             torch.save({
                 "model_state": model.state_dict(),
                 "model_type": args.model,
                 "feature_cols": FEATURE_COLS,
                 "window": args.window,
+                "best_accuracy": best_acc,
             }, model_path)
 
     # ========== FINAL METRICS ==========
