@@ -1,9 +1,12 @@
-name: Sync Kaggle Notebooks
+name: Sync Kaggle Dataset
 
 on:
   schedule:
     - cron: '0 0 * * *'  # Runs daily at midnight
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   sync:
@@ -11,27 +14,27 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Setup Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
       with:
-        python-version: 3.x
+        python-version: '3.x'
 
     - name: Install kaggle
       run: pip install kaggle
 
-    - name: Download Kaggle notebook
+    - name: Download Kaggle dataset
       env:
         KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
         KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
-      run: kaggle kernels pull <KAGGLE_USERNAME>/wafaaelhusseini/worklife-balance-synthetic-daily-wellness-dataset -p .
-      
+      run: |
+        kaggle datasets download wafaaelhusseini/worklife-balance-synthetic-daily-wellness-dataset -p data/raw --unzip
 
     - name: Commit and push changes
       run: |
         git config --global user.name 'github-actions[bot]'
         git config --global user.email 'github-actions[bot]@users.noreply.github.com'
         git add .
-        git commit -m "Update Kaggle notebooks"
+        git diff --staged --quiet || git commit -m "Update Kaggle dataset"
         git push
