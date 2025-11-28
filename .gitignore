@@ -1,4 +1,6 @@
 data/
 *.csv
-data/
-*.csv
+.kaggle/
+models/saved/*.pkl
+models/saved/*.pkl
+models/saved/*.pkl
