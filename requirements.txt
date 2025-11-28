@@ -1,0 +1,23 @@
+# Core Data Science
+numpy
+pandas
+
+# Machine Learning
+scikit-learn
+
+# Deep Learning (CPU-only to save space)
+tensorflow-cpu
+
+# Visualization
+matplotlib
+seaborn
+
+# Statistical Analysis
+statsmodels
+scipy
+
+# Kaggle API (for data download)
+kaggle
+
+# Jupyter
+ipykernel
