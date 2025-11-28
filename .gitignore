@@ -1,3 +1,41 @@
 data/
 *.csv
 .kaggle/
+
+# Python libraries and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+.env/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Model files (large)
+*.h5
+*.hdf5
+*.pkl
+*.joblib
+*.model
+
+# Results and outputs (optional - remove if you want to track)
+# results/
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git LFS (if not using)
+*.lfs
