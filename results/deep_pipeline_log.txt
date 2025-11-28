@@ -1,0 +1,10 @@
+Starting deep pipeline
+Loaded CSV rows=731000 cols=53
+Identified numeric cols: 42
+Categorical cols: ['week_start', 'profession', 'work_mode', 'chronotype', 'sex', 'mental_health_history', 'exercise_habit', 'caffeine_sensitivity', 'work_pressure']
+Filtered to users count=120; rows now=87720
+Applied one-hot to categoricals
+Scaled 42 numeric features
+Added rolling features and event flags
+Target distribution: {1: 86895, 0: 825}
+Final features count: 222

@@ -1,0 +1,20 @@
+Total rows processed: 219300
+Unique users considered: 300
+Counts of N_HighStress_14d:
+  0: 300
+  1: 300
+  2: 300
+  3: 300
+  4: 300
+  5: 802
+  6: 300
+  7: 300
+  8: 300
+  9: 300
+  10: 180518
+  11: 49
+  12: 49
+  13: 49
+  14: 35133
+Rows with N_HighStress_14d >= 10: 215798
+Burnout_Risk sum: 215798
