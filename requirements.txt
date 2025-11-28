@@ -1,11 +1,15 @@
+# ===========================================
+# FDS-Project - Complete Dependencies
+# ===========================================
+
 # Core Data Science
 numpy
 pandas
 
-# Machine Learning
+# Machine Learning (scikit-learn)
 scikit-learn
 
-# Deep Learning (CPU-only to save space)
+# Deep Learning (CPU-only to save disk space)
 tensorflow-cpu
 
 # Visualization
@@ -16,8 +20,9 @@ seaborn
 statsmodels
 scipy
 
-# Kaggle API (for data download)
+# Kaggle API (for dataset download)
 kaggle
 
-# Jupyter
+# Jupyter Notebook Support
 ipykernel
+notebook
