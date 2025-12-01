@@ -385,10 +385,207 @@
             margin-top: 10px;
         }
         
+        /* 7-Day Action Plan */
+        .action-plan {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        .action-plan h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .plan-intro {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+        
+        .priority-focus {
+            background: linear-gradient(135deg, #667eea15, #764ba215);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .priority-focus h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+        
+        .priority-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .priority-item {
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 25px;
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #667eea;
+        }
+        
+        .priority-item.critical {
+            background: #dc3545;
+            border-color: #dc3545;
+            color: white;
+        }
+        
+        .weekly-schedule {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+        }
+        
+        .day-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 15px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .day-card.rest-day {
+            border-left-color: #28a745;
+            background: #f0fff4;
+        }
+        
+        .day-header {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+        
+        .day-tasks {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .day-tasks li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 0.9rem;
+            color: #555;
+        }
+        
+        .day-tasks li:last-child {
+            border-bottom: none;
+        }
+        
+        .task-time {
+            font-weight: 500;
+            color: #667eea;
+            margin-right: 8px;
+        }
+        
+        .task-category {
+            display: inline-block;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 5px;
+        }
+        
+        .cat-sleep { background: #e3f2fd; color: #1565c0; }
+        .cat-exercise { background: #e8f5e9; color: #2e7d32; }
+        .cat-stress { background: #fce4ec; color: #c2185b; }
+        .cat-work { background: #fff3e0; color: #e65100; }
+        .cat-social { background: #f3e5f5; color: #7b1fa2; }
+        
+        .weekly-goals {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .weekly-goals h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+        
+        .goal-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .goal-item:last-child {
+            border-bottom: none;
+        }
+        
+        .goal-checkbox {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #667eea;
+            border-radius: 6px;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+        
+        .goal-text {
+            flex: 1;
+            font-size: 0.95rem;
+        }
+        
+        .goal-metric {
+            font-size: 0.85rem;
+            color: #666;
+            background: #e9ecef;
+            padding: 4px 10px;
+            border-radius: 15px;
+        }
+        
+        .intervention-banner {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+            color: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .intervention-banner h3 {
+            margin-bottom: 10px;
+            color: white;
+        }
+        
+        .intervention-banner p {
+            opacity: 0.95;
+            margin-bottom: 15px;
+        }
+        
+        .intervention-options {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .intervention-option {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+        
         @media (max-width: 600px) {
             .header h1 { font-size: 1.8rem; }
             .risk-badge { font-size: 1.2rem; padding: 10px 25px; }
             .emoji { font-size: 3rem; }
+            .weekly-schedule { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -396,7 +593,7 @@
     <div class="container">
         <div class="header">
             <h1>🧠 Burnout Risk Assessment</h1>
-            <p>Generated on December 01, 2025 at 18:20</p>
+            <p>Generated on December 01, 2025 at 20:08</p>
         </div>
         
         <div class="person-name">Report for: <strong>Mandy Smith</strong></div>
@@ -404,32 +601,32 @@
     <div class="emoji">😐</div>
     <h2>Your Burnout Risk Level</h2>
     <div class="risk-badge risk-medium">MEDIUM RISK</div>
-    <div class="confidence">Confidence: 41%</div>
+    <div class="confidence">Confidence: 43%</div>
     <p class="description">Some warning signs. Consider adjusting your routine.</p>
     
     <div class="meter-container">
         <div class="meter-label">
             <span>🟢 Low Risk</span>
-            <span>37%</span>
+            <span>39%</span>
         </div>
         <div class="meter">
-            <div class="meter-fill meter-low" style="width: 37%"></div>
+            <div class="meter-fill meter-low" style="width: 39%"></div>
         </div>
         
         <div class="meter-label">
             <span>🟡 Medium Risk</span>
-            <span>41%</span>
+            <span>43%</span>
         </div>
         <div class="meter">
-            <div class="meter-fill meter-medium" style="width: 41%"></div>
+            <div class="meter-fill meter-medium" style="width: 43%"></div>
         </div>
         
         <div class="meter-label">
             <span>🔴 High Risk</span>
-            <span>23%</span>
+            <span>18%</span>
         </div>
         <div class="meter">
-            <div class="meter-fill meter-high" style="width: 23%"></div>
+            <div class="meter-fill meter-high" style="width: 18%"></div>
         </div>
     </div>
 </div>
@@ -489,13 +686,13 @@
         <li class="recommendation-item">
             <div class="rec-header">
                 <strong>Caffeine (mg)</strong>
-                <span class="impact-badge impact-good">↓22% risk</span>
+                <span class="impact-badge impact-good">↓11% risk</span>
             </div>
             <div class="rec-values">
                 Current: <span class="value-bad">380</span> → 
                 Target: <span class="value-good">80</span>
             </div>
-            <div class="rec-advice">💡 You're at 380mg. Cut 300mg by skipping one coffee.</div>
+            <div class="rec-advice">💡 📊 Our diet_coaching intervention: 51 participants worked on nutrition including caffeine.</div>
         </li>
         
 
@@ -508,51 +705,51 @@
                 Current: <span class="value-bad">5</span> → 
                 Target: <span class="value-good">8</span>
             </div>
-            <div class="rec-advice">💡 Set a bedtime alarm for 2h before your wake time.</div>
+            <div class="rec-advice">💡 Set a phone alarm labeled 'Wind Down' for 2h before your target wake time.</div>
         </li>
         
 
         <li class="recommendation-item">
             <div class="rec-header">
                 <strong>Meetings</strong>
-                <span class="impact-badge impact-neutral">minimal impact</span>
+                <span class="impact-badge impact-good">↓7% risk</span>
             </div>
             <div class="rec-values">
                 Current: <span class="value-bad">6</span> → 
                 Target: <span class="value-good">2</span>
             </div>
-            <div class="rec-advice">💡 Decline or shorten 4 meetings this week.</div>
+            <div class="rec-advice">💡 No-meeting days: Try Maker Schedule - one day/week with zero meetings.</div>
         </li>
         
 
         <li class="recommendation-item">
             <div class="rec-header">
                 <strong>Sleep Quality (1-10)</strong>
-                <span class="impact-badge impact-good">↓3% risk</span>
+                <span class="impact-badge impact-good">↓2% risk</span>
             </div>
             <div class="rec-values">
                 Current: <span class="value-bad">3</span> → 
                 Target: <span class="value-good">7</span>
             </div>
-            <div class="rec-advice">💡 No screens 1h before bed. Blue light disrupts melatonin.</div>
+            <div class="rec-advice">💡 Exercise improves deep sleep, but finish workouts 3+ hours before bedtime.</div>
         </li>
         
 
         <li class="recommendation-item">
             <div class="rec-header">
                 <strong>Exercise (minutes)</strong>
-                <span class="impact-badge impact-good">↓1% risk</span>
+                <span class="impact-badge impact-good">↓2% risk</span>
             </div>
             <div class="rec-values">
                 Current: <span class="value-bad">30</span> → 
                 Target: <span class="value-good">45</span>
             </div>
-            <div class="rec-advice">💡 Add a 15-min walk after lunch. Start today.</div>
+            <div class="rec-advice">💡 Find exercise you enjoy. Consistency beats intensity every time.</div>
         </li>
         
 
         <li class="recommendation-summary">
-            📈 <strong>Combined potential risk reduction: ~26%</strong>
+            📈 <strong>Combined potential risk reduction: ~21%</strong>
             <br><small>(if you address all factors above)</small>
         </li>
         
@@ -581,10 +778,10 @@
                     <span class="cvae-label">Caffeine (mg):</span>
                     <span class="cvae-current">380.0</span>
                     <span class="cvae-arrow-text">→</span>
-                    <span class="cvae-suggested">348.0</span>
-                    <span class="cvae-diff">(-32.0)</span>
+                    <span class="cvae-suggested">344.5</span>
+                    <span class="cvae-diff">(-35.5)</span>
                 </div>
-                <div class="cvae-tip">💡 No caffeine after 2pm. It has a 6-hour half-life.</div>
+                <div class="cvae-tip">💡 Max 400mg/day (FDA). Above that: anxiety, insomnia, and dependence risk.</div>
             </div>
             
             <div class="cvae-item">
@@ -596,7 +793,7 @@
                     <span class="cvae-suggested">6.1</span>
                     <span class="cvae-diff">(+3.1)</span>
                 </div>
-                <div class="cvae-tip">💡 No screens 1h before bed. Blue light disrupts melatonin.</div>
+                <div class="cvae-tip">💡 Alcohol may help you fall asleep, but it destroys sleep quality. Last drink 3h before bed.</div>
             </div>
             
             <div class="cvae-item">
@@ -608,19 +805,7 @@
                     <span class="cvae-suggested">6.9</span>
                     <span class="cvae-diff">(+1.9)</span>
                 </div>
-                <div class="cvae-tip">💡 Set a bedtime alarm for 1h before your wake time.</div>
-            </div>
-            
-            <div class="cvae-item">
-                <div class="cvae-change">
-                    <span class="cvae-arrow">↘️</span>
-                    <span class="cvae-label">Meetings:</span>
-                    <span class="cvae-current">6.0</span>
-                    <span class="cvae-arrow-text">→</span>
-                    <span class="cvae-suggested">4.8</span>
-                    <span class="cvae-diff">(-1.2)</span>
-                </div>
-                <div class="cvae-tip">💡 Block 'focus time' on your calendar before others fill it.</div>
+                <div class="cvae-tip">💡 Tonight: lights out 114 minutes earlier. Just one night to start.</div>
             </div>
             
             <div class="cvae-item">
@@ -629,16 +814,351 @@
                     <span class="cvae-label">Stress Level (1-10):</span>
                     <span class="cvae-current">5.0</span>
                     <span class="cvae-arrow-text">→</span>
-                    <span class="cvae-suggested">3.9</span>
+                    <span class="cvae-suggested">3.8</span>
+                    <span class="cvae-diff">(-1.2)</span>
+                </div>
+                <div class="cvae-tip">💡 Stress hack: Hold ice cubes for 30 seconds. Physical sensation interrupts stress spiral.</div>
+            </div>
+            
+            <div class="cvae-item">
+                <div class="cvae-change">
+                    <span class="cvae-arrow">↘️</span>
+                    <span class="cvae-label">Meetings:</span>
+                    <span class="cvae-current">6.0</span>
+                    <span class="cvae-arrow-text">→</span>
+                    <span class="cvae-suggested">4.9</span>
                     <span class="cvae-diff">(-1.1)</span>
                 </div>
-                <div class="cvae-tip">💡 Try box breathing: 4s inhale, 4s hold, 4s exhale, 4s hold. Repeat 5x.</div>
+                <div class="cvae-tip">💡 Decline 1 meeting(s) this week. 'I'm focused on [project] this week.'</div>
             </div>
             
             </div>
             <p class="cvae-note">✨ Tips based on behavioral science research.</p>
         </div>
         
+    <div class="card action-plan">
+        <h2>📋 Your 7-Day Action Plan</h2>
+        <p class="plan-intro">A structured plan to improve your work-life balance. Focus on small, consistent changes.</p>
+        
+        <div class="priority-focus">
+            <h3>🎯 Your Priority Focus Areas</h3>
+            <div class="priority-items">
+                <span class="priority-item critical">Caffeine (mg)</span><span class="priority-item critical">Meetings</span><span class="priority-item critical">Sleep Quality (1-10)</span><span class="priority-item">Sleep Hours</span>
+            </div>
+        </div>
+        
+    <div class="weekly-schedule">
+        
+        <div class="day-card">
+            <div class="day-header">📅 Monday</div>
+            <ul class="day-tasks">
+                
+            <li>
+                <span class="task-time">14:00</span>
+                No more caffeine after this time
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">21:00</span>
+                No screens, dim lights
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">21:30</span>
+                Wind-down routine (reading, stretching)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">22:30</span>
+                Bedtime (aim for 10h sleep)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">7:00</span>
+                Wake at consistent time (no snooze)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">7:15</span>
+                10 min sunlight exposure
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            </ul>
+        </div>
+        
+        <div class="day-card">
+            <div class="day-header">📅 Tuesday</div>
+            <ul class="day-tasks">
+                
+            <li>
+                <span class="task-time">14:00</span>
+                No more caffeine after this time
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">21:00</span>
+                No screens, dim lights
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">21:30</span>
+                Wind-down routine (reading, stretching)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">22:30</span>
+                Bedtime (aim for 10h sleep)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">7:00</span>
+                Wake at consistent time (no snooze)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">7:15</span>
+                10 min sunlight exposure
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            </ul>
+        </div>
+        
+        <div class="day-card">
+            <div class="day-header">📅 Wednesday</div>
+            <ul class="day-tasks">
+                
+            <li>
+                <span class="task-time">14:00</span>
+                No more caffeine after this time
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">18:00</span>
+                Mid-week social connection (call a friend)
+                <span class="task-category cat-social">social</span>
+            </li>
+            
+            <li>
+                <span class="task-time">21:00</span>
+                No screens, dim lights
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">21:30</span>
+                Wind-down routine (reading, stretching)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">22:30</span>
+                Bedtime (aim for 10h sleep)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">7:00</span>
+                Wake at consistent time (no snooze)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            </ul>
+        </div>
+        
+        <div class="day-card">
+            <div class="day-header">📅 Thursday</div>
+            <ul class="day-tasks">
+                
+            <li>
+                <span class="task-time">14:00</span>
+                No more caffeine after this time
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">21:00</span>
+                No screens, dim lights
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">21:30</span>
+                Wind-down routine (reading, stretching)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">22:30</span>
+                Bedtime (aim for 10h sleep)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">7:00</span>
+                Wake at consistent time (no snooze)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">7:15</span>
+                10 min sunlight exposure
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            </ul>
+        </div>
+        
+        <div class="day-card">
+            <div class="day-header">📅 Friday</div>
+            <ul class="day-tasks">
+                
+            <li>
+                <span class="task-time">14:00</span>
+                No more caffeine after this time
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">17:00</span>
+                Weekly review - celebrate wins
+                <span class="task-category cat-work">work</span>
+            </li>
+            
+            <li>
+                <span class="task-time">21:00</span>
+                No screens, dim lights
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">21:30</span>
+                Wind-down routine (reading, stretching)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">22:30</span>
+                Bedtime (aim for 10h sleep)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">7:00</span>
+                Wake at consistent time (no snooze)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            </ul>
+        </div>
+        
+        <div class="day-card rest-day">
+            <div class="day-header">📅 Saturday</div>
+            <ul class="day-tasks">
+                
+            <li>
+                <span class="task-time">10:00</span>
+                30-min exercise or outdoor activity
+                <span class="task-category cat-exercise">exercise</span>
+            </li>
+            
+            <li>
+                <span class="task-time">12:00</span>
+                Social activity (friends, family, hobby)
+                <span class="task-category cat-social">social</span>
+            </li>
+            
+            <li>
+                <span class="task-time">21:00</span>
+                Prepare for week ahead (light planning)
+                <span class="task-category cat-work">work</span>
+            </li>
+            
+            <li>
+                <span class="task-time">8:00</span>
+                Sleep in (max 1h later than weekdays)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            </ul>
+        </div>
+        
+        <div class="day-card rest-day">
+            <div class="day-header">📅 Sunday</div>
+            <ul class="day-tasks">
+                
+            <li>
+                <span class="task-time">10:00</span>
+                30-min exercise or outdoor activity
+                <span class="task-category cat-exercise">exercise</span>
+            </li>
+            
+            <li>
+                <span class="task-time">12:00</span>
+                Social activity (friends, family, hobby)
+                <span class="task-category cat-social">social</span>
+            </li>
+            
+            <li>
+                <span class="task-time">21:00</span>
+                Prepare for week ahead (light planning)
+                <span class="task-category cat-work">work</span>
+            </li>
+            
+            <li>
+                <span class="task-time">8:00</span>
+                Sleep in (max 1h later than weekdays)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            </ul>
+        </div>
+        
+    </div>
+    
+    <div class="weekly-goals">
+        <h3>✅ Weekly Goals (Track Your Progress)</h3>
+        
+        <div class="goal-item">
+            <div class="goal-checkbox"></div>
+            <div class="goal-text">Increase sleep from 5h to 6h per night</div>
+            <div class="goal-metric">6h × 7 nights</div>
+        </div>
+        
+        <div class="goal-item">
+            <div class="goal-checkbox"></div>
+            <div class="goal-text">No screens 1 hour before bed</div>
+            <div class="goal-metric">5/7 nights</div>
+        </div>
+        
+        <div class="goal-item">
+            <div class="goal-checkbox"></div>
+            <div class="goal-text">Reduce caffeine from 380mg to 280mg</div>
+            <div class="goal-metric">Skip 1 coffee</div>
+        </div>
+        
+        <div class="goal-item">
+            <div class="goal-checkbox"></div>
+            <div class="goal-text">Connect with a friend or loved one</div>
+            <div class="goal-metric">2+ times/week</div>
+        </div>
+        
+    </div>
+    
+    </div>
+    
         
         <div class="footer">
             <p>Powered by ML - University Project</p>

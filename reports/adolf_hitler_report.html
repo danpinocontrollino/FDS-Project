@@ -385,10 +385,207 @@
             margin-top: 10px;
         }
         
+        /* 7-Day Action Plan */
+        .action-plan {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        .action-plan h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .plan-intro {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+        
+        .priority-focus {
+            background: linear-gradient(135deg, #667eea15, #764ba215);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .priority-focus h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+        
+        .priority-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .priority-item {
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 25px;
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #667eea;
+        }
+        
+        .priority-item.critical {
+            background: #dc3545;
+            border-color: #dc3545;
+            color: white;
+        }
+        
+        .weekly-schedule {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+        }
+        
+        .day-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 15px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .day-card.rest-day {
+            border-left-color: #28a745;
+            background: #f0fff4;
+        }
+        
+        .day-header {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+        
+        .day-tasks {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .day-tasks li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 0.9rem;
+            color: #555;
+        }
+        
+        .day-tasks li:last-child {
+            border-bottom: none;
+        }
+        
+        .task-time {
+            font-weight: 500;
+            color: #667eea;
+            margin-right: 8px;
+        }
+        
+        .task-category {
+            display: inline-block;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 5px;
+        }
+        
+        .cat-sleep { background: #e3f2fd; color: #1565c0; }
+        .cat-exercise { background: #e8f5e9; color: #2e7d32; }
+        .cat-stress { background: #fce4ec; color: #c2185b; }
+        .cat-work { background: #fff3e0; color: #e65100; }
+        .cat-social { background: #f3e5f5; color: #7b1fa2; }
+        
+        .weekly-goals {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .weekly-goals h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+        
+        .goal-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .goal-item:last-child {
+            border-bottom: none;
+        }
+        
+        .goal-checkbox {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #667eea;
+            border-radius: 6px;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+        
+        .goal-text {
+            flex: 1;
+            font-size: 0.95rem;
+        }
+        
+        .goal-metric {
+            font-size: 0.85rem;
+            color: #666;
+            background: #e9ecef;
+            padding: 4px 10px;
+            border-radius: 15px;
+        }
+        
+        .intervention-banner {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+            color: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .intervention-banner h3 {
+            margin-bottom: 10px;
+            color: white;
+        }
+        
+        .intervention-banner p {
+            opacity: 0.95;
+            margin-bottom: 15px;
+        }
+        
+        .intervention-options {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .intervention-option {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+        
         @media (max-width: 600px) {
             .header h1 { font-size: 1.8rem; }
             .risk-badge { font-size: 1.2rem; padding: 10px 25px; }
             .emoji { font-size: 3rem; }
+            .weekly-schedule { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -396,7 +593,7 @@
     <div class="container">
         <div class="header">
             <h1>🧠 Burnout Risk Assessment</h1>
-            <p>Generated on December 01, 2025 at 18:20</p>
+            <p>Generated on December 01, 2025 at 20:08</p>
         </div>
         
         <div class="person-name">Report for: <strong>Adolf Hitler</strong></div>
@@ -418,10 +615,10 @@
         
         <div class="meter-label">
             <span>🟡 Medium Risk</span>
-            <span>2%</span>
+            <span>1%</span>
         </div>
         <div class="meter">
-            <div class="meter-fill meter-medium" style="width: 2%"></div>
+            <div class="meter-fill meter-medium" style="width: 1%"></div>
         </div>
         
         <div class="meter-label">
@@ -495,7 +692,7 @@
                 Current: <span class="value-bad">10</span> → 
                 Target: <span class="value-good">2</span>
             </div>
-            <div class="rec-advice">💡 Block 'focus time' on your calendar before others fill it.</div>
+            <div class="rec-advice">💡 Meeting overload is often cultural. Propose a team 'meeting audit' to reduce waste.</div>
         </li>
         
 
@@ -508,7 +705,7 @@
                 Current: <span class="value-bad">7</span> → 
                 Target: <span class="value-good">8000</span>
             </div>
-            <div class="rec-advice">💡 Take calls while walking. Movement helps thinking too.</div>
+            <div class="rec-advice">💡 Post-meal walks improve blood sugar regulation. 10 min after eating helps.</div>
         </li>
         
 
@@ -521,7 +718,7 @@
                 Current: <span class="value-bad">2</span> → 
                 Target: <span class="value-good">0</span>
             </div>
-            <div class="rec-advice">💡 Pressure feels lower when you write tasks down. Brain dump now.</div>
+            <div class="rec-advice">💡 Batch similar tasks. Context-switching costs 23 minutes of refocus time each switch.</div>
         </li>
         
 
@@ -534,7 +731,7 @@
                 Current: <span class="value-bad">30</span> → 
                 Target: <span class="value-good">45</span>
             </div>
-            <div class="rec-advice">💡 Even 7 more minutes daily compounds to 52 min/week.</div>
+            <div class="rec-advice">💡 Morning exercise is most consistent - willpower depletes throughout the day.</div>
         </li>
         
 
@@ -547,7 +744,7 @@
                 Current: <span class="value-bad">7</span> → 
                 Target: <span class="value-good">8</span>
             </div>
-            <div class="rec-advice">💡 Set a bedtime alarm for 0h before your wake time.</div>
+            <div class="rec-advice">💡 Tonight: lights out 30 minutes earlier. Just one night to start.</div>
         </li>
         
     </ul>
@@ -562,6 +759,45 @@
         <h3>🔍 Data Consistency Check</h3>
         <p class="contradictions-intro">We noticed some patterns in your responses that may need attention:</p>
         <div class="warning-item warning-normal">⚠️ Only 1 work hours but HIGH pressure? This suggests intense, demanding work. Quality matters as much as quantity. Even short bursts of high-pressure work can burn you out.</div><div class="warning-item warning-normal">🤔 Your responses seem almost perfect across the board. If this truly reflects your life, that's wonderful! But if you're being optimistic, consider answering as your 'worst day this week' for a more realistic assessment.</div>
+    </div>
+    
+    <div class="card action-plan">
+        <h2>📋 Your Wellness Maintenance Plan</h2>
+        <p class="plan-intro">You're doing great! Here's how to maintain your healthy balance.</p>
+        
+        <div class="priority-focus">
+            <h3>✨ Keep Up These Healthy Habits</h3>
+            <div class="priority-items">
+                <span class="priority-item">Consistent Sleep</span>
+                <span class="priority-item">Regular Exercise</span>
+                <span class="priority-item">Work-Life Balance</span>
+                <span class="priority-item">Stress Management</span>
+            </div>
+        </div>
+        
+        <div class="weekly-goals">
+            <h3>✅ Weekly Wellness Check</h3>
+            <div class="goal-item">
+                <div class="goal-checkbox"></div>
+                <div class="goal-text">Maintained 7+ hours of sleep most nights</div>
+                <div class="goal-metric">5/7 nights</div>
+            </div>
+            <div class="goal-item">
+                <div class="goal-checkbox"></div>
+                <div class="goal-text">Got at least 30 min of movement daily</div>
+                <div class="goal-metric">150 min/week</div>
+            </div>
+            <div class="goal-item">
+                <div class="goal-checkbox"></div>
+                <div class="goal-text">Took real breaks during work</div>
+                <div class="goal-metric">Daily</div>
+            </div>
+            <div class="goal-item">
+                <div class="goal-checkbox"></div>
+                <div class="goal-text">Connected with friends or family</div>
+                <div class="goal-metric">2+ times</div>
+            </div>
+        </div>
     </div>
     
         
