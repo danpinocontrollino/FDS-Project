@@ -90,6 +90,17 @@
         .lifestyle-content { flex: 1; }
         .lifestyle-content strong { display: block; margin-bottom: 5px; }
         .lifestyle-content p { font-size: 0.9rem; color: #555; margin-top: 5px; }
+        .alerts-card { background: white; border-radius: 20px; padding: 30px; margin-bottom: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        .alerts-grid { display: grid; gap: 15px; }
+        .alert-item { display: flex; padding: 15px; border-radius: 12px; }
+        .alert-item.critical { background: #f8d7da; border: 2px solid #dc3545; }
+        .alert-item.warning { background: #fff3cd; border: 2px solid #ffc107; }
+        .alert-item.info { background: #cce5ff; border: 2px solid #007bff; }
+        .alert-item.success { background: #d4edda; border: 2px solid #28a745; }
+        .alert-icon { font-size: 2rem; margin-right: 15px; }
+        .alert-content { flex: 1; }
+        .alert-content strong { display: block; margin-bottom: 8px; font-size: 1.1rem; }
+        .alert-content p { font-size: 0.95rem; line-height: 1.5; margin: 0; }
         .action-plan { background: white; border-radius: 20px; padding: 30px; margin-bottom: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
         .priority-focus { background: linear-gradient(135deg, #667eea15, #764ba215); border-radius: 12px; padding: 20px; margin-bottom: 25px; }
         .priority-focus h3 { color: #667eea; margin-bottom: 15px; font-size: 1.1rem; }
@@ -123,7 +134,7 @@
     <div class="container">
         <div class="header">
             <h1>🧠 Burnout Risk Assessment</h1>
-            <p>Generated on December 01, 2025 at 22:13</p>
+            <p>Generated on December 01, 2025 at 22:23</p>
         </div>
         
         <div class="person-name">Report for: <strong>Daniele</strong></div>
@@ -132,32 +143,32 @@
             <div class="emoji">😐</div>
             <h2>Your Burnout Risk Level</h2>
             <div class="risk-badge risk-medium">MEDIUM RISK</div>
-            <div class="confidence">Confidence: 47%</div>
+            <div class="confidence">Confidence: 46%</div>
             <p class="description">Some warning signs. Consider adjusting your routine.</p>
             
             <div class="meter-container">
                 <div class="meter-label">
                     <span>🟢 Low Risk</span>
-                    <span>36%</span>
+                    <span>39%</span>
                 </div>
                 <div class="meter">
-                    <div class="meter-fill meter-low" style="width: 36%"></div>
+                    <div class="meter-fill meter-low" style="width: 39%"></div>
                 </div>
                 
                 <div class="meter-label">
                     <span>🟡 Medium Risk</span>
-                    <span>47%</span>
+                    <span>46%</span>
                 </div>
                 <div class="meter">
-                    <div class="meter-fill meter-medium" style="width: 47%"></div>
+                    <div class="meter-fill meter-medium" style="width: 46%"></div>
                 </div>
                 
                 <div class="meter-label">
                     <span>🔴 High Risk</span>
-                    <span>17%</span>
+                    <span>15%</span>
                 </div>
                 <div class="meter">
-                    <div class="meter-fill meter-high" style="width: 17%"></div>
+                    <div class="meter-fill meter-high" style="width: 15%"></div>
                 </div>
             </div>
         </div>
@@ -206,6 +217,24 @@
         </div>
         
         
+        <div class="card alerts-card">
+            <h2>🎯 Priority Alerts</h2>
+            <div class="alerts-grid">
+        
+        <div class="alert-item success">
+            <span class="alert-icon">✅</span>
+            <div class="alert-content">
+                <strong>DEVELOPER DEFENSE ACTIVE</strong>
+                <p>We detected you're in a screen-intensive job. We won't suggest "reduce screen time" 
+                since that's not realistic. Instead, focus on quality breaks and eye health.</p>
+            </div>
+        </div>
+        
+            </div>
+        </div>
+        
+        
+        
         <div class="contradictions-section">
             <h3>🔍 Data Consistency Check</h3>
             <p class="contradictions-intro">We noticed some patterns in your responses:</p>
@@ -241,7 +270,7 @@
                 Current: <span class="value-bad">380</span> → 
                 Target: <span class="value-good">80</span>
             </div>
-            <div class="rec-advice">💡 Try cutting by 50mg per week. Withdrawal causes temporary fatigue.</div>
+            <div class="rec-advice">💡 High caffeine often masks sleep debt. Fix sleep first, caffeine need drops naturally.</div>
         </li>
         
         <li class="recommendation-item">
@@ -253,7 +282,7 @@
                 Current: <span class="value-bad">150</span> → 
                 Target: <span class="value-good">15</span>
             </div>
-            <div class="rec-advice">💡 Set specific times to check email. Constant checking fragments focus.</div>
+            <div class="rec-advice">💡 Turn off email notifications. Check 3x/day at set times instead.</div>
         </li>
         
         <li class="recommendation-item">
@@ -265,7 +294,7 @@
                 Current: <span class="value-bad">120</span> → 
                 Target: <span class="value-good">20</span>
             </div>
-            <div class="rec-advice">💡 Long commutes drain energy. Use the time for podcasts or audiobooks.</div>
+            <div class="rec-advice">💡 Your 120-min commute is draining. Use it for audiobooks or podcasts.</div>
         </li>
         
         <li class="recommendation-item">
@@ -277,7 +306,7 @@
                 Current: <span class="value-bad">10</span> → 
                 Target: <span class="value-good">45</span>
             </div>
-            <div class="rec-advice">💡 Even 10-minute walks count. Start small, build consistency.</div>
+            <div class="rec-advice">💡 Morning exercise is most consistent - willpower depletes throughout the day.</div>
         </li>
         
         <li class="recommendation-item">

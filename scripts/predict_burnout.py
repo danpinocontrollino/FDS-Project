@@ -2545,6 +2545,76 @@ def generate_html_report(data: dict, pred_class: int, probs: list,
          metric_status(data.get('energy_level', 7), 7, 4, higher_is_better=True)),
     ]
     
+    # Generate critical alerts HTML based on context
+    critical_alerts_html = ""
+    critical_items = []
+    
+    if context.get("is_recovery_critical"):
+        work_hrs = data.get("work_hours", 8)
+        recovery = data.get("recovery_ability", 5)
+        critical_items.append(f"""
+        <div class="alert-item critical">
+            <span class="alert-icon">🚨</span>
+            <div class="alert-content">
+                <strong>RECOVERY CRITICAL</strong>
+                <p>Working {work_hrs:.0f}h with recovery at {recovery:.0f}/10 is unsustainable. 
+                Your #1 priority this week: add passive recovery (extra sleep, no screens before bed, 
+                at least one full rest day).</p>
+            </div>
+        </div>
+        """)
+    
+    if context.get("is_isolated_stressed"):
+        stress = data.get("stress_level", 5)
+        social = data.get("social_quality", 5)
+        critical_items.append(f"""
+        <div class="alert-item warning">
+            <span class="alert-icon">⚠️</span>
+            <div class="alert-content">
+                <strong>ISOLATION + STRESS</strong>
+                <p>High stress ({stress:.0f}/10) with low social support ({social:.0f}/10) detected. 
+                Social connection should be your #1 priority this week. One meaningful conversation 
+                today is more important than the gym.</p>
+            </div>
+        </div>
+        """)
+    
+    if context.get("has_diet_energy_link"):
+        diet = data.get("diet_quality", 5)
+        energy = data.get("energy_level", 5)
+        critical_items.append(f"""
+        <div class="alert-item info">
+            <span class="alert-icon">💡</span>
+            <div class="alert-content">
+                <strong>DIET-ENERGY CONNECTION</strong>
+                <p>Your low energy ({energy:.0f}/10) is likely linked to diet quality ({diet:.0f}/10). 
+                Quick win: Add protein to lunch, cut refined carbs. Energy often improves within days.</p>
+            </div>
+        </div>
+        """)
+    
+    if context.get("is_knowledge_worker") and context.get("screen_time_justified"):
+        critical_items.append(f"""
+        <div class="alert-item success">
+            <span class="alert-icon">✅</span>
+            <div class="alert-content">
+                <strong>DEVELOPER DEFENSE ACTIVE</strong>
+                <p>We detected you're in a screen-intensive job. We won't suggest "reduce screen time" 
+                since that's not realistic. Instead, focus on quality breaks and eye health.</p>
+            </div>
+        </div>
+        """)
+    
+    if critical_items:
+        critical_alerts_html = """
+        <div class="card alerts-card">
+            <h2>🎯 Priority Alerts</h2>
+            <div class="alerts-grid">
+        """ + "\n".join(critical_items) + """
+            </div>
+        </div>
+        """
+    
     # Generate recommendations HTML
     recommendations_html = ""
     
@@ -2587,25 +2657,121 @@ def generate_html_report(data: dict, pred_class: int, probs: list,
     
     for feature, current, target, impact in deviations[:5]:
         display_name = feature.replace("_", " ").title()
+        diff = abs(target - current)
         
-        # Simple advice lookup
-        simple_advice = {
-            "stress_level": "High stress needs both immediate relief (breathing) and root cause work.",
-            "sleep_hours": "Prioritize 7-9 hours. Sleep is when your brain repairs.",
-            "exercise_minutes": "Even 10-minute walks count. Start small, build consistency.",
-            "caffeine_mg": "Try cutting by 50mg per week. Withdrawal causes temporary fatigue.",
-            "commute_minutes": "Long commutes drain energy. Use the time for podcasts or audiobooks.",
-            "emails_received": "Set specific times to check email. Constant checking fragments focus.",
-            "screen_time_hours": "Take 20-20-20 breaks: every 20 min, look 20 feet away for 20 seconds.",
-            "work_hours": "Working longer rarely means working better. Protect your recovery time.",
-            "meetings_count": "Consider which meetings need you vs. could send an update instead.",
-            "alcohol_units": "Alcohol disrupts sleep quality even in moderate amounts.",
-            "diet_quality": "Add protein to lunch, reduce refined carbs for stable energy.",
-            "social_quality": "One meaningful conversation beats many shallow interactions.",
-            "recovery_ability": "Recovery is active: sleep, rest, fun. Not just absence of work.",
-            "outdoor_time_minutes": "20 min in nature lowers cortisol more than indoor exercise.",
+        # Comprehensive advice database (matching print_recommendations)
+        advice_database = {
+            "stress_level": [
+                f"Your stress is {current:.0f}/10. Ask: 'What's one thing I can delegate or drop this week?'",
+                "Box breathing: 4s inhale → 4s hold → 4s exhale → 4s hold. Do 5 rounds.",
+                "Daily 10-min meditation reduces cortisol by 23% within 8 weeks.",
+            ],
+            "sleep_hours": [
+                f"Set a 'wind down' alarm {diff:.0f}h before target wake time.",
+                f"Your body needs ~{target:.0f}h. Sleep debt accumulates - you can't 'catch up' on weekends.",
+                "Same wake time every day (even weekends) is the #1 sleep quality factor.",
+            ],
+            "sleep_quality": [
+                "No screens 1h before bed. Blue light blocks melatonin by up to 50%.",
+                "Keep bedroom at 65-68°F (18-20°C). Your body needs to cool down for deep sleep.",
+                "No caffeine after 2pm - it has a 6-hour half-life and fragments REM sleep.",
+            ],
+            "exercise_minutes": [
+                f"Add {diff:.0f} min/day = {diff * 7:.0f} extra minutes/week. Compounds to real change.",
+                "Morning exercise is most consistent - willpower depletes throughout the day.",
+                "Find exercise you enjoy. Consistency beats intensity every time.",
+            ],
+            "caffeine_mg": [
+                f"You're at {current:.0f}mg. Skip one coffee today → save ~100mg.",
+                "Caffeine has a 6-hour half-life. That 3pm coffee is still 50% active at 9pm.",
+                "High caffeine often masks sleep debt. Fix sleep first, caffeine need drops naturally.",
+            ],
+            "work_hours": [
+                f"Working {current:.0f}h/day? That's {current*5:.0f}h/week. Productivity drops sharply after 50h.",
+                "Track actual productive time vs. hours worked. Most people are only productive 4-5h/day.",
+                "Long hours correlate with lower productivity per hour. Rest is a performance strategy.",
+            ],
+            "commute_minutes": [
+                f"Your {current:.0f}-min commute is draining. Use it for audiobooks or podcasts.",
+                "Ask about hybrid/remote options. Even 2 WFH days saves significant commute stress.",
+                "Commute >45 min/day is associated with higher stress and lower life satisfaction.",
+            ],
+            "emails_received": [
+                "Turn off email notifications. Check 3x/day at set times instead.",
+                "No email before 10am. Start with deep work, not reactive inbox management.",
+                "Consider discussing email expectations with your team - async doesn't mean instant.",
+            ],
+            "meetings_count": [
+                f"Decline {max(1, int(diff))} meeting(s) this week. 'I'm focused on [project].'",
+                "Block 'focus time' on your calendar 9-11am daily. Protect it from meetings.",
+                "No-meeting days: Try one day/week with zero meetings for deep work.",
+            ],
+            "alcohol_units": [
+                "Alcohol disrupts REM sleep. Even 2 drinks significantly reduce sleep quality.",
+                "2+ dry days per week. Your liver needs 48h to fully recover.",
+                "If drinking to manage stress, that's a warning sign worth addressing.",
+            ],
+            "diet_quality": [
+                "Eat protein at lunch. Carb-heavy meals cause afternoon energy crashes.",
+                "Add protein to breakfast and lunch, reduce refined carbs for stable energy.",
+                "Nutrition affects mood and energy. Small improvements compound over time.",
+            ],
+            "social_quality": [
+                "Text or call one friend today. Social connection is the fastest mood boost.",
+                "One meaningful conversation beats many shallow interactions.",
+                "Schedule regular social time like you schedule work meetings.",
+            ],
+            "social_interactions": [
+                "Aim for 1-2 meaningful conversations per day. Quality over quantity.",
+                "Loneliness is a health risk equal to smoking 15 cigarettes/day.",
+                "Join a class, club, or group activity to meet people regularly.",
+            ],
+            "recovery_ability": [
+                "Recovery is active: sleep, rest, fun. Not just absence of work.",
+                "Add passive recovery: extra sleep, meditation, no screens before bed.",
+                "Your body can't perform without recovery. This is non-negotiable.",
+            ],
+            "outdoor_time_minutes": [
+                "20 min in nature lowers cortisol more than indoor exercise.",
+                "Morning sunlight (10-30 min) sets circadian rhythm and improves mood all day.",
+                "Take calls while walking outside. Double the benefit.",
+            ],
+            "screen_time_hours": [
+                "Take 20-20-20 breaks: every 20 min, look 20 feet away for 20 seconds.",
+                "Your eyes and brain need breaks from screens. Set reminders.",
+                "Evening screen time disrupts sleep. Blue light glasses help somewhat.",
+            ],
+            "job_satisfaction": [
+                "Low job satisfaction is a burnout predictor. What specifically isn't working?",
+                "Consider: Is this role, team, company, or career path issue?",
+                "Small changes (projects, team, schedule) might help before bigger moves.",
+            ],
+            "steps_count": [
+                f"Add {diff:.0f} steps today. A 15-min walk = ~1,500-2,000 steps.",
+                "Aim for 8,000-10,000 steps. Above 7,500, mortality risk drops significantly.",
+                "Post-meal walks improve blood sugar regulation. 10 min after eating helps.",
+            ],
+            "mood_score": [
+                "Mood follows behavior. Plan ONE enjoyable activity in the next 2 hours.",
+                "Go outside for 15 min. Sunlight regulates serotonin and improves mood.",
+                "Exercise is as effective as antidepressants for mild-moderate depression.",
+            ],
+            "energy_level": [
+                "Energy follows sleep, exercise, and nutrition. Which is your weakest link?",
+                "Eat protein at lunch. Carb-heavy meals cause afternoon energy crashes.",
+                "Low energy persistently? Consider bloodwork for thyroid, iron, B12, D.",
+            ],
+            "focus_score": [
+                "Batch similar tasks. Context-switching costs 23 minutes of refocus time.",
+                "Work in 25-min focused sprints (Pomodoro). Short bursts beat long sessions.",
+                "Phone in another room. Mere presence of phone reduces cognitive capacity.",
+            ],
         }
-        advice = simple_advice.get(feature, f"Consider adjusting your {display_name.lower()}.")
+        
+        # Get advice (cycle through for variety, use current value as seed)
+        advice_list = advice_database.get(feature, [f"Consider adjusting your {display_name.lower()}."])
+        advice_index = int(current) % len(advice_list) if advice_list else 0
+        advice = advice_list[advice_index] if advice_list else f"Consider adjusting your {display_name.lower()}."
         
         # Skip screen time for knowledge workers
         if feature == "screen_time_hours" and context.get("screen_time_justified"):
@@ -2842,6 +3008,17 @@ def generate_html_report(data: dict, pred_class: int, probs: list,
         .lifestyle-content {{ flex: 1; }}
         .lifestyle-content strong {{ display: block; margin-bottom: 5px; }}
         .lifestyle-content p {{ font-size: 0.9rem; color: #555; margin-top: 5px; }}
+        .alerts-card {{ background: white; border-radius: 20px; padding: 30px; margin-bottom: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }}
+        .alerts-grid {{ display: grid; gap: 15px; }}
+        .alert-item {{ display: flex; padding: 15px; border-radius: 12px; }}
+        .alert-item.critical {{ background: #f8d7da; border: 2px solid #dc3545; }}
+        .alert-item.warning {{ background: #fff3cd; border: 2px solid #ffc107; }}
+        .alert-item.info {{ background: #cce5ff; border: 2px solid #007bff; }}
+        .alert-item.success {{ background: #d4edda; border: 2px solid #28a745; }}
+        .alert-icon {{ font-size: 2rem; margin-right: 15px; }}
+        .alert-content {{ flex: 1; }}
+        .alert-content strong {{ display: block; margin-bottom: 8px; font-size: 1.1rem; }}
+        .alert-content p {{ font-size: 0.95rem; line-height: 1.5; margin: 0; }}
         .action-plan {{ background: white; border-radius: 20px; padding: 30px; margin-bottom: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }}
         .priority-focus {{ background: linear-gradient(135deg, #667eea15, #764ba215); border-radius: 12px; padding: 20px; margin-bottom: 25px; }}
         .priority-focus h3 {{ color: #667eea; margin-bottom: 15px; font-size: 1.1rem; }}
@@ -2926,6 +3103,8 @@ def generate_html_report(data: dict, pred_class: int, probs: list,
                 ''' for label, value, status in metrics)}
             </div>
         </div>
+        
+        {critical_alerts_html}
         
         {warnings_html}
         
