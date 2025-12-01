@@ -42,7 +42,7 @@ import argparse
 import json
 import math
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, Any
 
 import numpy as np
 import pandas as pd
@@ -130,6 +130,231 @@ RISK_LEVELS = {
     1: {"name": "MEDIUM", "color": "🟡", "emoji": "😐", "desc": "Some warning signs. Consider adjusting your routine."},
     2: {"name": "HIGH", "color": "🔴", "emoji": "😰", "desc": "High burnout risk. Please prioritize self-care."},
 }
+
+# ============================================================================
+# CONTEXT-AWARE LOGIC SYSTEM
+# ============================================================================
+# Instead of simple "Current - Target = Deviation", we check context and
+# interactions between variables before making suggestions.
+
+# Jobs that require screen time - don't suggest "reduce screen time" for these
+SCREEN_INTENSIVE_JOBS = {
+    "knowledge work", "software", "research", "engineering", "developer",
+    "programming", "data", "analyst", "designer", "creative", "writing",
+    "content", "marketing", "finance", "accounting", "customer service",
+}
+
+# Extended healthy baselines including V2 features
+HEALTHY_BASELINES_V2 = {
+    # Core features
+    "stress_level": 4.0,
+    "sleep_hours": 7.5,
+    "sleep_quality": 7.0,
+    "work_hours": 7.5,
+    "exercise_minutes": 45,
+    "mood_score": 7.0,
+    "energy_level": 7.0,
+    "focus_score": 7.0,
+    "caffeine_mg": 80,
+    "screen_time_hours": 3.5,
+    "meetings_count": 2,
+    "alcohol_units": 0.5,
+    "steps_count": 8000,
+    "tasks_completed": 6,
+    "work_pressure": 0.5,
+    "commute_minutes": 20,
+    "emails_received": 15,
+    # V2 features
+    "diet_quality": 7.0,
+    "social_quality": 7.0,
+    "social_interactions": 5,
+    "outdoor_time_minutes": 45,
+    "recovery_ability": 7.0,
+    "job_satisfaction": 7.0,
+    "environment_distractions": 4.0,
+    "loneliness_score": 1.0,  # Lower is better (0-4 scale)
+    "work_life_boundary": 4.0,  # Higher is better (1-5 scale)
+    "after_hours_checking": 1.0,  # Lower is better (0-4 scale)
+    "break_flexibility": 4.0,  # Higher is better (1-5 scale)
+}
+
+
+def get_user_context(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Extract user context for smart recommendations.
+    
+    Returns a context dict with:
+    - is_knowledge_worker: True if job requires screen time
+    - is_recovery_critical: True if overworked with poor recovery
+    - has_diet_energy_link: True if both diet and energy are low
+    - is_isolated_stressed: True if high stress with poor social support
+    - screen_time_justified: True if screen time is work-required
+    """
+    context = {}
+    
+    # Get relevant values
+    job_type = str(data.get("job_type", "")).lower()
+    job_requires_screen = str(data.get("job_requires_screen", "")).lower()
+    work_hours = float(data.get("work_hours", 8))
+    recovery_ability = float(data.get("recovery_ability", 5))
+    energy_level = float(data.get("energy_level", 5))
+    diet_quality = float(data.get("diet_quality", 5))
+    stress_level = float(data.get("stress_level", 5))
+    social_quality = float(data.get("social_quality", 5))
+    social_interactions = float(data.get("social_interactions", 3))
+    screen_time = float(data.get("screen_time_hours", 4))
+    loneliness = float(data.get("loneliness_score", 2))
+    
+    # 1. Developer Defense - Is this a knowledge worker?
+    is_knowledge_worker = (
+        any(job in job_type for job in SCREEN_INTENSIVE_JOBS) or
+        "6+" in job_requires_screen or
+        "yes" in job_requires_screen or
+        "4-6" in job_requires_screen
+    )
+    context["is_knowledge_worker"] = is_knowledge_worker
+    context["screen_time_justified"] = is_knowledge_worker and screen_time <= 10
+    
+    # 2. Recovery Mismatch - Burning candle at both ends?
+    context["is_recovery_critical"] = work_hours > 9 and recovery_ability < 5
+    
+    # 3. Diet-Energy Connection - Fatigue from poor nutrition?
+    context["has_diet_energy_link"] = energy_level < 5 and diet_quality < 5
+    
+    # 4. Loneliness Multiplier - Stress without social support?
+    context["is_isolated_stressed"] = (
+        stress_level > 7 and 
+        (social_quality < 4 or social_interactions < 2 or loneliness >= 3)
+    )
+    
+    # 5. Additional context flags
+    context["is_severely_overworked"] = work_hours > 10
+    context["has_sleep_debt"] = float(data.get("sleep_hours", 7)) < 6
+    context["is_sedentary"] = float(data.get("exercise_minutes", 30)) < 15 and float(data.get("steps_count", 5000)) < 4000
+    
+    return context
+
+
+def get_context_priority_order(context: Dict[str, Any]) -> List[str]:
+    """
+    Determine the priority order for recommendations based on context.
+    
+    Returns a list of feature categories in priority order.
+    Critical issues come first, then normal priority.
+    """
+    priority = []
+    
+    # Critical conditions first
+    if context.get("is_recovery_critical"):
+        priority.append("recovery")  # MUST address recovery first
+    
+    if context.get("is_isolated_stressed"):
+        priority.append("social")  # Social isolation + stress is dangerous
+    
+    if context.get("has_diet_energy_link"):
+        priority.append("diet_energy")  # Clear causal link
+    
+    if context.get("has_sleep_debt"):
+        priority.append("sleep")  # Foundation for everything
+    
+    # Normal priority
+    priority.extend(["stress", "exercise", "work_hours", "screen_time", "other"])
+    
+    return priority
+
+
+def should_suppress_recommendation(feature: str, context: Dict[str, Any], current: float) -> Tuple[bool, Optional[str]]:
+    """
+    Check if a recommendation should be suppressed or replaced.
+    
+    Returns:
+    - (True, alternative_advice) if recommendation should be replaced
+    - (True, None) if recommendation should be skipped entirely
+    - (False, None) if recommendation should proceed normally
+    """
+    # Developer Defense: Don't tell knowledge workers to reduce screen time
+    if feature == "screen_time_hours":
+        if context.get("screen_time_justified"):
+            if current <= 9:
+                return True, "Use the 20-20-20 rule: every 20 min, look 20 feet away for 20 seconds. Enable blue light filter after sunset."
+            elif current <= 10:
+                return True, "Your screen time is high even for knowledge work. Try to batch similar tasks and take 5-min breaks every hour."
+    
+    # If recovery is critical, suppress less important suggestions
+    if context.get("is_recovery_critical"):
+        # Only allow recovery-related features
+        recovery_features = {"sleep_hours", "sleep_quality", "exercise_minutes", "recovery_ability", "work_hours"}
+        if feature not in recovery_features:
+            return True, None  # Skip this recommendation entirely
+    
+    return False, None
+
+
+def get_context_specific_advice(feature: str, current: float, target: float, context: Dict[str, Any]) -> Optional[str]:
+    """
+    Generate context-specific advice that considers the whole picture.
+    
+    Returns custom advice if context applies, None otherwise.
+    """
+    # Diet-Energy Link
+    if feature == "energy_level" and context.get("has_diet_energy_link"):
+        return (
+            "Your low energy is likely linked to diet quality. "
+            "Try replacing one carb-heavy meal with protein (eggs, chicken, fish) "
+            "to prevent afternoon crashes. Hydrate with water, not just coffee."
+        )
+    
+    if feature == "diet_quality" and context.get("has_diet_energy_link"):
+        return (
+            "Poor diet is draining your energy. Start with ONE change: "
+            "add protein to lunch (chicken, eggs, beans). "
+            "This prevents the 3pm crash better than any coffee."
+        )
+    
+    # Loneliness Multiplier
+    if feature == "stress_level" and context.get("is_isolated_stressed"):
+        return (
+            "⚠️ Isolation is amplifying your stress. "
+            "Before tackling stress itself, call ONE friend today. "
+            "Social connection is the fastest stress reliever - faster than exercise or meditation."
+        )
+    
+    if feature in ["social_quality", "social_interactions"] and context.get("is_isolated_stressed"):
+        return (
+            "🚨 PRIORITY: Your stress is harder to manage without social support. "
+            "This week's #1 goal: reconnect with someone. "
+            "A 15-min call with a friend provides more relief than an hour at the gym."
+        )
+    
+    # Recovery Mismatch
+    if feature == "recovery_ability" and context.get("is_recovery_critical"):
+        return (
+            "🚨 CRITICAL: You're burning the candle at both ends. "
+            "Long hours ({:.0f}h) + low recovery ({:.0f}/10) is unsustainable. "
+            "If you CAN'T reduce hours, you MUST increase passive recovery: "
+            "sleep 30 min more, 10 min daily meditation, no screens 1h before bed.".format(
+                context.get("work_hours", 9), current
+            )
+        )
+    
+    if feature == "work_hours" and context.get("is_recovery_critical"):
+        return (
+            "🚨 Your recovery ability can't keep up with these hours. "
+            "Options: (1) Reduce to 8h for 2 weeks, (2) If impossible, add recovery rituals "
+            "(power naps, meditation, walks), (3) Talk to manager about workload."
+        )
+    
+    # Screen time for knowledge workers
+    if feature == "screen_time_hours" and context.get("is_knowledge_worker"):
+        if current > 10:
+            return (
+                "Even for knowledge work, {:.0f}h screen time is high. "
+                "Try: batch meetings to free up focus blocks, "
+                "print documents to review offline, take walking meetings.".format(current)
+            )
+        # Otherwise handled by should_suppress_recommendation
+    
+    return None  # Use default advice
 
 
 # ============================================================================
@@ -539,11 +764,19 @@ def parse_google_form_csv(csv_path: str) -> Tuple[pd.DataFrame, bool]:
     df = pd.read_csv(csv_path)
     
     # Column name mapping (Google Form question -> feature name)
+    # IMPORTANT: More specific patterns MUST come before generic ones!
+    # E.g., "recover after stress" must come before "stress"
     column_mapping = {
-        # Stress
-        "stress": "stress_level",
-        "how stressed": "stress_level",
+        # Recovery - MUST come before "stress" since recovery questions often contain "stress"
+        "how well do you recover": "recovery_ability",
+        "recover after stress": "recovery_ability",
+        "recovery ability": "recovery_ability",
+        "recovery:": "recovery_ability",  # Match "Recovery: How well..."
+        
+        # Stress (after recovery to avoid conflicts)
         "stress level": "stress_level",
+        "how stressed": "stress_level",
+        "stress": "stress_level",
         
         # Sleep
         "sleep hours": "sleep_hours",
@@ -576,44 +809,51 @@ def parse_google_form_csv(csv_path: str) -> Tuple[pd.DataFrame, bool]:
         "screen time": "screen_time_hours",
         "pressure": "work_pressure",
         
-        # Identifiers
+        # Identifiers - be specific to avoid matching "today" etc.
         "name": "_name",
         "email": "_email",
         "your name": "_name",
-        "day": "_day",
+        "which day": "_day",  # Changed from "day" to avoid matching "today"
+        "what day": "_day",
         
         # === NEW V2 FEATURES ===
-        # Social
+        # Social - IMPORTANT: more specific patterns must come first!
+        # The matching is done with "key in column_name" so order matters
+        "number of meaningful social": "social_interactions",  # Must come before "quality of social"
+        "meaningful social interaction": "social_interactions",
+        "quality of social interaction": "social_quality",  # "Quality of Social Interactions today"
         "quality of social": "social_quality",
-        "social interaction": "social_quality",
         "lonely": "loneliness_level",
         "isolated": "loneliness_level",
         
         # Work Environment
         "work arrangement": "work_arrangement",
+        "primary work arrangement": "work_arrangement",
         "workspace type": "workspace_type",
+        "how distracting": "environment_distractions",
         "distracting": "environment_distractions",
         "distraction": "environment_distractions",
         
         # Job Context
         "job type": "job_type",
+        "what best describes your job": "job_type",
+        "does your job require": "job_requires_screen",
         "job require": "job_requires_screen",
         "screen time required": "job_requires_screen",
+        "extended screen time": "job_requires_screen",
         "take breaks": "break_flexibility",
         "break flexibility": "break_flexibility",
         
-        # Boundaries & Recovery
+        # Boundaries
         "work-life boundary": "work_life_boundary",
+        "boundary clarity": "work_life_boundary",
         "boundary": "work_life_boundary",
+        "checking emails outside": "after_hours_checking",
         "check work outside": "after_hours_checking",
         "outside hours": "after_hours_checking",
-        "recover": "recovery_ability",
-        "recovery": "recovery_ability",
         
         # === DATASET-ALIGNED FEATURES (High Priority) ===
-        "meaningful social": "social_interactions",
-        "conversations": "social_interactions",
-        "social interactions": "social_interactions",
+        "time spent outdoors": "outdoor_time_minutes",
         "outdoor": "outdoor_time_minutes",
         "outside time": "outdoor_time_minutes",
         "time outdoors": "outdoor_time_minutes",
@@ -622,6 +862,7 @@ def parse_google_form_csv(csv_path: str) -> Tuple[pd.DataFrame, bool]:
         "job satisfaction": "job_satisfaction",
         "satisfied with job": "job_satisfaction",
         "chronotype": "chronotype",
+        "sleep pattern": "chronotype",
         "morning person": "chronotype",
         "night owl": "chronotype",
     }
@@ -726,6 +967,15 @@ def parse_google_form_csv(csv_path: str) -> Tuple[pd.DataFrame, bool]:
         if feature in mapped_df.columns:
             default = DEFAULTS.get(feature, 5)
             mapped_df[feature] = mapped_df[feature].apply(lambda x: clean_numeric(x, default))
+    
+    # Clean V2 features (not in FEATURE_COLS but needed for context-aware logic)
+    v2_features = [
+        "social_quality", "social_interactions", "outdoor_time_minutes",
+        "diet_quality", "job_satisfaction", "recovery_ability", "chronotype_score"
+    ]
+    for v2_feat in v2_features:
+        if v2_feat in mapped_df.columns:
+            mapped_df[v2_feat] = mapped_df[v2_feat].apply(lambda x: clean_numeric(x, 5))
     
     # Convert work_pressure text to numeric
     if mapped_df["work_pressure"].dtype == object:
@@ -1254,52 +1504,64 @@ def print_contradictions(data: Dict[str, float]) -> None:
 
 def print_recommendations(data: Dict[str, float], pred_class: int, model: nn.Module, feature_cols: List[str]) -> None:
     """
-    Print DATA-DRIVEN recommendations based on feature importance and what-if analysis.
+    Print CONTEXT-AWARE recommendations based on feature importance and what-if analysis.
     
-    Instead of generic advice, we:
-    1. Identify which features deviate most from healthy baselines
-    2. Run what-if simulations to show impact of changes
-    3. Prioritize recommendations by predicted impact
+    This is smarter than simple "Current - Target = Deviation":
+    1. Checks user context (job type, recovery ability, diet-energy link, etc.)
+    2. Suppresses inappropriate suggestions (e.g., "reduce screen time" for developers)
+    3. Prioritizes critical conditions (recovery mismatch, isolation + stress)
+    4. Links related factors (diet → energy, social → stress)
     """
     print("\n" + "─" * 50)
     print("💡 DATA-DRIVEN RECOMMENDATIONS")
     print("─" * 50)
     
-    # Healthy baselines (from low-burnout population in training data)
-    healthy_baselines = {
-        "stress_level": 4.0,
-        "sleep_hours": 7.5,
-        "sleep_quality": 7.0,
-        "work_hours": 7.5,
-        "exercise_minutes": 45,
-        "mood_score": 7.0,
-        "energy_level": 7.0,
-        "focus_score": 7.0,
-        "caffeine_mg": 80,
-        "screen_time_hours": 3.5,
-        "meetings_count": 2,
-        "alcohol_units": 0.5,
-        "steps_count": 8000,
-        "tasks_completed": 6,
-        "work_pressure": 0.5,  # low
-        "commute_minutes": 20,
-        "emails_received": 15,
+    # Get user context for smart recommendations
+    context = get_user_context(data)
+    
+    # Check for critical conditions first
+    critical_warnings = []
+    if context.get("is_recovery_critical"):
+        work_hrs = data.get("work_hours", 8)
+        recovery = data.get("recovery_ability", 5)
+        critical_warnings.append(
+            f"🚨 RECOVERY CRITICAL: Working {work_hrs:.0f}h with recovery at {recovery:.0f}/10. "
+            f"This is unsustainable. Prioritizing recovery advice."
+        )
+    
+    if context.get("is_isolated_stressed"):
+        critical_warnings.append(
+            "⚠️ ISOLATION + STRESS: High stress with low social support detected. "
+            "Social connection should be your #1 priority this week."
+        )
+    
+    if critical_warnings:
+        print("\n  🎯 CRITICAL CONTEXT DETECTED:\n")
+        for warning in critical_warnings:
+            print(f"  {warning}\n")
+    
+    # Use extended baselines including V2 features
+    healthy_baselines = HEALTHY_BASELINES_V2.copy()
+    
+    # Features where lower is better
+    lower_is_better = {
+        "stress_level", "work_hours", "caffeine_mg", "screen_time_hours",
+        "meetings_count", "alcohol_units", "work_pressure", "commute_minutes",
+        "emails_received", "loneliness_score", "after_hours_checking",
+        "environment_distractions"
     }
     
     # Calculate deviation from healthy baseline for each feature
     deviations = []
-    for feature in feature_cols:
-        current = data.get(feature, DEFAULTS.get(feature, 5))
+    
+    # Include both model features and V2 features
+    all_features = set(feature_cols) | set(healthy_baselines.keys())
+    
+    for feature in all_features:
+        current = data.get(feature, DEFAULTS.get(feature, healthy_baselines.get(feature, 5)))
         healthy = healthy_baselines.get(feature, current)
         
-        # Determine if higher or lower is better
-        lower_is_better = feature in [
-            "stress_level", "work_hours", "caffeine_mg", "screen_time_hours",
-            "meetings_count", "alcohol_units", "work_pressure", "commute_minutes",
-            "emails_received"
-        ]
-        
-        if lower_is_better:
+        if feature in lower_is_better:
             deviation = current - healthy  # positive = bad
             direction = "reduce"
         else:
@@ -1314,6 +1576,11 @@ def print_recommendations(data: Dict[str, float], pred_class: int, model: nn.Mod
             "screen_time_hours": 8, "meetings_count": 8, "alcohol_units": 5,
             "steps_count": 10000, "tasks_completed": 10, "work_pressure": 2,
             "commute_minutes": 60, "emails_received": 50,
+            "diet_quality": 10, "social_quality": 10, "recovery_ability": 10,
+            "job_satisfaction": 10, "outdoor_time_minutes": 120,
+            "social_interactions": 10, "loneliness_score": 4,
+            "environment_distractions": 10, "work_life_boundary": 5,
+            "after_hours_checking": 4, "break_flexibility": 5,
         }
         
         normalized_deviation = deviation / ranges.get(feature, 10)
@@ -1339,42 +1606,58 @@ def print_recommendations(data: Dict[str, float], pred_class: int, model: nn.Mod
         return
     
     recommendations = []
+    shown_count = 0
     
-    for i, dev in enumerate(deviations[:5], 1):  # Top 5
+    for dev in deviations:
+        if shown_count >= 5:  # Top 5 recommendations
+            break
+            
         feature = dev["feature"]
         current = dev["current"]
         healthy = dev["healthy"]
         direction = dev["direction"]
         
-        # Create what-if scenario
-        modified_data = data.copy()
-        modified_data[feature] = healthy
+        # CHECK CONTEXT: Should we suppress or replace this recommendation?
+        suppress, alternative = should_suppress_recommendation(feature, context, current)
         
-        # Predict with modification
-        sequence = create_weekly_sequence(modified_data, feature_cols)
-        new_pred, new_probs = predict(model, sequence, feature_cols)
+        if suppress and alternative is None:
+            continue  # Skip this recommendation entirely
         
-        # Calculate risk reduction
-        current_risk = 1 - predict(model, create_weekly_sequence(data, feature_cols), feature_cols)[1][0]  # 1 - P(low)
-        new_risk = 1 - new_probs[0]
-        risk_reduction = (current_risk - new_risk) * 100
+        # Create what-if scenario (only for features in the model)
+        if feature in feature_cols:
+            modified_data = data.copy()
+            modified_data[feature] = healthy
+            
+            sequence = create_weekly_sequence(modified_data, feature_cols)
+            new_pred, new_probs = predict(model, sequence, feature_cols)
+            
+            current_risk = 1 - predict(model, create_weekly_sequence(data, feature_cols), feature_cols)[1][0]
+            new_risk = 1 - new_probs[0]
+            risk_reduction = (current_risk - new_risk) * 100
+            impact_str = f"↓{risk_reduction:.0f}% risk" if risk_reduction > 0 else "minimal impact"
+        else:
+            # V2 feature not in model - show as lifestyle factor
+            risk_reduction = 0
+            impact_str = "lifestyle factor"
         
         # Format recommendation
         feature_label = FEATURE_LABELS.get(feature, feature.replace("_", " ").title())
         
         if direction == "reduce":
-            action = f"Reduce from {current:.0f} → {healthy:.0f}"
             diff = current - healthy
         else:
-            action = f"Increase from {current:.0f} → {healthy:.0f}"
             diff = healthy - current
         
-        # Specific, actionable advice
-        specific_advice = get_specific_advice(feature, current, healthy, diff)
+        # Get advice: context-specific first, then alternative, then default
+        specific_advice = get_context_specific_advice(feature, current, healthy, context)
+        if specific_advice is None:
+            if alternative:
+                specific_advice = alternative
+            else:
+                specific_advice = get_specific_advice(feature, current, healthy, diff)
         
-        impact_str = f"↓{risk_reduction:.0f}% risk" if risk_reduction > 0 else "minimal impact"
-        
-        print(f"  {i}. {feature_label}")
+        shown_count += 1
+        print(f"  {shown_count}. {feature_label}")
         print(f"     Current: {current:.1f} → Target: {healthy:.1f}")
         print(f"     Impact if changed: {impact_str}")
         print(f"     💡 {specific_advice}")
@@ -1386,12 +1669,76 @@ def print_recommendations(data: Dict[str, float], pred_class: int, model: nn.Mod
             "impact": risk_reduction,
         })
     
+    # Print lifestyle & environment section for V2 features
+    print_lifestyle_section(data, context)
+    
     # Summary
     total_potential = sum(r["impact"] for r in recommendations if r["impact"] > 0)
     if total_potential > 10:
         print(f"  ──────────────────────────────────────────────────")
         print(f"  📈 Combined potential risk reduction: ~{total_potential:.0f}%")
         print(f"     (if you address all factors above)")
+
+
+def print_lifestyle_section(data: Dict[str, float], context: Dict[str, Any]) -> None:
+    """
+    Print a dedicated section for lifestyle and environment factors (V2 features).
+    """
+    # Check if we have V2 data
+    v2_features = ["diet_quality", "social_quality", "outdoor_time_minutes", 
+                   "recovery_ability", "job_satisfaction", "social_interactions"]
+    
+    has_v2_data = any(data.get(f) is not None for f in v2_features)
+    if not has_v2_data:
+        return
+    
+    print("  ──────────────────────────────────────────────────")
+    print("  🌱 LIFESTYLE & ENVIRONMENT\n")
+    
+    # Diet & Energy
+    diet = data.get("diet_quality", 5)
+    energy = data.get("energy_level", 5)
+    if context.get("has_diet_energy_link"):
+        print(f"  🍽️  Diet Quality: {diet:.0f}/10 ⚠️")
+        print(f"      → Your low energy ({energy:.0f}/10) is likely diet-related.")
+        print(f"      💡 Add protein to lunch, reduce refined carbs.\n")
+    elif diet < 6:
+        print(f"  🍽️  Diet Quality: {diet:.0f}/10")
+        print(f"      💡 Small wins: more water, less processed food.\n")
+    
+    # Social Connection
+    social_q = data.get("social_quality", 5)
+    social_int = data.get("social_interactions", 3)
+    loneliness = data.get("loneliness_score", 2)
+    
+    if context.get("is_isolated_stressed"):
+        print(f"  👥 Social: Quality {social_q:.0f}/10, Interactions {social_int:.0f}/day")
+        print(f"      ⚠️ PRIORITY: Isolation is multiplying your stress.")
+        print(f"      💡 One meaningful conversation today > gym session.\n")
+    elif social_q < 5 or loneliness >= 3:
+        print(f"  👥 Social: Quality {social_q:.0f}/10")
+        print(f"      💡 Schedule a call with someone who energizes you.\n")
+    
+    # Outdoor Time
+    outdoor = data.get("outdoor_time_minutes", 0)
+    if outdoor is not None and outdoor < 30:
+        print(f"  🌳 Outdoor Time: {outdoor:.0f} min")
+        print(f"      💡 20 min in nature lowers cortisol more than indoor exercise.\n")
+    
+    # Recovery
+    recovery = data.get("recovery_ability", 5)
+    if context.get("is_recovery_critical"):
+        print(f"  🔋 Recovery Ability: {recovery:.0f}/10 ⚠️ CRITICAL")
+        print(f"      💡 You MUST add passive recovery: extra sleep, meditation, no screens before bed.\n")
+    elif recovery < 5:
+        print(f"  🔋 Recovery Ability: {recovery:.0f}/10")
+        print(f"      💡 Create a wind-down ritual: dim lights, no work, calm activity.\n")
+    
+    # Job Satisfaction
+    job_sat = data.get("job_satisfaction")
+    if job_sat is not None and job_sat < 5:
+        print(f"  💼 Job Satisfaction: {job_sat:.0f}/10")
+        print(f"      💡 Low satisfaction is a burnout accelerator. What would need to change?\n")
 
 
 def get_specific_advice(feature: str, current: float, target: float, diff: float) -> str:
