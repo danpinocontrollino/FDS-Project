@@ -283,8 +283,8 @@ class BurnoutCVAE(nn.Module):
         """
         batch_size = x.size(0)
         
-        # Flatten sequence
-        x_flat = x.view(batch_size, -1)  # (batch, seq_len * input_dim)
+        # Flatten sequence (use reshape instead of view for non-contiguous tensors)
+        x_flat = x.reshape(batch_size, -1)  # (batch, seq_len * input_dim)
         
         # Get condition embedding
         cond_emb = self.condition_embedding(condition)  # (batch, condition_dim)
@@ -333,8 +333,8 @@ class BurnoutCVAE(nn.Module):
         decoder_input = torch.cat([z, cond_emb], dim=-1)
         x_flat = self.decoder(decoder_input)
         
-        # Reshape to sequence
-        reconstructed = x_flat.view(batch_size, self.seq_len, self.input_dim)
+        # Reshape to sequence (use reshape instead of view for non-contiguous tensors)
+        reconstructed = x_flat.reshape(batch_size, self.seq_len, self.input_dim)
         
         return reconstructed
     
