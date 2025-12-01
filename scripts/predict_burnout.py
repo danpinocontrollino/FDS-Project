@@ -15,16 +15,16 @@ SETUP:
 USAGE:
 ------
 1. From CSV file (Google Form export):
-   python predict_burnout.py --csv my_responses.csv
+   python scripts/predict_burnout.py --csv my_responses.csv
 
 2. Interactive mode (answer questions):
-   python predict_burnout.py --interactive
+   python scripts/predict_burnout.py --interactive
 
 3. Single prediction with command line:
-   python predict_burnout.py --stress 7 --sleep 6 --work 9 --mood 4
+   python scripts/predict_burnout.py --stress 7 --sleep 6 --work 9 --mood 4
 
 4. Specify custom model path:
-   python predict_burnout.py --model-path ./downloads/lstm_sequence.pt
+   python scripts/predict_burnout.py --model-path ./downloads/lstm_sequence.pt
 
 REQUIREMENTS (minimal):
 -----------------------
@@ -41,7 +41,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -251,22 +251,20 @@ def load_model(model_path: str) -> tuple:
 # DATA PROCESSING
 # ============================================================================
 
-def parse_google_form_csv(csv_path: str) -> pd.DataFrame:
+def parse_google_form_csv(csv_path: str) -> Tuple[pd.DataFrame, bool]:
     """
     Parse a Google Form CSV export into model-ready format.
     
-    Expected columns (flexible naming):
-    - Timestamp (ignored)
-    - "How stressed are you?" -> stress_level
-    - "Hours of sleep last night?" -> sleep_hours
-    - etc.
+    Supports two formats:
+    1. Weekly averages: One row per person
+    2. Daily data: 7 rows per person (grouped by name/email)
     
-    The function tries to match column names intelligently.
+    Returns:
+        (dataframe, is_daily): Processed data and whether it's daily format
     """
     df = pd.read_csv(csv_path)
     
     # Column name mapping (Google Form question -> feature name)
-    # Add your actual Google Form questions here!
     column_mapping = {
         # Stress
         "stress": "stress_level",
@@ -303,6 +301,12 @@ def parse_google_form_csv(csv_path: str) -> pd.DataFrame:
         "commute": "commute_minutes",
         "screen time": "screen_time_hours",
         "pressure": "work_pressure",
+        
+        # Identifiers
+        "name": "_name",
+        "email": "_email",
+        "your name": "_name",
+        "day": "_day",
     }
     
     # Try to map columns
@@ -319,20 +323,116 @@ def parse_google_form_csv(csv_path: str) -> pd.DataFrame:
         if feature not in mapped_df.columns:
             mapped_df[feature] = DEFAULTS[feature]
     
+    # Clean numeric columns - handle messy user input like "Abbastanza", "4h", "10/15"
+    def clean_numeric(value, default):
+        """Extract numeric value from messy input."""
+        if pd.isna(value):
+            return default
+        if isinstance(value, (int, float)):
+            return float(value)
+        
+        # Convert to string and clean
+        s = str(value).strip().lower()
+        
+        # Handle common text responses
+        text_to_num = {
+            "abbastanza": 7,  # "enough" in Italian
+            "molto": 8,      # "a lot"
+            "poco": 3,       # "little"
+            "normale": 5,    # "normal"
+            "high": 2,       # for work_pressure
+            "medium": 1,
+            "low": 0,
+        }
+        for text, num in text_to_num.items():
+            if text in s:
+                return num
+        
+        # Handle European number format (15.000 or 15,000 = 15000)
+        # First, try to parse the whole string as a number
+        import re
+        
+        # Remove common units and text
+        s_cleaned = re.sub(r'[a-zA-Z%°]+', '', s).strip()
+        
+        # Handle European format: "15.000" or "15,000" meaning 15000
+        # If it looks like "X.000" or "X,000", it's likely thousands
+        european_match = re.match(r'^(\d{1,3})[.,](\d{3})$', s_cleaned)
+        if european_match:
+            # This is European thousands format (e.g., 15.000 = 15000)
+            return float(european_match.group(1) + european_match.group(2))
+        
+        # Handle decimal numbers like "7.5" or "7,5"
+        decimal_match = re.match(r'^(\d+)[.,](\d{1,2})$', s_cleaned)
+        if decimal_match:
+            # This is a decimal (e.g., 7.5 or 7,5)
+            return float(decimal_match.group(1) + '.' + decimal_match.group(2))
+        
+        # Try to extract first number from string (handles "4h", "10/15", "120 mg", etc.)
+        numbers = re.findall(r'\d+', s_cleaned)
+        if numbers:
+            try:
+                return float(numbers[0])
+            except ValueError:
+                pass
+        
+        return default
+    
+    # Apply cleaning to all feature columns
+    for feature in FEATURE_COLS:
+        if feature in mapped_df.columns:
+            default = DEFAULTS.get(feature, 5)
+            mapped_df[feature] = mapped_df[feature].apply(lambda x: clean_numeric(x, default))
+    
     # Convert work_pressure text to numeric
     if mapped_df["work_pressure"].dtype == object:
         pressure_map = {"low": 0, "medium": 1, "high": 2}
         mapped_df["work_pressure"] = mapped_df["work_pressure"].str.lower().map(pressure_map).fillna(1)
     
-    return mapped_df[FEATURE_COLS]
+    # Detect if this is daily data (check for name/email column and multiple rows)
+    is_daily = False
+    group_col = None
+    
+    if "_name" in mapped_df.columns:
+        group_col = "_name"
+    elif "_email" in mapped_df.columns:
+        group_col = "_email"
+    
+    if group_col and len(mapped_df) >= 7:
+        # Check if any user has ~7 entries
+        counts = mapped_df[group_col].value_counts()
+        if counts.max() >= 7:
+            is_daily = True
+            mapped_df["_group"] = mapped_df[group_col]
+    
+    return mapped_df, is_daily
 
 
-def get_interactive_input() -> Dict[str, float]:
-    """Get input interactively from the user."""
+def get_interactive_input() -> Union[Dict[str, float], List[Dict[str, float]]]:
+    """Get input interactively from the user (average or daily mode)."""
     print("\n" + "=" * 60)
     print("🧠 BURNOUT RISK ASSESSMENT")
     print("=" * 60)
-    print("\nAnswer these questions about your PAST WEEK (average per day).")
+    
+    # Ask user which input mode they prefer
+    print("\nHow would you like to enter your data?")
+    print("  [1] Weekly AVERAGES (quick - ~10 questions)")
+    print("  [2] DAILY data for each of the past 7 days (detailed - more accurate)")
+    
+    while True:
+        mode_choice = input("\nChoose mode [1]: ").strip()
+        if mode_choice in ["", "1"]:
+            return _get_average_input()
+        elif mode_choice == "2":
+            return _get_daily_input()
+        else:
+            print("  ⚠️  Please enter 1 or 2")
+
+
+def _get_average_input() -> Dict[str, float]:
+    """Get weekly average input from user."""
+    print("\n📊 WEEKLY AVERAGES MODE")
+    print("Answer these questions about your PAST WEEK (average per day).")
     print("Press Enter to use default value shown in [brackets].\n")
     
     data = {}
@@ -375,20 +475,96 @@ def get_interactive_input() -> Dict[str, float]:
     return data
 
 
-def create_weekly_sequence(daily_data: Dict[str, float], feature_cols: List[str], days: int = 7) -> np.ndarray:
-    """
-    Create a 7-day sequence from single-day data.
+def _get_daily_input() -> List[Dict[str, float]]:
+    """Get daily data for each of the past 7 days."""
+    print("\n📅 DAILY DATA MODE")
+    print("Enter your data for each of the past 7 days.")
+    print("Press Enter to use default value shown in [brackets].")
+    print("Tip: Start with the oldest day (7 days ago) and work to today.\n")
     
-    For demo purposes, we simulate a week by adding small random variations
-    to the provided daily averages.
+    day_names = ["Day 1 (7 days ago)", "Day 2 (6 days ago)", "Day 3 (5 days ago)", 
+                 "Day 4 (4 days ago)", "Day 5 (3 days ago)", "Day 6 (2 days ago)", 
+                 "Day 7 (yesterday)"]
+    
+    # Simplified questions for daily entry (fewer questions to avoid tedium)
+    daily_questions = [
+        ("stress_level", "Stress level (1-10)", 1, 10),
+        ("sleep_hours", "Sleep hours", 0, 12),
+        ("work_hours", "Work hours", 0, 16),
+        ("mood_score", "Mood (1-10)", 1, 10),
+        ("exercise_minutes", "Exercise (minutes)", 0, 180),
+    ]
+    
+    daily_data = []
+    
+    for day_idx, day_name in enumerate(day_names):
+        print(f"\n{'─' * 40}")
+        print(f"📆 {day_name}")
+        print(f"{'─' * 40}")
+        
+        day_record = DEFAULTS.copy()  # Start with defaults
+        
+        for feature, question, min_val, max_val in daily_questions:
+            default = DEFAULTS[feature]
+            while True:
+                try:
+                    response = input(f"  {question} [{default}]: ").strip()
+                    if response == "":
+                        value = default
+                    else:
+                        value = float(response)
+                        if not min_val <= value <= max_val:
+                            print(f"    ⚠️  Please enter a value between {min_val} and {max_val}")
+                            continue
+                    day_record[feature] = value
+                    break
+                except ValueError:
+                    print("    ⚠️  Please enter a number")
+        
+        daily_data.append(day_record)
+        
+        # Allow user to copy previous day for similar days
+        if day_idx < 6:
+            copy_prev = input("\n  Copy these values to next day? [y/N]: ").strip().lower()
+            if copy_prev == 'y':
+                # Pre-fill defaults for next iteration
+                for feature, _, _, _ in daily_questions:
+                    DEFAULTS[feature] = day_record[feature]
+    
+    print(f"\n✅ Collected data for all 7 days!")
+    return daily_data
+
+
+def create_weekly_sequence(daily_data: Union[Dict[str, float], List[Dict[str, float]]], feature_cols: List[str], days: int = 7) -> np.ndarray:
+    """
+    Create a 7-day sequence from input data.
+    
+    Supports two input formats:
+    1. Single dict (averages) - simulates daily variation
+    2. List of 7 dicts (actual daily data) - uses real values
     
     Args:
-        daily_data: Dictionary of feature values
+        daily_data: Either a dict of averages or list of 7 daily dicts
         feature_cols: List of features expected by the model (in order!)
         days: Number of days in sequence
     """
-    sequence = []
+    # If it's already a list of daily records, use them directly
+    if isinstance(daily_data, list):
+        if len(daily_data) != days:
+            raise ValueError(f"Expected {days} days of data, got {len(daily_data)}")
+        
+        sequence = []
+        for day_record in daily_data:
+            day_data = []
+            for feature in feature_cols:
+                value = day_record.get(feature, DEFAULTS.get(feature, 5))
+                day_data.append(float(value))
+            sequence.append(day_data)
+        
+        return np.array(sequence, dtype=np.float32)
     
+    # Otherwise, simulate daily variation from averages
+    sequence = []
     for day in range(days):
         day_data = []
         for feature in feature_cols:
@@ -458,6 +634,279 @@ def print_risk_meter(probs: np.ndarray) -> None:
         bar_length = int(prob * 30)
         bar = "█" * bar_length + "░" * (30 - bar_length)
         print(f"  {color} {label:12} [{bar}] {prob*100:5.1f}%")
+
+
+def detect_contradictions(data: Dict[str, float]) -> List[str]:
+    """
+    Detect contradictions in self-reported data that might indicate
+    denial, unawareness, or data entry errors.
+    
+    Returns a list of warning messages.
+    """
+    warnings = []
+    
+    # Extract all relevant metrics
+    stress = data.get("stress_level", 5)
+    work_hours = data.get("work_hours", 8)
+    work_pressure = data.get("work_pressure", 1)
+    sleep_hours = data.get("sleep_hours", 7)
+    sleep_quality = data.get("sleep_quality", 6)
+    mood = data.get("mood_score", 6)
+    energy = data.get("energy_level", 6)
+    caffeine = data.get("caffeine_mg", 100)
+    exercise = data.get("exercise_minutes", 30)
+    screen_time = data.get("screen_time_hours", 4)
+    focus = data.get("focus_score", 6)
+    alcohol = data.get("alcohol_units", 0)
+    meetings = data.get("meetings_count", 3)
+    
+    # =====================================================================
+    # STRESS & PRESSURE CONTRADICTIONS
+    # =====================================================================
+    
+    # High stress but claims low work pressure
+    if stress >= 7 and work_pressure == 0:
+        warnings.append(
+            "⚠️ You report HIGH stress ({}), but LOW work pressure. "
+            "This contradiction may indicate you're underestimating workplace demands, "
+            "or stress is coming from non-work sources.".format(int(stress))
+        )
+    
+    # Long hours but claims low pressure
+    if work_hours >= 10 and work_pressure == 0:
+        warnings.append(
+            "⚠️ You work {} hours/day but report LOW pressure. "
+            "Long hours often lead to burnout even if they feel 'manageable' now. "
+            "Consider if this is sustainable long-term.".format(int(work_hours))
+        )
+    
+    # Many meetings but claims low pressure
+    if meetings >= 6 and work_pressure == 0:
+        warnings.append(
+            "⚠️ {} meetings/day but LOW pressure? "
+            "Meeting overload is a hidden stressor. Consider if they're all necessary.".format(int(meetings))
+        )
+    
+    # =====================================================================
+    # SLEEP CONTRADICTIONS
+    # =====================================================================
+    
+    # Poor sleep but high energy (might be running on adrenaline/caffeine)
+    if sleep_hours <= 5 and energy >= 7:
+        warnings.append(
+            "⚠️ Only {} hours of sleep but high energy ({}). "
+            "You might be running on adrenaline or caffeine. "
+            "This pattern often precedes a crash.".format(int(sleep_hours), int(energy))
+        )
+    
+    # Poor sleep quality but long sleep hours
+    if sleep_quality <= 3 and sleep_hours >= 8:
+        warnings.append(
+            "⚠️ You sleep {} hours but quality is only {}/10. "
+            "Quantity without quality doesn't restore you. "
+            "Consider sleep hygiene improvements.".format(int(sleep_hours), int(sleep_quality))
+        )
+    
+    # High caffeine but claims good sleep (contradiction)
+    if caffeine >= 300 and sleep_quality >= 7:
+        warnings.append(
+            "⚠️ High caffeine ({}mg) but good sleep quality ({}/10)? "
+            "Caffeine has a 6-hour half-life and affects sleep architecture even if you fall asleep easily. "
+            "You might not be getting the deep sleep you need.".format(int(caffeine), int(sleep_quality))
+        )
+    
+    # High caffeine AND poor sleep (likely causal relationship)
+    if caffeine >= 250 and sleep_quality <= 4:
+        warnings.append(
+            "⚠️ High caffeine ({}mg) with poor sleep quality ({}/10). "
+            "This is likely not a coincidence! Caffeine blocks adenosine (your sleep signal) "
+            "for 6+ hours. Try cutting caffeine after noon.".format(int(caffeine), int(sleep_quality))
+        )
+    
+    # High caffeine AND low sleep hours
+    if caffeine >= 250 and sleep_hours <= 5:
+        warnings.append(
+            "⚠️ High caffeine ({}mg) and only {} hours of sleep. "
+            "You might be using caffeine to compensate for sleep deprivation. "
+            "This creates a vicious cycle - caffeine disrupts sleep, poor sleep needs more caffeine.".format(int(caffeine), int(sleep_hours))
+        )
+    
+    # High screen time + poor sleep quality
+    if screen_time >= 6 and sleep_quality <= 4:
+        warnings.append(
+            "⚠️ High screen time ({}h) and poor sleep quality ({}/10). "
+            "Blue light from screens suppresses melatonin. "
+            "Try reducing screens 1-2 hours before bed.".format(int(screen_time), int(sleep_quality))
+        )
+    
+    # Alcohol + claims good sleep
+    if alcohol >= 3 and sleep_quality >= 7:
+        warnings.append(
+            "⚠️ {} alcohol units but good sleep quality ({}/10)? "
+            "Alcohol disrupts REM sleep even if you feel you slept well. "
+            "You may be missing restorative sleep stages.".format(int(alcohol), int(sleep_quality))
+        )
+    
+    # =====================================================================
+    # MOOD & ENERGY CONTRADICTIONS
+    # =====================================================================
+    
+    # Low mood but claims low stress
+    if mood <= 4 and stress <= 3:
+        warnings.append(
+            "⚠️ Low mood ({}) but low stress ({}). "
+            "Low mood without recognized stress could indicate the early stages of burnout "
+            "or depression. Consider checking in with how you're really feeling.".format(int(mood), int(stress))
+        )
+    
+    # High mood but poor sleep (mood often crashes after sleep deprivation)
+    if mood >= 8 and sleep_hours <= 5:
+        warnings.append(
+            "⚠️ Great mood ({}/10) but only {} hours of sleep. "
+            "Mood often stays positive temporarily during sleep deprivation (adrenaline), "
+            "then crashes. Make sure this isn't the calm before the storm.".format(int(mood), int(sleep_hours))
+        )
+    
+    # High mood but very poor sleep quality
+    if mood >= 8 and sleep_quality <= 3:
+        warnings.append(
+            "⚠️ Great mood ({}/10) but terrible sleep quality ({}/10). "
+            "Poor sleep quality affects mood over time. "
+            "You might be resilient now, but chronic poor sleep accumulates.".format(int(mood), int(sleep_quality))
+        )
+    
+    # Low exercise but high energy
+    if exercise <= 10 and energy >= 8:
+        warnings.append(
+            "⚠️ Minimal exercise ({}min) but high energy ({}/10). "
+            "This energy might be from stimulants or hypervigilance rather than true vitality. "
+            "Regular exercise builds sustainable energy.".format(int(exercise), int(energy))
+        )
+    
+    # Low mood but high focus (hyperfocus can mask depression)
+    if mood <= 3 and focus >= 8:
+        warnings.append(
+            "⚠️ Low mood ({}) but high focus ({}/10). "
+            "Hyperfocus can be a way of avoiding difficult emotions. "
+            "Make sure you're not using work to escape how you feel.".format(int(mood), int(focus))
+        )
+    
+    # High energy but low mood (manic pattern or masking)
+    if energy >= 8 and mood <= 4:
+        warnings.append(
+            "⚠️ High energy ({}) but low mood ({}/10). "
+            "This disconnect between energy and mood can indicate anxiety, "
+            "restlessness, or pushing through when you need rest.".format(int(energy), int(mood))
+        )
+    
+    # =====================================================================
+    # WORK PATTERN CONTRADICTIONS
+    # =====================================================================
+    
+    # Very long hours + high focus (potential workaholism)
+    if work_hours >= 12 and focus >= 8:
+        warnings.append(
+            "⚠️ Working {}h/day with high focus ({}/10). "
+            "While productivity feels good, this pattern can mask workaholism. "
+            "Are you working to avoid something else in life?".format(int(work_hours), int(focus))
+        )
+    
+    # Short work hours but high pressure
+    if work_hours <= 5 and work_pressure == 2:
+        warnings.append(
+            "⚠️ Only {} work hours but HIGH pressure? "
+            "This suggests intense, demanding work. Quality matters as much as quantity. "
+            "Even short bursts of high-pressure work can burn you out.".format(int(work_hours))
+        )
+    
+    # =====================================================================
+    # LIFESTYLE CONTRADICTIONS
+    # =====================================================================
+    
+    # High caffeine + claims low stress
+    if caffeine >= 400 and stress <= 3:
+        warnings.append(
+            "⚠️ Very high caffeine ({}mg) but low stress ({}/10)? "
+            "Caffeine triggers cortisol (stress hormone). "
+            "You might be chemically stressed without feeling it mentally.".format(int(caffeine), int(stress))
+        )
+    
+    # No exercise but no stress
+    if exercise <= 5 and stress <= 2 and work_hours >= 8:
+        warnings.append(
+            "⚠️ No exercise, full work hours, but minimal stress? "
+            "Physical activity is a key stress regulator. "
+            "Sedentary lifestyles accumulate stress in the body even when the mind feels calm.".format()
+        )
+    
+    # Very high screen time + high focus
+    if screen_time >= 8 and focus >= 7:
+        warnings.append(
+            "⚠️ {}h screen time with high focus ({}/10). "
+            "Extended screen focus can feel productive but leads to digital fatigue. "
+            "Your eyes and brain need breaks.".format(int(screen_time), int(focus))
+        )
+    
+    # =====================================================================
+    # CRITICAL WARNINGS (🚨)
+    # =====================================================================
+    
+    # High stress + long hours + low sleep = classic burnout recipe
+    if stress >= 7 and work_hours >= 10 and sleep_hours <= 6:
+        warnings.append(
+            "🚨 BURNOUT WARNING: High stress ({}), long hours ({}h), poor sleep ({}h) "
+            "is a classic burnout recipe regardless of what the model predicts. "
+            "Please take this seriously.".format(int(stress), int(work_hours), int(sleep_hours))
+        )
+    
+    # Everything looks perfect (might be in denial or not being honest)
+    perfect_count = sum([
+        stress <= 2,
+        mood >= 9,
+        energy >= 9,
+        sleep_quality >= 9,
+        focus >= 9,
+        work_pressure == 0,
+    ])
+    if perfect_count >= 5:
+        warnings.append(
+            "🤔 Your responses seem almost perfect across the board. "
+            "If this truly reflects your life, that's wonderful! "
+            "But if you're being optimistic, consider answering as your 'worst day this week' "
+            "for a more realistic assessment."
+        )
+    
+    # Low everything (possible depression or severe burnout)
+    low_count = sum([
+        mood <= 3,
+        energy <= 3,
+        focus <= 3,
+        sleep_quality <= 3,
+    ])
+    if low_count >= 3:
+        warnings.append(
+            "🚨 Multiple very low scores (mood, energy, focus, or sleep). "
+            "This pattern can indicate depression or severe burnout. "
+            "Please consider talking to a mental health professional. "
+            "You don't have to feel this way."
+        )
+    
+    return warnings
+
+
+def print_contradictions(data: Dict[str, float]) -> None:
+    """Print any detected contradictions in the data."""
+    warnings = detect_contradictions(data)
+    
+    if warnings:
+        print("\n" + "─" * 50)
+        print("🔍 DATA CONSISTENCY CHECK")
+        print("─" * 50)
+        print("\n  We noticed some patterns in your responses:\n")
+        
+        for warning in warnings:
+            # Wrap text nicely
+            print(f"  {warning}\n")
 
 
 def print_recommendations(data: Dict[str, float], pred_class: int, model: nn.Module, feature_cols: List[str]) -> None:
@@ -717,6 +1166,9 @@ def print_prediction_result(data: Dict[str, float], pred_class: int, probs: np.n
         indicator = "✅" if (name in ["Stress"] and value <= target) or (name not in ["Stress"] and value >= target) else "⚠️"
         print(f"  {indicator} {name}: {value:.0f}{unit} ({note})")
     
+    # Check for contradictions in self-reported data
+    print_contradictions(data)
+    
     # Data-driven recommendations (if model available)
     if model is not None and feature_cols is not None:
         print_recommendations(data, pred_class, model, feature_cols)
@@ -792,14 +1244,38 @@ def main() -> None:
     if args.interactive:
         data = get_interactive_input()
     elif args.csv:
-        df = parse_google_form_csv(args.csv)
-        # Process each row
-        for idx, row in df.iterrows():
-            data = row.to_dict()
-            sequence = create_weekly_sequence(data, feature_cols)
-            pred_class, probs = predict(model, sequence, feature_cols)
-            print(f"\n--- Response #{idx + 1} ---")
-            print_prediction_result(data, pred_class, probs, model, feature_cols)
+        mapped_df, is_daily = parse_google_form_csv(args.csv)
+        
+        if is_daily and "_group" in mapped_df.columns:
+            # Process as daily data grouped by user
+            print(f"📅 Detected DAILY data format (grouped by user)")
+            for user_id, group in mapped_df.groupby("_group"):
+                if len(group) < 7:
+                    print(f"\n⚠️  User '{user_id}' has only {len(group)} days (need 7). Skipping...")
+                    continue
+                
+                # Take the first 7 days
+                group = group.head(7)
+                daily_records = [row[FEATURE_COLS].to_dict() for _, row in group.iterrows()]
+                
+                sequence = create_weekly_sequence(daily_records, feature_cols)
+                pred_class, probs = predict(model, sequence, feature_cols)
+                
+                # Calculate averages for display
+                avg_data = {f: np.mean([d[f] for d in daily_records]) for f in feature_cols}
+                
+                print(f"\n{'='*60}")
+                print(f"📊 Results for: {user_id}")
+                print_prediction_result(avg_data, pred_class, probs, model, feature_cols)
+        else:
+            # Process as weekly averages (one row per person)
+            print(f"📊 Detected WEEKLY AVERAGES format ({len(mapped_df)} responses)")
+            for idx, row in mapped_df.iterrows():
+                data = {f: row[f] for f in FEATURE_COLS if f in row}
+                sequence = create_weekly_sequence(data, feature_cols)
+                pred_class, probs = predict(model, sequence, feature_cols)
+                print(f"\n--- Response #{idx + 1} ---")
+                print_prediction_result(data, pred_class, probs, model, feature_cols)
         return
     elif any([args.stress, args.sleep, args.work, args.mood, args.exercise]):
         # Use command-line values
@@ -817,8 +1293,18 @@ def main() -> None:
     sequence = create_weekly_sequence(data, feature_cols)
     pred_class, probs = predict(model, sequence, feature_cols)
     
+    # For what-if analysis, we need average data (convert if daily)
+    if isinstance(data, list):
+        # Calculate averages from daily data for display and what-if
+        avg_data = {}
+        for feature in feature_cols:
+            avg_data[feature] = np.mean([d.get(feature, DEFAULTS.get(feature, 5)) for d in data])
+        display_data = avg_data
+    else:
+        display_data = data
+    
     # Print result with model for what-if analysis
-    print_prediction_result(data, pred_class, probs, model, feature_cols)
+    print_prediction_result(display_data, pred_class, probs, model, feature_cols)
 
 
 if __name__ == "__main__":

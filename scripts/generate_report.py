@@ -30,6 +30,11 @@ from predict_burnout import (
     predict,
     RISK_LEVELS,
     DEFAULTS,
+    FEATURE_COLS,
+    PROJECT_ROOT,
+    FEATURE_LABELS,
+    get_specific_advice,
+    detect_contradictions,
 )
 
 
@@ -199,6 +204,117 @@ HTML_TEMPLATE = """
             border-left: 4px solid #667eea;
         }
         
+        .recommendation-item {
+            background: #f8f9fa !important;
+        }
+        
+        .rec-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .impact-badge {
+            font-size: 0.85rem;
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-weight: 500;
+        }
+        
+        .impact-good {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .impact-neutral {
+            background: #e9ecef;
+            color: #6c757d;
+        }
+        
+        .rec-values {
+            font-size: 0.95rem;
+            color: #555;
+            margin-bottom: 8px;
+        }
+        
+        .value-bad {
+            color: #dc3545;
+            font-weight: 600;
+        }
+        
+        .value-good {
+            color: #28a745;
+            font-weight: 600;
+        }
+        
+        .rec-advice {
+            font-size: 0.95rem;
+            color: #333;
+            background: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .recommendation-summary {
+            background: linear-gradient(135deg, #667eea15, #764ba215) !important;
+            border-left-color: #28a745 !important;
+            text-align: center;
+        }
+        
+        .person-name {
+            text-align: center;
+            font-size: 1.2rem;
+            color: #555;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: linear-gradient(135deg, #667eea15, #764ba215);
+            border-radius: 10px;
+        }
+        
+        .person-name strong {
+            color: #333;
+            font-size: 1.4rem;
+        }
+        
+        .contradictions-section {
+            background: #fff8e6;
+            border: 2px solid #ffc107;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .contradictions-section h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+        
+        .contradictions-intro {
+            color: #666;
+            margin-bottom: 15px;
+        }
+        
+        .warning-item {
+            padding: 12px 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            line-height: 1.5;
+        }
+        
+        .warning-normal {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            color: #856404;
+        }
+        
+        .warning-critical {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            color: #721c24;
+        }
+        
         h2 {
             color: #333;
             margin-bottom: 20px;
@@ -302,35 +418,163 @@ RESULT_CARD_TEMPLATE = """
 """
 
 
-def generate_recommendations_html(data: dict, pred_class: int) -> str:
-    """Generate HTML list items for recommendations."""
-    recommendations = []
+def generate_recommendations_html(data: dict, pred_class: int, model, feature_cols: list) -> str:
+    """
+    Generate HTML for DATA-DRIVEN recommendations with what-if analysis.
+    Same logic as predict_burnout.py but formatted as HTML.
+    """
+    import numpy as np
     
-    if data.get("sleep_hours", 7) < 7:
-        recommendations.append("😴 Try to get at least 7 hours of sleep. Sleep debt compounds over time.")
+    # Healthy baselines (from low-burnout population)
+    healthy_baselines = {
+        "stress_level": 4.0,
+        "sleep_hours": 7.5,
+        "sleep_quality": 7.0,
+        "work_hours": 7.5,
+        "exercise_minutes": 45,
+        "mood_score": 7.0,
+        "energy_level": 7.0,
+        "focus_score": 7.0,
+        "caffeine_mg": 80,
+        "screen_time_hours": 3.5,
+        "meetings_count": 2,
+        "alcohol_units": 0.5,
+        "steps_count": 8000,
+        "tasks_completed": 6,
+        "work_pressure": 0.5,
+        "commute_minutes": 20,
+        "emails_received": 15,
+    }
     
-    if data.get("stress_level", 5) > 6:
-        recommendations.append("🧘 High stress detected. Consider daily meditation or breathing exercises.")
+    # Calculate deviations from healthy baseline
+    deviations = []
+    for feature in feature_cols:
+        current = data.get(feature, DEFAULTS.get(feature, 5))
+        healthy = healthy_baselines.get(feature, current)
+        
+        lower_is_better = feature in [
+            "stress_level", "work_hours", "caffeine_mg", "screen_time_hours",
+            "meetings_count", "alcohol_units", "work_pressure", "commute_minutes",
+            "emails_received"
+        ]
+        
+        if lower_is_better:
+            deviation = current - healthy
+            direction = "reduce"
+        else:
+            deviation = healthy - current
+            direction = "increase"
+        
+        ranges = {
+            "stress_level": 10, "sleep_hours": 4, "sleep_quality": 10,
+            "work_hours": 6, "exercise_minutes": 60, "mood_score": 10,
+            "energy_level": 10, "focus_score": 10, "caffeine_mg": 300,
+            "screen_time_hours": 8, "meetings_count": 8, "alcohol_units": 5,
+            "steps_count": 10000, "tasks_completed": 10, "work_pressure": 2,
+            "commute_minutes": 60, "emails_received": 50,
+        }
+        
+        normalized_deviation = deviation / ranges.get(feature, 10)
+        
+        if normalized_deviation > 0.1:
+            deviations.append({
+                "feature": feature,
+                "current": current,
+                "healthy": healthy,
+                "deviation": normalized_deviation,
+                "direction": direction,
+            })
     
-    if data.get("exercise_minutes", 30) < 20:
-        recommendations.append("🏃 Aim for at least 20-30 minutes of exercise daily. Even walking helps!")
+    deviations.sort(key=lambda x: x["deviation"], reverse=True)
     
-    if data.get("work_hours", 8) > 9:
-        recommendations.append("⏰ Working long hours increases burnout risk. Try to set boundaries.")
+    if not deviations:
+        return "<li>✨ Your metrics are close to healthy baselines! Keep up the great work.</li>"
     
-    if data.get("caffeine_mg", 100) > 300:
-        recommendations.append("☕ High caffeine intake can affect sleep. Consider reducing after 2 PM.")
+    # Generate HTML for top 5 recommendations with what-if analysis
+    html_parts = []
+    total_reduction = 0
     
-    if data.get("screen_time_hours", 4) > 6:
-        recommendations.append("📱 High screen time. Take regular breaks and try the 20-20-20 rule.")
+    for dev in deviations[:5]:
+        feature = dev["feature"]
+        current = dev["current"]
+        healthy = dev["healthy"]
+        direction = dev["direction"]
+        
+        # Run what-if simulation
+        modified_data = data.copy()
+        modified_data[feature] = healthy
+        
+        modified_sequence = create_weekly_sequence(modified_data, feature_cols)
+        _, new_probs = predict(model, modified_sequence, feature_cols)
+        
+        current_sequence = create_weekly_sequence(data, feature_cols)
+        _, current_probs = predict(model, current_sequence, feature_cols)
+        
+        current_risk = 1 - current_probs[0]
+        new_risk = 1 - new_probs[0]
+        risk_reduction = (current_risk - new_risk) * 100
+        
+        if risk_reduction > 0:
+            total_reduction += risk_reduction
+        
+        # Format
+        feature_label = FEATURE_LABELS.get(feature, feature.replace("_", " ").title())
+        diff = abs(current - healthy)
+        specific_advice = get_specific_advice(feature, current, healthy, diff)
+        
+        if risk_reduction > 1:
+            impact_badge = f'<span class="impact-badge impact-good">↓{risk_reduction:.0f}% risk</span>'
+        else:
+            impact_badge = '<span class="impact-badge impact-neutral">minimal impact</span>'
+        
+        html_parts.append(f"""
+        <li class="recommendation-item">
+            <div class="rec-header">
+                <strong>{feature_label}</strong>
+                {impact_badge}
+            </div>
+            <div class="rec-values">
+                Current: <span class="value-bad">{current:.0f}</span> → 
+                Target: <span class="value-good">{healthy:.0f}</span>
+            </div>
+            <div class="rec-advice">💡 {specific_advice}</div>
+        </li>
+        """)
     
-    if data.get("mood_score", 6) < 5:
-        recommendations.append("💬 Low mood persisting? Consider talking to someone you trust.")
+    # Add summary if significant reduction possible
+    if total_reduction > 10:
+        html_parts.append(f"""
+        <li class="recommendation-summary">
+            📈 <strong>Combined potential risk reduction: ~{total_reduction:.0f}%</strong>
+            <br><small>(if you address all factors above)</small>
+        </li>
+        """)
     
-    if not recommendations:
-        recommendations.append("✨ Your habits look healthy! Keep maintaining this balance.")
+    return "\n".join(html_parts)
+
+
+def generate_contradictions_html(data: dict) -> str:
+    """Generate HTML for contradiction warnings."""
+    warnings = detect_contradictions(data)
     
-    return "\n".join(f"<li>{rec}</li>" for rec in recommendations)
+    if not warnings:
+        return ""
+    
+    warning_items = []
+    for warning in warnings:
+        # Determine if it's a critical warning (🚨) or regular (⚠️)
+        is_critical = "🚨" in warning
+        warning_class = "warning-critical" if is_critical else "warning-normal"
+        
+        warning_items.append(f'<div class="warning-item {warning_class}">{warning}</div>')
+    
+    return f"""
+    <div class="contradictions-section">
+        <h3>🔍 Data Consistency Check</h3>
+        <p class="contradictions-intro">We noticed some patterns in your responses that may need attention:</p>
+        {"".join(warning_items)}
+    </div>
+    """
 
 
 def generate_metrics_html(data: dict) -> str:
@@ -364,57 +608,108 @@ def generate_metrics_html(data: dict) -> str:
     return "\n".join(html_parts)
 
 
-def generate_report(csv_path: str, output_path: str, model_path: str = None) -> None:
-    """Generate HTML report from CSV data."""
-    # Load model
-    if model_path is None:
-        model_path = "models/saved/lstm_sequence.pt"
-    model, _ = load_model(model_path)
-    
-    # Parse CSV
-    df = parse_google_form_csv(csv_path)
-    
-    # Generate results for each row (use first row for single report)
-    row = df.iloc[0]
-    data = row.to_dict()
-    
+def generate_single_report(data: dict, name: str, model, feature_cols: list, output_path: str) -> None:
+    """Generate a single HTML report for one person."""
     # Create sequence and predict
-    sequence = create_weekly_sequence(data)
-    pred_class, probs = predict(model, sequence)
+    sequence = create_weekly_sequence(data, feature_cols)
+    pred_class, probs = predict(model, sequence, feature_cols)
     
     risk = RISK_LEVELS[pred_class]
     risk_classes = {0: "low", 1: "medium", 2: "high"}
     
     # Generate result card
-    result_html = RESULT_CARD_TEMPLATE.format(
-        emoji=risk["emoji"],
-        risk_name=risk["name"],
-        risk_class=risk_classes[pred_class],
-        confidence=probs[pred_class] * 100,
-        description=risk["desc"],
-        low_prob=probs[0] * 100,
-        med_prob=probs[1] * 100,
-        high_prob=probs[2] * 100,
-        metrics=generate_metrics_html(data),
-        recommendations=generate_recommendations_html(data, pred_class),
-    )
+    result_html = RESULT_CARD_TEMPLATE.replace("{emoji}", risk["emoji"])
+    result_html = result_html.replace("{risk_name}", risk["name"])
+    result_html = result_html.replace("{risk_class}", risk_classes[pred_class])
+    result_html = result_html.replace("{confidence:.0f}", f"{probs[pred_class] * 100:.0f}")
+    result_html = result_html.replace("{description}", risk["desc"])
+    result_html = result_html.replace("{low_prob:.0f}", f"{probs[0] * 100:.0f}")
+    result_html = result_html.replace("{low_prob}", f"{probs[0] * 100:.0f}")
+    result_html = result_html.replace("{med_prob:.0f}", f"{probs[1] * 100:.0f}")
+    result_html = result_html.replace("{med_prob}", f"{probs[1] * 100:.0f}")
+    result_html = result_html.replace("{high_prob:.0f}", f"{probs[2] * 100:.0f}")
+    result_html = result_html.replace("{high_prob}", f"{probs[2] * 100:.0f}")
+    result_html = result_html.replace("{metrics}", generate_metrics_html(data))
+    result_html = result_html.replace("{recommendations}", generate_recommendations_html(data, pred_class, model, feature_cols))
+    
+    # Add name to the report
+    name_html = f'<div class="person-name">Report for: <strong>{name}</strong></div>'
+    
+    # Add contradictions check (if any)
+    contradictions_html = generate_contradictions_html(data)
+    
+    result_html = name_html + result_html + contradictions_html
     
     # Generate full HTML
-    html = HTML_TEMPLATE.format(
-        date=datetime.now().strftime("%B %d, %Y at %H:%M"),
-        results=result_html,
-    )
+    html = HTML_TEMPLATE.replace("{date}", datetime.now().strftime("%B %d, %Y at %H:%M"))
+    html = html.replace("{results}", result_html)
     
     # Save
     Path(output_path).write_text(html)
-    print(f"✅ Report saved to {output_path}")
-    print(f"   Open in browser: file://{Path(output_path).absolute()}")
+
+
+def generate_report(csv_path: str, output_path: str, model_path: str = None) -> None:
+    """Generate HTML reports from CSV data - one per person."""
+    import re
+    
+    # Load model
+    if model_path is None:
+        model_path = PROJECT_ROOT / "models/saved/lstm_sequence.pt"
+    model, _, feature_cols = load_model(model_path)
+    
+    # Parse CSV
+    df, _ = parse_google_form_csv(csv_path)
+    
+    # Check if there's a name column
+    name_col = None
+    if "_name" in df.columns:
+        name_col = "_name"
+    elif "_email" in df.columns:
+        name_col = "_email"
+    
+    output_path = Path(output_path)
+    output_dir = output_path.parent
+    base_name = output_path.stem
+    
+    # Generate report for each person
+    generated_files = []
+    
+    for idx, row in df.iterrows():
+        data = {f: row[f] for f in feature_cols if f in row}
+        
+        # Get person's name
+        if name_col and pd.notna(row.get(name_col)):
+            person_name = str(row[name_col]).strip()
+        else:
+            person_name = f"Person {idx + 1}"
+        
+        # Create safe filename from name
+        safe_name = re.sub(r'[^\w\s-]', '', person_name).strip().lower()
+        safe_name = re.sub(r'[-\s]+', '_', safe_name)
+        
+        if len(df) == 1:
+            # Single person - use provided output path
+            file_path = output_path
+        else:
+            # Multiple people - create individual files
+            file_path = output_dir / f"{safe_name}_report.html"
+        
+        generate_single_report(data, person_name, model, feature_cols, str(file_path))
+        generated_files.append((person_name, file_path))
+    
+    # Print summary
+    print(f"\n✅ Generated {len(generated_files)} report(s):")
+    for name, path in generated_files:
+        print(f"   📄 {name}: {path}")
+    
+    if len(generated_files) > 1:
+        print(f"\n💡 All reports saved to: {output_dir}/")
 
 
 def main():
     parser = argparse.ArgumentParser(description="Generate HTML burnout report")
     parser.add_argument("--csv", required=True, help="Input CSV file")
-    parser.add_argument("--output", "-o", default="burnout_report.html", help="Output HTML file")
+    parser.add_argument("--output", "-o", default="burnout_report.html", help="Output HTML file (or directory base name for multiple)")
     parser.add_argument("--model-path", default=None, help="Path to .pt model file")
     
     args = parser.parse_args()
