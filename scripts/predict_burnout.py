@@ -52,8 +52,12 @@ import torch.nn as nn
 # CONFIGURATION
 # ============================================================================
 
+# Get the project root directory (parent of scripts/)
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR.parent
+
 # Default model path - change this or use --model-path argument
-MODEL_DIR = Path("models/saved")
+MODEL_DIR = PROJECT_ROOT / "models/saved"
 DEFAULT_MODEL_PATH = MODEL_DIR / "lstm_sequence.pt"
 
 # Feature columns expected by the model (must match training)
@@ -195,6 +199,7 @@ def load_model(model_path: str) -> tuple:
     Returns:
         model: Loaded PyTorch model in eval mode
         model_type: Type of model (lstm/gru/transformer)
+        feature_cols: List of feature columns used by this model
     """
     model_path = Path(model_path)
     
@@ -207,6 +212,10 @@ def load_model(model_path: str) -> tuple:
     # Load checkpoint
     checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
     
+    # Get feature columns from checkpoint (critical for correct input shape!)
+    feature_cols = checkpoint.get("feature_cols", FEATURE_COLS)
+    input_dim = len(feature_cols)
+    
     # Detect model type from filename or checkpoint
     model_type = checkpoint.get("model_type", "lstm")
     if "lstm" in str(model_path).lower():
@@ -216,25 +225,26 @@ def load_model(model_path: str) -> tuple:
     elif "transformer" in str(model_path).lower():
         model_type = "transformer"
     
-    # Build appropriate model
+    # Build appropriate model with CORRECT input dimension
     if model_type == "lstm":
-        model = LSTMClassifier()
+        model = LSTMClassifier(input_dim=input_dim)
     elif model_type == "gru":
-        model = GRUClassifier()
+        model = GRUClassifier(input_dim=input_dim)
     elif model_type == "transformer":
         d_model = checkpoint.get("d_model", 64)
-        model = TransformerClassifier(d_model=d_model)
+        model = TransformerClassifier(input_dim=input_dim, d_model=d_model)
     else:
         # Default to LSTM
-        model = LSTMClassifier()
+        model = LSTMClassifier(input_dim=input_dim)
     
     # Load weights
     model.load_state_dict(checkpoint["model_state"])
     model.eval()
     
     print(f"✅ Loaded {model_type.upper()} model from {model_path}")
+    print(f"   Features: {len(feature_cols)} ({', '.join(feature_cols[:3])}...)")
     
-    return model, model_type
+    return model, model_type, feature_cols
 
 
 # ============================================================================
@@ -365,19 +375,24 @@ def get_interactive_input() -> Dict[str, float]:
     return data
 
 
-def create_weekly_sequence(daily_data: Dict[str, float], days: int = 7) -> np.ndarray:
+def create_weekly_sequence(daily_data: Dict[str, float], feature_cols: List[str], days: int = 7) -> np.ndarray:
     """
     Create a 7-day sequence from single-day data.
     
     For demo purposes, we simulate a week by adding small random variations
     to the provided daily averages.
+    
+    Args:
+        daily_data: Dictionary of feature values
+        feature_cols: List of features expected by the model (in order!)
+        days: Number of days in sequence
     """
     sequence = []
     
     for day in range(days):
         day_data = []
-        for feature in FEATURE_COLS:
-            base_value = daily_data.get(feature, DEFAULTS[feature])
+        for feature in feature_cols:
+            base_value = daily_data.get(feature, DEFAULTS.get(feature, 5))
             # Add small random variation (±10%) to simulate daily fluctuation
             variation = np.random.uniform(-0.1, 0.1) * base_value
             day_data.append(base_value + variation)
@@ -390,17 +405,37 @@ def create_weekly_sequence(daily_data: Dict[str, float], days: int = 7) -> np.nd
 # PREDICTION & VISUALIZATION
 # ============================================================================
 
-def predict(model: nn.Module, sequence: np.ndarray) -> tuple:
+def predict(model: nn.Module, sequence: np.ndarray, feature_cols: List[str]) -> tuple:
     """Run prediction and return class + probabilities."""
-    # Normalize (simple z-score based on typical ranges)
-    # In production, use saved scaler from training
-    means = np.array([5, 30, 30, 8, 6, 6, 20, 100, 6, 7, 6, 3, 5, 5000, 1, 4, 1])
-    stds = np.array([2, 20, 30, 2, 2, 2, 15, 80, 2, 1.5, 2, 2, 3, 3000, 1.5, 2, 0.8])
+    # Dynamic normalization based on feature types
+    # Build mean/std arrays based on the actual features in this model
+    feature_stats = {
+        "stress_level": (5, 2),
+        "commute_minutes": (30, 20),
+        "exercise_minutes": (30, 30),
+        "work_hours": (8, 2),
+        "mood_score": (6, 2),
+        "sleep_quality": (6, 2),
+        "emails_received": (20, 15),
+        "caffeine_mg": (100, 80),
+        "energy_level": (6, 2),
+        "sleep_hours": (7, 1.5),
+        "focus_score": (6, 2),
+        "meetings_count": (3, 2),
+        "tasks_completed": (5, 3),
+        "steps_count": (5000, 3000),
+        "alcohol_units": (1, 1.5),
+        "screen_time_hours": (4, 2),
+        "work_pressure": (1, 0.8),
+    }
+    
+    means = np.array([feature_stats.get(f, (5, 2))[0] for f in feature_cols])
+    stds = np.array([feature_stats.get(f, (5, 2))[1] for f in feature_cols])
     
     normalized = (sequence - means) / (stds + 1e-8)
     
     # Convert to tensor and predict
-    x = torch.from_numpy(normalized).unsqueeze(0)  # Add batch dim
+    x = torch.from_numpy(normalized.astype(np.float32)).unsqueeze(0)  # Add batch dim
     
     with torch.no_grad():
         logits = model(x)
@@ -557,7 +592,7 @@ def main() -> None:
     
     # Load model
     try:
-        model, model_type = load_model(model_path)
+        model, model_type, feature_cols = load_model(model_path)
     except FileNotFoundError as e:
         print(f"❌ {e}")
         print("\n📥 To get the model:")
@@ -574,8 +609,8 @@ def main() -> None:
         # Process each row
         for idx, row in df.iterrows():
             data = row.to_dict()
-            sequence = create_weekly_sequence(data)
-            pred_class, probs = predict(model, sequence)
+            sequence = create_weekly_sequence(data, feature_cols)
+            pred_class, probs = predict(model, sequence, feature_cols)
             print(f"\n--- Response #{idx + 1} ---")
             print_prediction_result(data, pred_class, probs)
         return
@@ -592,8 +627,8 @@ def main() -> None:
         data = get_interactive_input()
     
     # Create sequence and predict
-    sequence = create_weekly_sequence(data)
-    pred_class, probs = predict(model, sequence)
+    sequence = create_weekly_sequence(data, feature_cols)
+    pred_class, probs = predict(model, sequence, feature_cols)
     
     # Print result
     print_prediction_result(data, pred_class, probs)
