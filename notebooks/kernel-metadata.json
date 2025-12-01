@@ -1,0 +1,15 @@
+{
+  "id": "danielepassarelli1/fds-project-transformer",
+  "title": "FDS Project - Transformer Training",
+  "code_file": "runonKaggle.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": [
+    "wafaaelhusseini/worklife-balance-synthetic-daily-wellness-dataset"
+  ],
+  "competition_sources": [],
+  "kernel_sources": []
+}
