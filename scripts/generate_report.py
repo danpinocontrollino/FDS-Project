@@ -2,10 +2,12 @@
 ================================================================================
 GENERATE BURNOUT REPORT - Beautiful HTML Output
 ================================================================================
-Generates an HTML report from predictions that can be shared with friends.
+STANDALONE script - generates HTML report from predictions.
+Works with models downloaded from Kaggle!
 
 Usage:
-    python scripts/generate_report.py --csv data/sample_form_responses.csv --output report.html
+    python generate_report.py --csv responses.csv --output report.html
+    python generate_report.py --csv responses.csv --model-path ./lstm_sequence.pt
 
 Author: University Project - Burnout Prediction
 ================================================================================
@@ -362,10 +364,12 @@ def generate_metrics_html(data: dict) -> str:
     return "\n".join(html_parts)
 
 
-def generate_report(csv_path: str, output_path: str, model_type: str = "lstm") -> None:
+def generate_report(csv_path: str, output_path: str, model_path: str = None) -> None:
     """Generate HTML report from CSV data."""
     # Load model
-    model, _ = load_model(model_type)
+    if model_path is None:
+        model_path = "models/saved/lstm_sequence.pt"
+    model, _ = load_model(model_path)
     
     # Parse CSV
     df = parse_google_form_csv(csv_path)
@@ -411,10 +415,10 @@ def main():
     parser = argparse.ArgumentParser(description="Generate HTML burnout report")
     parser.add_argument("--csv", required=True, help="Input CSV file")
     parser.add_argument("--output", "-o", default="burnout_report.html", help="Output HTML file")
-    parser.add_argument("--model", default="lstm", help="Model to use")
+    parser.add_argument("--model-path", default=None, help="Path to .pt model file")
     
     args = parser.parse_args()
-    generate_report(args.csv, args.output, args.model)
+    generate_report(args.csv, args.output, args.model_path)
 
 
 if __name__ == "__main__":

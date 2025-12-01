@@ -2,26 +2,35 @@
 ================================================================================
 BURNOUT PREDICTION DEMO - User-Friendly Output
 ================================================================================
-This script takes real user data (e.g., from a Google Form) and predicts
-burnout risk with clear, visual output.
+STANDALONE script for predicting burnout risk. Works with models trained on
+Kaggle - just download the .pt files and point to them!
+
+SETUP:
+------
+1. Train models on Kaggle (run the notebook)
+2. Download models from Kaggle Output tab (e.g., lstm_sequence.pt)
+3. Place in any folder (default: models/saved/)
+4. Run this script!
 
 USAGE:
 ------
 1. From CSV file (Google Form export):
-   python scripts/predict_burnout.py --csv my_responses.csv
+   python predict_burnout.py --csv my_responses.csv
 
 2. Interactive mode (answer questions):
-   python scripts/predict_burnout.py --interactive
+   python predict_burnout.py --interactive
 
 3. Single prediction with command line:
-   python scripts/predict_burnout.py --stress 7 --sleep 6 --work 9 --mood 4
+   python predict_burnout.py --stress 7 --sleep 6 --work 9 --mood 4
 
-OUTPUT:
--------
-- Burnout risk level (Low/Medium/High) with confidence
-- Visual risk meter
-- Personalized recommendations based on your data
-- Comparison to healthy benchmarks
+4. Specify custom model path:
+   python predict_burnout.py --model-path ./downloads/lstm_sequence.pt
+
+REQUIREMENTS (minimal):
+-----------------------
+pip install torch numpy pandas
+
+No need for the full training environment!
 
 Author: University Project - Burnout Prediction
 ================================================================================
@@ -43,8 +52,9 @@ import torch.nn as nn
 # CONFIGURATION
 # ============================================================================
 
+# Default model path - change this or use --model-path argument
 MODEL_DIR = Path("models/saved")
-PROCESSED_DIR = Path("data/processed")
+DEFAULT_MODEL_PATH = MODEL_DIR / "lstm_sequence.pt"
 
 # Feature columns expected by the model (must match training)
 FEATURE_COLS = [
@@ -118,7 +128,7 @@ RISK_LEVELS = {
 
 
 # ============================================================================
-# MODEL LOADING
+# MODEL LOADING (Works with downloaded Kaggle models)
 # ============================================================================
 
 class LSTMClassifier(nn.Module):
@@ -138,24 +148,93 @@ class LSTMClassifier(nn.Module):
         return self.head(out[:, -1, :])
 
 
-def load_model(model_type: str = "lstm") -> tuple:
-    """Load trained model and normalization statistics."""
-    model_path = MODEL_DIR / f"{model_type}_sequence.pt"
+class GRUClassifier(nn.Module):
+    """GRU model architecture."""
+    def __init__(self, input_dim: int = 17, hidden_dim: int = 128, num_classes: int = 3):
+        super().__init__()
+        self.rnn = nn.GRU(input_dim, hidden_dim, num_layers=2, batch_first=True, dropout=0.2)
+        self.head = nn.Sequential(
+            nn.LayerNorm(hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(hidden_dim, num_classes),
+        )
+    
+    def forward(self, x):
+        out, _ = self.rnn(x)
+        return self.head(out[:, -1, :])
+
+
+class TransformerClassifier(nn.Module):
+    """Simplified Transformer for loading saved models."""
+    def __init__(self, input_dim: int = 17, d_model: int = 64, num_classes: int = 3):
+        super().__init__()
+        self.input_projection = nn.Linear(input_dim, d_model)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=4, batch_first=True)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=2)
+        self.head = nn.Sequential(
+            nn.LayerNorm(d_model),
+            nn.Dropout(0.1),
+            nn.Linear(d_model, num_classes),
+        )
+    
+    def forward(self, x):
+        x = self.input_projection(x)
+        x = self.transformer_encoder(x)
+        x = x.mean(dim=1)
+        return self.head(x)
+
+
+def load_model(model_path: str) -> tuple:
+    """
+    Load trained model from a .pt file (downloaded from Kaggle).
+    
+    Args:
+        model_path: Path to the .pt file
+        
+    Returns:
+        model: Loaded PyTorch model in eval mode
+        model_type: Type of model (lstm/gru/transformer)
+    """
+    model_path = Path(model_path)
     
     if not model_path.exists():
         raise FileNotFoundError(
-            f"Model not found at {model_path}. "
-            f"Run training first: python scripts/train_lstm.py"
+            f"Model not found at {model_path}\n"
+            f"Download from Kaggle Output tab and place here, or use --model-path"
         )
     
-    checkpoint = torch.load(model_path, map_location="cpu")
+    # Load checkpoint
+    checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
     
-    # Build model
-    model = LSTMClassifier()
+    # Detect model type from filename or checkpoint
+    model_type = checkpoint.get("model_type", "lstm")
+    if "lstm" in str(model_path).lower():
+        model_type = "lstm"
+    elif "gru" in str(model_path).lower():
+        model_type = "gru"
+    elif "transformer" in str(model_path).lower():
+        model_type = "transformer"
+    
+    # Build appropriate model
+    if model_type == "lstm":
+        model = LSTMClassifier()
+    elif model_type == "gru":
+        model = GRUClassifier()
+    elif model_type == "transformer":
+        d_model = checkpoint.get("d_model", 64)
+        model = TransformerClassifier(d_model=d_model)
+    else:
+        # Default to LSTM
+        model = LSTMClassifier()
+    
+    # Load weights
     model.load_state_dict(checkpoint["model_state"])
     model.eval()
     
-    return model, checkpoint.get("feature_cols", FEATURE_COLS)
+    print(f"✅ Loaded {model_type.upper()} model from {model_path}")
+    
+    return model, model_type
 
 
 # ============================================================================
@@ -434,13 +513,21 @@ def print_prediction_result(data: Dict[str, float], pred_class: int, probs: np.n
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
-        description="Predict burnout risk from behavioral data",
+        description="Predict burnout risk from behavioral data (works with Kaggle-trained models)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python scripts/predict_burnout.py --interactive
-  python scripts/predict_burnout.py --csv responses.csv
-  python scripts/predict_burnout.py --stress 8 --sleep 5 --work 10 --mood 3
+  # Interactive mode
+  python predict_burnout.py --interactive
+  
+  # With Google Form CSV
+  python predict_burnout.py --csv responses.csv
+  
+  # Quick test with specific values
+  python predict_burnout.py --stress 8 --sleep 5 --work 10 --mood 3
+  
+  # Use a specific model file (downloaded from Kaggle)
+  python predict_burnout.py --model-path ./lstm_sequence.pt --interactive
         """
     )
     
@@ -448,9 +535,8 @@ Examples:
                         help="Interactive mode: answer questions one by one")
     parser.add_argument("--csv", type=str,
                         help="Path to CSV file (e.g., Google Form export)")
-    parser.add_argument("--model", type=str, default="lstm",
-                        choices=["lstm", "gru", "transformer"],
-                        help="Which trained model to use (default: lstm)")
+    parser.add_argument("--model-path", type=str, default=None,
+                        help="Path to trained model .pt file (default: models/saved/lstm_sequence.pt)")
     
     # Quick command-line input
     parser.add_argument("--stress", type=float, help="Stress level (1-10)")
@@ -466,12 +552,18 @@ def main() -> None:
     """Main entry point."""
     args = parse_args()
     
+    # Determine model path
+    model_path = args.model_path if args.model_path else DEFAULT_MODEL_PATH
+    
     # Load model
     try:
-        model, feature_cols = load_model(args.model)
-        print(f"✅ Loaded {args.model.upper()} model")
+        model, model_type = load_model(model_path)
     except FileNotFoundError as e:
         print(f"❌ {e}")
+        print("\n📥 To get the model:")
+        print("   1. Run training notebook on Kaggle")
+        print("   2. Go to Output tab → Download lstm_sequence.pt")
+        print("   3. Place in models/saved/ or use --model-path")
         return
     
     # Get input data
