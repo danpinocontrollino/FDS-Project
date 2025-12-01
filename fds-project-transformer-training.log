@@ -1,0 +1,191 @@
+6.5s 1 0.00s - Debugger warning: It seems that frozen modules are being used, which may
+6.5s 2 0.00s - make the debugger miss breakpoints. Please pass -Xfrozen_modules=off
+6.5s 3 0.00s - to python to disable frozen modules.
+6.5s 4 0.00s - Note: Debugging will proceed. Set PYDEVD_DISABLE_FILE_VALIDATION=1 to disable this validation.
+7.0s 5 0.00s - Debugger warning: It seems that frozen modules are being used, which may
+7.0s 6 0.00s - make the debugger miss breakpoints. Please pass -Xfrozen_modules=off
+7.0s 7 0.00s - to python to disable frozen modules.
+7.0s 8 0.00s - Note: Debugging will proceed. Set PYDEVD_DISABLE_FILE_VALIDATION=1 to disable this validation.
+9.4s 9 Cloning into 'fds-project'...
+10.3s 10 remote: Enumerating objects: 224, done.[K
+10.3s 11 remote: Counting objects:   0% (1/224)[Kremote: Counting objects:   1% (3/224)[Kremote: Counting objects:   2% (5/224)[Kremote: Counting objects:   3% (7/224)[Kremote: Counting objects:   4% (9/224)[Kremote: Counting objects:   5% (12/224)[Kremote: Counting objects:   6% (14/224)[Kremote: Counting objects:   7% (16/224)[Kremote: Counting objects:   8% (18/224)[Kremote: Counting objects:   9% (21/224)[Kremote: Counting objects:  10% (23/224)[Kremote: Counting objects:  11% (25/224)[Kremote: Counting objects:  12% (27/224)[Kremote: Counting objects:  13% (30/224)[Kremote: Counting objects:  14% (32/224)[Kremote: Counting objects:  15% (34/224)[Kremote: Counting objects:  16% (36/224)[Kremote: Counting objects:  17% (39/224)[Kremote: Counting objects:  18% (41/224)[Kremote: Counting objects:  19% (43/224)[Kremote: Counting objects:  20% (45/224)[Kremote: Counting objects:  21% (48/224)[Kremote: Counting objects:  22% (50/224)[Kremote: Counting objects:  23% (52/224)[Kremote: Counting objects:  24% (54/224)[Kremote: Counting objects:  25% (56/224)[Kremote: Counting objects:  26% (59/224)[Kremote: Counting objects:  27% (61/224)[Kremote: Counting objects:  28% (63/224)[Kremote: Counting objects:  29% (65/224)[Kremote: Counting objects:  30% (68/224)[Kremote: Counting objects:  31% (70/224)[Kremote: Counting objects:  32% (72/224)[Kremote: Counting objects:  33% (74/224)[Kremote: Counting objects:  34% (77/224)[Kremote: Counting objects:  35% (79/224)[Kremote: Counting objects:  36% (81/224)[Kremote: Counting objects:  37% (83/224)[Kremote: Counting objects:  38% (86/224)[Kremote: Counting objects:  39% (88/224)[Kremote: Counting objects:  40% (90/224)[Kremote: Counting objects:  41% (92/224)[Kremote: Counting objects:  42% (95/224)[Kremote: Counting objects:  43% (97/224)[Kremote: Counting objects:  44% (99/224)[Kremote: Counting objects:  45% (101/224)[Kremote: Counting objects:  46% (104/224)[Kremote: Counting objects:  47% (106/224)[Kremote: Counting objects:  48% (108/224)[Kremote: Counting objects:  49% (110/224)[Kremote: Counting objects:  50% (112/224)[Kremote: Counting objects:  51% (115/224)[Kremote: Counting objects:  52% (117/224)[Kremote: Counting objects:  53% (119/224)[Kremote: Counting objects:  54% (121/224)[Kremote: Counting objects:  55% (124/224)[Kremote: Counting objects:  56% (126/224)[Kremote: Counting objects:  57% (128/224)[Kremote: Counting objects:  58% (130/224)[Kremote: Counting objects:  59% (133/224)[Kremote: Counting objects:  60% (135/224)[Kremote: Counting objects:  61% (137/224)[Kremote: Counting objects:  62% (139/224)[Kremote: Counting objects:  63% (142/224)[Kremote: Counting objects:  64% (144/224)[Kremote: Counting objects:  65% (146/224)[Kremote: Counting objects:  66% (148/224)[Kremote: Counting objects:  67% (151/224)[Kremote: Counting objects:  68% (153/224)[Kremote: Counting objects:  69% (155/224)[Kremote: Counting objects:  70% (157/224)[Kremote: Counting objects:  71% (160/224)[Kremote: Counting objects:  72% (162/224)[Kremote: Counting objects:  73% (164/224)[Kremote: Counting objects:  74% (166/224)[Kremote: Counting objects:  75% (168/224)[Kremote: Counting objects:  76% (171/224)[Kremote: Counting objects:  77% (173/224)[Kremote: Counting objects:  78% (175/224)[Kremote: Counting objects:  79% (177/224)[Kremote: Counting objects:  80% (180/224)[Kremote: Counting objects:  81% (182/224)[Kremote: Counting objects:  82% (184/224)[Kremote: Counting objects:  83% (186/224)[Kremote: Counting objects:  84% (189/224)[Kremote: Counting objects:  85% (191/224)[Kremote: Counting objects:  86% (193/224)[Kremote: Counting objects:  87% (195/224)[Kremote: Counting objects:  88% (198/224)[Kremote: Counting objects:  89% (200/224)[Kremote: Counting objects:  90% (202/224)[Kremote: Counting objects:  91% (204/224)[Kremote: Counting objects:  92% (207/224)[Kremote: Counting objects:  93% (209/224)[Kremote: Counting objects:  94% (211/224)[Kremote: Counting objects:  95% (213/224)[Kremote: Counting objects:  96% (216/224)[Kremote: Counting objects:  97% (218/224)[Kremote: Counting objects:  98% (220/224)[Kremote: Counting objects:  99% (222/224)[Kremote: Counting objects: 100% (224/224)[Kremote: Counting objects: 100% (224/224), done.[K
+10.5s 12 remote: Compressing objects:   0% (1/151)[Kremote: Compressing objects:   1% (2/151)[Kremote: Compressing objects:   2% (4/151)[Kremote: Compressing objects:   3% (5/151)[Kremote: Compressing objects:   4% (7/151)[Kremote: Compressing objects:   5% (8/151)[Kremote: Compressing objects:   6% (10/151)[Kremote: Compressing objects:   7% (11/151)[Kremote: Compressing objects:   8% (13/151)[Kremote: Compressing objects:   9% (14/151)[Kremote: Compressing objects:  10% (16/151)[Kremote: Compressing objects:  11% (17/151)[Kremote: Compressing objects:  12% (19/151)[Kremote: Compressing objects:  13% (20/151)[Kremote: Compressing objects:  14% (22/151)[Kremote: Compressing objects:  15% (23/151)[Kremote: Compressing objects:  16% (25/151)[Kremote: Compressing objects:  17% (26/151)[Kremote: Compressing objects:  18% (28/151)[Kremote: Compressing objects:  19% (29/151)[Kremote: Compressing objects:  20% (31/151)[Kremote: Compressing objects:  21% (32/151)[Kremote: Compressing objects:  22% (34/151)[Kremote: Compressing objects:  23% (35/151)[Kremote: Compressing objects:  24% (37/151)[Kremote: Compressing objects:  25% (38/151)[Kremote: Compressing objects:  26% (40/151)[Kremote: Compressing objects:  27% (41/151)[Kremote: Compressing objects:  28% (43/151)[Kremote: Compressing objects:  29% (44/151)[Kremote: Compressing objects:  30% (46/151)[Kremote: Compressing objects:  31% (47/151)[Kremote: Compressing objects:  32% (49/151)[Kremote: Compressing objects:  33% (50/151)[Kremote: Compressing objects:  34% (52/151)[Kremote: Compressing objects:  35% (53/151)[Kremote: Compressing objects:  36% (55/151)[Kremote: Compressing objects:  37% (56/151)[Kremote: Compressing objects:  38% (58/151)[Kremote: Compressing objects:  39% (59/151)[Kremote: Compressing objects:  40% (61/151)[Kremote: Compressing objects:  41% (62/151)[Kremote: Compressing objects:  42% (64/151)[Kremote: Compressing objects:  43% (65/151)[Kremote: Compressing objects:  44% (67/151)[Kremote: Compressing objects:  45% (68/151)[Kremote: Compressing objects:  46% (70/151)[Kremote: Compressing objects:  47% (71/151)[Kremote: Compressing objects:  48% (73/151)[Kremote: Compressing objects:  49% (74/151)[Kremote: Compressing objects:  50% (76/151)[Kremote: Compressing objects:  51% (78/151)[Kremote: Compressing objects:  52% (79/151)[Kremote: Compressing objects:  53% (81/151)[Kremote: Compressing objects:  54% (82/151)[Kremote: Compressing objects:  55% (84/151)[Kremote: Compressing objects:  56% (85/151)[Kremote: Compressing objects:  57% (87/151)[Kremote: Compressing objects:  58% (88/151)[Kremote: Compressing objects:  59% (90/151)[Kremote: Compressing objects:  60% (91/151)[Kremote: Compressing objects:  61% (93/151)[Kremote: Compressing objects:  62% (94/151)[Kremote: Compressing objects:  63% (96/151)[Kremote: Compressing objects:  64% (97/151)[Kremote: Compressing objects:  65% (99/151)[Kremote: Compressing objects:  66% (100/151)[Kremote: Compressing objects:  67% (102/151)[Kremote: Compressing objects:  68% (103/151)[Kremote: Compressing objects:  69% (105/151)[Kremote: Compressing objects:  70% (106/151)[Kremote: Compressing objects:  71% (108/151)[Kremote: Compressing objects:  72% (109/151)[Kremote: Compressing objects:  73% (111/151)[Kremote: Compressing objects:  74% (112/151)[Kremote: Compressing objects:  75% (114/151)[Kremote: Compressing objects:  76% (115/151)[Kremote: Compressing objects:  77% (117/151)[Kremote: Compressing objects:  78% (118/151)[Kremote: Compressing objects:  79% (120/151)[Kremote: Compressing objects:  80% (121/151)[Kremote: Compressing objects:  81% (123/151)[Kremote: Compressing objects:  82% (124/151)[Kremote: Compressing objects:  83% (126/151)[Kremote: Compressing objects:  84% (127/151)[Kremote: Compressing objects:  85% (129/151)[Kremote: Compressing objects:  86% (130/151)[Kremote: Compressing objects:  87% (132/151)[Kremote: Compressing objects:  88% (133/151)[Kremote: Compressing objects:  89% (135/151)[Kremote: Compressing objects:  90% (136/151)[Kremote: Compressing objects:  91% (138/151)[Kremote: Compressing objects:  92% (139/151)[Kremote: Compressing objects:  93% (141/151)[Kremote: Compressing objects:  94% (142/151)[Kremote: Compressing objects:  95% (144/151)[Kremote: Compressing objects:  96% (145/151)[Kremote: Compressing objects:  97% (147/151)[Kremote: Compressing objects:  98% (148/151)[Kremote: Compressing objects:  99% (150/151)[Kremote: Compressing objects: 100% (151/151)[Kremote: Compressing objects: 100% (151/151), done.[K
+11.4s 13 Receiving objects:   0% (1/224)Receiving objects:   1% (3/224)Receiving objects:   2% (5/224)Receiving objects:   3% (7/224)Receiving objects:   4% (9/224)Receiving objects:   5% (12/224)Receiving objects:   6% (14/224)Receiving objects:   7% (16/224)Receiving objects:   8% (18/224)Receiving objects:   9% (21/224)Receiving objects:  10% (23/224)Receiving objects:  11% (25/224)Receiving objects:  12% (27/224)Receiving objects:  13% (30/224)Receiving objects:  14% (32/224)Receiving objects:  15% (34/224)Receiving objects:  16% (36/224)Receiving objects:  17% (39/224)Receiving objects:  18% (41/224)Receiving objects:  19% (43/224)Receiving objects:  20% (45/224)Receiving objects:  21% (48/224)Receiving objects:  22% (50/224)Receiving objects:  23% (52/224)Receiving objects:  24% (54/224)Receiving objects:  25% (56/224)Receiving objects:  26% (59/224)Receiving objects:  27% (61/224)Receiving objects:  28% (63/224)Receiving objects:  29% (65/224)Receiving objects:  30% (68/224)Receiving objects:  31% (70/224)Receiving objects:  32% (72/224)Receiving objects:  33% (74/224)Receiving objects:  34% (77/224)Receiving objects:  35% (79/224)Receiving objects:  36% (81/224)Receiving objects:  37% (83/224)Receiving objects:  38% (86/224)Receiving objects:  39% (88/224)Receiving objects:  40% (90/224)Receiving objects:  41% (92/224)Receiving objects:  42% (95/224)Receiving objects:  43% (97/224)Receiving objects:  44% (99/224)Receiving objects:  45% (101/224)Receiving objects:  46% (104/224)Receiving objects:  47% (106/224)Receiving objects:  48% (108/224)Receiving objects:  49% (110/224)Receiving objects:  50% (112/224)Receiving objects:  51% (115/224)Receiving objects:  52% (117/224)Receiving objects:  53% (119/224)Receiving objects:  54% (121/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  55% (124/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  56% (126/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  57% (128/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  58% (130/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  59% (133/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  60% (135/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  61% (137/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  62% (139/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  63% (142/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  64% (144/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  65% (146/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  66% (148/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  67% (151/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  68% (153/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  69% (155/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  70% (157/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  71% (160/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  72% (162/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  73% (164/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  74% (166/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  75% (168/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  76% (171/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  77% (173/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  78% (175/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  79% (177/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  80% (180/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  81% (182/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  82% (184/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  83% (186/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  84% (189/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  85% (191/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  86% (193/224), 5.21 MiB | 10.40 MiB/sremote: Total 224 (delta 88), reused 166 (delta 52), pack-reused 0 (from 0)[K
+11.4s 14 Receiving objects:  87% (195/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  88% (198/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  89% (200/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  90% (202/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  91% (204/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  92% (207/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  93% (209/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  94% (211/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  95% (213/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  96% (216/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  97% (218/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  98% (220/224), 5.21 MiB | 10.40 MiB/sReceiving objects:  99% (222/224), 5.21 MiB | 10.40 MiB/sReceiving objects: 100% (224/224), 5.21 MiB | 10.40 MiB/sReceiving objects: 100% (224/224), 8.83 MiB | 10.86 MiB/s, done.
+11.4s 15 Resolving deltas:   0% (0/88)Resolving deltas:   1% (1/88)Resolving deltas:   2% (2/88)Resolving deltas:   3% (3/88)Resolving deltas:   4% (4/88)Resolving deltas:   5% (5/88)Resolving deltas:   6% (6/88)Resolving deltas:   7% (7/88)Resolving deltas:   9% (8/88)Resolving deltas:  10% (9/88)Resolving deltas:  11% (10/88)Resolving deltas:  12% (11/88)Resolving deltas:  13% (12/88)Resolving deltas:  14% (13/88)Resolving deltas:  15% (14/88)Resolving deltas:  17% (15/88)Resolving deltas:  18% (16/88)Resolving deltas:  19% (17/88)Resolving deltas:  20% (18/88)Resolving deltas:  21% (19/88)Resolving deltas:  22% (20/88)Resolving deltas:  23% (21/88)Resolving deltas:  25% (22/88)Resolving deltas:  26% (23/88)Resolving deltas:  27% (24/88)Resolving deltas:  28% (25/88)Resolving deltas:  29% (26/88)Resolving deltas:  30% (27/88)Resolving deltas:  31% (28/88)Resolving deltas:  32% (29/88)Resolving deltas:  34% (30/88)Resolving deltas:  35% (31/88)Resolving deltas:  36% (32/88)Resolving deltas:  37% (33/88)Resolving deltas:  38% (34/88)Resolving deltas:  39% (35/88)Resolving deltas:  40% (36/88)Resolving deltas:  42% (37/88)Resolving deltas:  43% (38/88)Resolving deltas:  44% (39/88)Resolving deltas:  45% (40/88)Resolving deltas:  46% (41/88)Resolving deltas:  47% (42/88)Resolving deltas:  48% (43/88)Resolving deltas:  50% (44/88)Resolving deltas:  51% (45/88)Resolving deltas:  52% (46/88)Resolving deltas:  53% (47/88)Resolving deltas:  54% (48/88)Resolving deltas:  55% (49/88)Resolving deltas:  56% (50/88)Resolving deltas:  57% (51/88)Resolving deltas:  59% (52/88)Resolving deltas:  60% (53/88)Resolving deltas:  61% (54/88)Resolving deltas:  62% (55/88)Resolving deltas:  63% (56/88)Resolving deltas:  64% (57/88)Resolving deltas:  65% (58/88)Resolving deltas:  67% (59/88)Resolving deltas:  68% (60/88)Resolving deltas:  69% (61/88)Resolving deltas:  70% (62/88)Resolving deltas:  71% (63/88)Resolving deltas:  72% (64/88)Resolving deltas:  73% (65/88)Resolving deltas:  75% (66/88)Resolving deltas:  76% (67/88)Resolving deltas:  77% (68/88)Resolving deltas:  78% (69/88)Resolving deltas:  79% (70/88)Resolving deltas:  80% (71/88)Resolving deltas:  81% (72/88)Resolving deltas:  82% (73/88)Resolving deltas:  84% (74/88)Resolving deltas:  85% (75/88)Resolving deltas:  86% (76/88)Resolving deltas:  87% (77/88)Resolving deltas:  88% (78/88)Resolving deltas:  89% (79/88)Resolving deltas:  90% (80/88)Resolving deltas:  92% (81/88)Resolving deltas:  93% (82/88)Resolving deltas:  94% (83/88)Resolving deltas:  95% (84/88)Resolving deltas:  96% (85/88)Resolving deltas:  97% (86/88)Resolving deltas:  98% (87/88)Resolving deltas: 100% (88/88)Resolving deltas: 100% (88/88), done.
+11.6s 16 /kaggle/working/fds-project
+15.6s 17 Copying dataset files from Kaggle input...
+20.7s 18 ✓ daily_all.csv -> data/raw/daily_all.csv
+20.7s 19 ✓ weekly_summaries.csv -> data/raw/weekly_summaries.csv
+20.7s 20 ✓ users.csv -> data/raw/users.csv
+21.8s 21 ✓ daily_logs.csv -> data/raw/daily_logs.csv
+21.8s 22 ✓ interventions.csv -> data/raw/interventions.csv
+21.8s 23 
+21.8s 24 Files in data/raw:
+21.8s 25 - interventions.csv (14.2 KB)
+21.8s 26 - weekly_summaries.csv (5112.1 KB)
+21.8s 27 - users.csv (65.0 KB)
+21.8s 28 - daily_logs.csv (70178.3 KB)
+21.8s 29 - daily_all.csv (181691.3 KB)
+21.8s 30 ============================================================
+21.8s 31 Running: create_burnout_labels.py
+21.8s 32 ============================================================
+27.5s 33 Saved:
+27.5s 34 - data/processed/weekly_with_burnout.parquet
+27.5s 35 - data/processed/daily_with_burnout.parquet
+27.7s 36 ============================================================
+27.7s 37 Running: preprocess.py
+27.7s 38 ============================================================
+66.2s 39 Wrote data/processed/tabular_ml_ready.parquet
+69.9s 40 PyTorch version: 2.6.0+cu124
+69.9s 41 CUDA available: True
+69.9s 42 GPU: Tesla P100-PCIE-16GB
+70.0s 43 ============================================================
+70.0s 44 MAE Pre-training: Learning behavioral patterns
+70.0s 45 ============================================================
+71.9s 46 Using device: cuda
+71.9s 47 Loading sequences...
+80.5s 48 Total sequences: 1,473,000
+80.5s 49 Sequence shape: (1473000, 7, 17) (N × window × features)
+82.6s 50 Features normalized (z-score)
+82.9s 51 
+82.9s 52 MAE Model:
+82.9s 53 Input dim: 17
+82.9s 54 d_model: 64
+82.9s 55 Attention heads: 4
+82.9s 56 Encoder layers: 2
+82.9s 57 Mask ratio: 30%
+87.2s 58 
+87.2s 59 Starting MAE pre-training for 50 epochs...
+87.2s 60 ============================================================
+244.9s 61 Epoch   1: reconstruction_loss=0.4083, lr=9.99e-04
+872.0s 62 Epoch   5: reconstruction_loss=0.2824, lr=9.76e-04
+1656.0s 63 Epoch  10: reconstruction_loss=0.2614, lr=9.05e-04
+2457.4s 64 Epoch  15: reconstruction_loss=0.2519, lr=7.94e-04
+3267.2s 65 Epoch  20: reconstruction_loss=0.2469, lr=6.55e-04
+4077.9s 66 Epoch  25: reconstruction_loss=0.2446, lr=5.00e-04
+4893.3s 67 Epoch  30: reconstruction_loss=0.2424, lr=3.45e-04
+5709.3s 68 Epoch  35: reconstruction_loss=0.2408, lr=2.06e-04
+6508.7s 69 Epoch  40: reconstruction_loss=0.2393, lr=9.55e-05
+7320.1s 70 Epoch  45: reconstruction_loss=0.2386, lr=2.45e-05
+8113.7s 71 Epoch  50: reconstruction_loss=0.2386, lr=0.00e+00
+8113.7s 72 ============================================================
+8113.7s 73 Pre-training complete!
+8113.7s 74 Best reconstruction loss: 0.2379
+8113.7s 75 Saved pre-trained encoder to: models/saved/mae_encoder.pt
+8113.7s 76 
+8113.7s 77 Use this encoder for downstream burnout classification!
+8114.9s 78 ============================================================
+8114.9s 79 MAE Fine-tuning: Transfer learning for burnout classification
+8114.9s 80 ============================================================
+8117.5s 81 Using device: cuda
+8117.5s 82 Loading pre-trained MAE from models/saved/mae_encoder.pt...
+8117.6s 83 Loading sequences with labels...
+8127.0s 84 Total sequences: 1,473,000
+8128.1s 85 Features normalized using MAE statistics
+8129.0s 86 ✓ Loaded pre-trained encoder weights from MAE
+8129.0s 87 Trainable parameters: 118,659 / 118,659 (100.0%)
+8130.0s 88 
+8130.0s 89 Starting fine-tuning for 30 epochs...
+8130.0s 90 ============================================================
+8155.5s 91 Epoch   1: loss=0.7972, val_acc=0.6379, val_f1=0.6262
+8180.7s 92 Epoch   2: loss=0.7765, val_acc=0.6401, val_f1=0.6314
+8205.9s 93 Epoch   3: loss=0.7719, val_acc=0.6412, val_f1=0.6328
+8231.0s 94 Epoch   4: loss=0.7677, val_acc=0.6445, val_f1=0.6366
+8256.1s 95 Epoch   5: loss=0.7619, val_acc=0.6466, val_f1=0.6412
+8281.3s 96 Epoch   6: loss=0.7581, val_acc=0.6479, val_f1=0.6389
+8306.4s 97 Epoch   7: loss=0.7562, val_acc=0.6479, val_f1=0.6388
+8331.7s 98 Epoch   8: loss=0.7549, val_acc=0.6480, val_f1=0.6381
+8356.8s 99 Epoch   9: loss=0.7537, val_acc=0.6486, val_f1=0.6411
+8381.8s 100 Epoch  10: loss=0.7527, val_acc=0.6486, val_f1=0.6396
+8406.9s 101 Epoch  11: loss=0.7519, val_acc=0.6490, val_f1=0.6408
+8432.3s 102 Epoch  12: loss=0.7513, val_acc=0.6491, val_f1=0.6417
+8457.3s 103 Epoch  13: loss=0.7508, val_acc=0.6488, val_f1=0.6412
+8482.5s 104 Epoch  14: loss=0.7502, val_acc=0.6495, val_f1=0.6418
+8507.8s 105 Epoch  15: loss=0.7499, val_acc=0.6497, val_f1=0.6424
+8532.8s 106 Epoch  16: loss=0.7493, val_acc=0.6490, val_f1=0.6410
+8557.6s 107 Epoch  17: loss=0.7491, val_acc=0.6488, val_f1=0.6399
+8582.9s 108 Epoch  18: loss=0.7488, val_acc=0.6496, val_f1=0.6425
+8608.0s 109 Epoch  19: loss=0.7486, val_acc=0.6496, val_f1=0.6413
+8633.1s 110 Epoch  20: loss=0.7482, val_acc=0.6498, val_f1=0.6429
+8658.5s 111 Epoch  21: loss=0.7479, val_acc=0.6496, val_f1=0.6428
+8683.9s 112 Epoch  22: loss=0.7481, val_acc=0.6495, val_f1=0.6415
+8709.5s 113 Epoch  23: loss=0.7477, val_acc=0.6496, val_f1=0.6418
+8735.2s 114 Epoch  24: loss=0.7478, val_acc=0.6500, val_f1=0.6425
+8760.9s 115 Epoch  25: loss=0.7476, val_acc=0.6497, val_f1=0.6417
+8786.6s 116 Epoch  26: loss=0.7473, val_acc=0.6499, val_f1=0.6428
+8812.3s 117 Epoch  27: loss=0.7476, val_acc=0.6497, val_f1=0.6419
+8837.9s 118 Epoch  28: loss=0.7473, val_acc=0.6498, val_f1=0.6416
+8863.6s 119 Epoch  29: loss=0.7474, val_acc=0.6498, val_f1=0.6418
+8889.3s 120 Epoch  30: loss=0.7473, val_acc=0.6497, val_f1=0.6418
+8889.3s 121 ============================================================
+8889.3s 122 Fine-tuning complete!
+8889.3s 123 Best validation accuracy: 0.6500
+8889.3s 124 Saved model to: models/saved/mae_classifier.pt
+8890.3s 125 ============================================================
+8890.3s 126 Training: CVAE Smart Advisor (Generative Model)
+8890.3s 127 ============================================================
+8892.3s 128 Using device: cuda
+8892.3s 129 Loading sequences...
+8901.7s 130 Total sequences: 1,473,000
+8901.7s 131 Label distribution: {0: 485557, 1: 485918, 2: 501525}
+8903.9s 132 Features normalized
+8904.0s 133 
+8904.0s 134 CVAE Model:
+8904.0s 135 Input dim: 17
+8904.0s 136 Sequence length: 7
+8904.0s 137 Latent dim: 32
+8904.0s 138 Hidden dim: 128
+8904.0s 139 Beta (KL weight): 1.0
+8905.1s 140 
+8905.1s 141 Starting CVAE training for 100 epochs...
+8905.1s 142 ============================================================
+8937.8s 143 Epoch   1: total=0.8507, recon=0.7581, kl=0.0925
+9228.6s 144 Epoch  10: total=0.8211, recon=0.7082, kl=0.1129
+9553.2s 145 Epoch  20: total=0.8199, recon=0.7058, kl=0.1141
+9880.0s 146 Epoch  30: total=0.8193, recon=0.7046, kl=0.1146
+10206.0s 147 Epoch  40: total=0.8188, recon=0.7036, kl=0.1152
+10529.5s 148 Epoch  50: total=0.8183, recon=0.7028, kl=0.1155
+10852.3s 149 Epoch  60: total=0.8179, recon=0.7018, kl=0.1160
+11176.1s 150 Epoch  70: total=0.8173, recon=0.7008, kl=0.1164
+11497.9s 151 Epoch  80: total=0.8169, recon=0.7001, kl=0.1168
+11818.3s 152 Epoch  90: total=0.8164, recon=0.6995, kl=0.1170
+12137.7s 153 Epoch 100: total=0.8164, recon=0.6993, kl=0.1171
+12137.7s 154 ============================================================
+12137.7s 155 Training complete! Best loss: 0.8163
+12137.7s 156 Saved model to: models/saved/cvae_advisor.pt
+12137.7s 157 
+12137.7s 158 ============================================================
+12137.7s 159 DEMO: Smart Advisor in Action
+12137.7s 160 ============================================================
+12137.7s 161 Traceback (most recent call last):
+12137.7s 162 File "/kaggle/working/fds-project/scripts/train_cvae.py", line 706, in <module>
+12137.7s 163 main()
+12137.7s 164 File "/kaggle/working/fds-project/scripts/train_cvae.py", line 702, in main
+12137.7s 165 train(args)
+12137.7s 166 File "/kaggle/working/fds-project/scripts/train_cvae.py", line 554, in train
+12137.7s 167 demo_advice(model, X, y, mean, std, DEVICE)
+12137.7s 168 File "/kaggle/working/fds-project/scripts/train_cvae.py", line 587, in demo_advice
+12137.7s 169 suggested_seq_t = model.suggest_changes(
+12137.7s 170 ^^^^^^^^^^^^^^^^^^^^^^
+12137.7s 171 File "/kaggle/working/fds-project/scripts/train_cvae.py", line 383, in suggest_changes
+12137.7s 172 mu, logvar = self.encode(original_sequence, original_label)
+12137.7s 173 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+12137.7s 174 File "/kaggle/working/fds-project/scripts/train_cvae.py", line 287, in encode
+12137.7s 175 x_flat = x.view(batch_size, -1)  # (batch, seq_len * input_dim)
+12137.7s 176 ^^^^^^^^^^^^^^^^^^^^^^
+12137.7s 177 RuntimeError: view size is not compatible with input tensor's size and stride (at least one dimension spans across two contiguous subspaces). Use .reshape(...) instead.
+12138.5s 178 Saving trained models to Kaggle output...
+12138.5s 179 ✓ Saved: /kaggle/working/models/mae_classifier.pt
+12138.5s 180 ✓ Saved: /kaggle/working/models/mae_encoder.pt
+12138.5s 181 ✓ Saved: /kaggle/working/models/cvae_advisor.pt
+12138.5s 182 
+12138.5s 183 ✅ Models saved! Download from Kaggle's 'Output' tab.
+12142.5s 184 /usr/local/lib/python3.11/dist-packages/traitlets/traitlets.py:2915: FutureWarning: --Exporter.preprocessors=["remove_papermill_header.RemovePapermillHeader"] for containers is deprecated in traitlets 5.0. You can pass `--Exporter.preprocessors item` ... multiple times to add items to a list.
+12142.5s 185 warn(
+12142.5s 186 [NbConvertApp] Converting notebook __notebook__.ipynb to notebook
+12142.9s 187 [NbConvertApp] Writing 24240 bytes to __notebook__.ipynb
+12145.4s 188 /usr/local/lib/python3.11/dist-packages/traitlets/traitlets.py:2915: FutureWarning: --Exporter.preprocessors=["nbconvert.preprocessors.ExtractOutputPreprocessor"] for containers is deprecated in traitlets 5.0. You can pass `--Exporter.preprocessors item` ... multiple times to add items to a list.
+12145.4s 189 warn(
+12145.4s 190 [NbConvertApp] Converting notebook __notebook__.ipynb to html
+12146.2s 191 [NbConvertApp] Writing 300349 bytes to __results__.html

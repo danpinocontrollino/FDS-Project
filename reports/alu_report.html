@@ -298,6 +298,93 @@
             color: #856404;
         }
         
+        /* CVAE AI Suggestions */
+        .cvae-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            color: white;
+        }
+        
+        .cvae-section h3 {
+            margin-bottom: 10px;
+            color: white;
+        }
+        
+        .cvae-intro {
+            opacity: 0.9;
+            margin-bottom: 15px;
+            font-size: 0.95rem;
+        }
+        
+        .cvae-suggestions {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .cvae-item {
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 0.95rem;
+        }
+        
+        .cvae-item:last-child {
+            border-bottom: none;
+        }
+        
+        .cvae-change {
+            margin-bottom: 6px;
+        }
+        
+        .cvae-tip {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            margin-top: 4px;
+        }
+        
+        .cvae-arrow {
+            margin-right: 5px;
+        }
+        
+        .cvae-label {
+            font-weight: 500;
+        }
+        
+        .cvae-current {
+            opacity: 0.7;
+        }
+        
+        .cvae-arrow-text {
+            margin: 0 5px;
+        }
+        
+        .cvae-suggested {
+            font-weight: 600;
+        }
+        
+        .cvae-diff {
+            opacity: 0.8;
+            font-size: 0.85rem;
+        }
+        
+        .cvae-note {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            opacity: 0.85;
+        }
+        
+        .cvae-error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        
         @media (max-width: 600px) {
             .header h1 { font-size: 1.8rem; }
             .risk-badge { font-size: 1.2rem; padding: 10px 25px; }
@@ -309,7 +396,7 @@
     <div class="container">
         <div class="header">
             <h1>🧠 Burnout Risk Assessment</h1>
-            <p>Generated on December 01, 2025 at 17:39</p>
+            <p>Generated on December 01, 2025 at 18:20</p>
         </div>
         
         <div class="person-name">Report for: <strong>alu</strong></div>
@@ -317,16 +404,16 @@
     <div class="emoji">😊</div>
     <h2>Your Burnout Risk Level</h2>
     <div class="risk-badge risk-low">LOW RISK</div>
-    <div class="confidence">Confidence: 65%</div>
+    <div class="confidence">Confidence: 63%</div>
     <p class="description">You're doing great! Keep up the healthy habits.</p>
     
     <div class="meter-container">
         <div class="meter-label">
             <span>🟢 Low Risk</span>
-            <span>65%</span>
+            <span>63%</span>
         </div>
         <div class="meter">
-            <div class="meter-fill meter-low" style="width: 65%"></div>
+            <div class="meter-fill meter-low" style="width: 63%"></div>
         </div>
         
         <div class="meter-label">
@@ -339,10 +426,10 @@
         
         <div class="meter-label">
             <span>🔴 High Risk</span>
-            <span>9%</span>
+            <span>11%</span>
         </div>
         <div class="meter">
-            <div class="meter-fill meter-high" style="width: 9%"></div>
+            <div class="meter-fill meter-high" style="width: 11%"></div>
         </div>
     </div>
 </div>
@@ -415,13 +502,13 @@
         <li class="recommendation-item">
             <div class="rec-header">
                 <strong>Sleep Quality (1-10)</strong>
-                <span class="impact-badge impact-good">↓36% risk</span>
+                <span class="impact-badge impact-good">↓37% risk</span>
             </div>
             <div class="rec-values">
                 Current: <span class="value-bad">3</span> → 
                 Target: <span class="value-good">7</span>
             </div>
-            <div class="rec-advice">💡 No screens 1h before bed. Blue light disrupts melatonin.</div>
+            <div class="rec-advice">💡 Keep bedroom at 65-68°F (18-20°C) for optimal sleep.</div>
         </li>
         
 
@@ -434,38 +521,38 @@
                 Current: <span class="value-bad">8</span> → 
                 Target: <span class="value-good">4</span>
             </div>
-            <div class="rec-advice">💡 Try box breathing: 4s inhale, 4s hold, 4s exhale, 4s hold. Repeat 5x.</div>
+            <div class="rec-advice">💡 Your stress is 8/10. Target: 4. What's one thing you can delegate?</div>
         </li>
         
 
         <li class="recommendation-item">
             <div class="rec-header">
                 <strong>Sleep Hours</strong>
-                <span class="impact-badge impact-good">↓34% risk</span>
+                <span class="impact-badge impact-good">↓37% risk</span>
             </div>
             <div class="rec-values">
                 Current: <span class="value-bad">6</span> → 
                 Target: <span class="value-good">8</span>
             </div>
-            <div class="rec-advice">💡 Set a bedtime alarm for 1h before your wake time.</div>
+            <div class="rec-advice">💡 Aim for 8h tonight - even 0.8h more helps.</div>
         </li>
         
 
         <li class="recommendation-item">
             <div class="rec-header">
                 <strong>Mood (1-10)</strong>
-                <span class="impact-badge impact-good">↓38% risk</span>
+                <span class="impact-badge impact-good">↓35% risk</span>
             </div>
             <div class="rec-values">
                 Current: <span class="value-bad">4</span> → 
                 Target: <span class="value-good">7</span>
             </div>
-            <div class="rec-advice">💡 Call or text one friend today. Social connection lifts mood.</div>
+            <div class="rec-advice">💡 Get 15 min of sunlight this morning. It regulates serotonin.</div>
         </li>
         
 
         <li class="recommendation-summary">
-            📈 <strong>Combined potential risk reduction: ~108%</strong>
+            📈 <strong>Combined potential risk reduction: ~109%</strong>
             <br><small>(if you address all factors above)</small>
         </li>
         
@@ -483,6 +570,75 @@
         <div class="warning-item warning-normal">⚠️ You report HIGH stress (8), but LOW work pressure. This contradiction may indicate you're underestimating workplace demands, or stress is coming from non-work sources.</div><div class="warning-item warning-normal">⚠️ You work 12 hours/day but report LOW pressure. Long hours often lead to burnout even if they feel 'manageable' now. Consider if this is sustainable long-term.</div><div class="warning-item warning-critical">🚨 BURNOUT WARNING: High stress (8), long hours (12h), poor sleep (6h) is a classic burnout recipe regardless of what the model predicts. Please take this seriously.</div>
     </div>
     
+        <div class="cvae-section">
+            <h3>🤖 AI-Powered Suggestions</h3>
+            <p class="cvae-intro">Personalized changes with actionable tips:</p>
+            <div class="cvae-suggestions">
+                
+            <div class="cvae-item">
+                <div class="cvae-change">
+                    <span class="cvae-arrow">↗️</span>
+                    <span class="cvae-label">Steps:</span>
+                    <span class="cvae-current">6000.0</span>
+                    <span class="cvae-arrow-text">→</span>
+                    <span class="cvae-suggested">6755.2</span>
+                    <span class="cvae-diff">(+755.2)</span>
+                </div>
+                <div class="cvae-tip">💡 Add 755 steps with a 15-min walk. That's ~1,500 steps.</div>
+            </div>
+            
+            <div class="cvae-item">
+                <div class="cvae-change">
+                    <span class="cvae-arrow">↘️</span>
+                    <span class="cvae-label">Work Hours:</span>
+                    <span class="cvae-current">12.0</span>
+                    <span class="cvae-arrow-text">→</span>
+                    <span class="cvae-suggested">8.8</span>
+                    <span class="cvae-diff">(-3.2)</span>
+                </div>
+                <div class="cvae-tip">💡 Leave work 3.2h earlier today. Set a hard stop.</div>
+            </div>
+            
+            <div class="cvae-item">
+                <div class="cvae-change">
+                    <span class="cvae-arrow">↗️</span>
+                    <span class="cvae-label">Sleep Quality (1-10):</span>
+                    <span class="cvae-current">3.0</span>
+                    <span class="cvae-arrow-text">→</span>
+                    <span class="cvae-suggested">5.9</span>
+                    <span class="cvae-diff">(+2.9)</span>
+                </div>
+                <div class="cvae-tip">💡 Try 4-7-8 breathing: inhale 4s, hold 7s, exhale 8s.</div>
+            </div>
+            
+            <div class="cvae-item">
+                <div class="cvae-change">
+                    <span class="cvae-arrow">↘️</span>
+                    <span class="cvae-label">Stress Level (1-10):</span>
+                    <span class="cvae-current">8.0</span>
+                    <span class="cvae-arrow-text">→</span>
+                    <span class="cvae-suggested">5.2</span>
+                    <span class="cvae-diff">(-2.8)</span>
+                </div>
+                <div class="cvae-tip">💡 Write down 3 things stressing you. Often just naming them helps.</div>
+            </div>
+            
+            <div class="cvae-item">
+                <div class="cvae-change">
+                    <span class="cvae-arrow">↗️</span>
+                    <span class="cvae-label">Tasks Completed:</span>
+                    <span class="cvae-current">5.0</span>
+                    <span class="cvae-arrow-text">→</span>
+                    <span class="cvae-suggested">7.3</span>
+                    <span class="cvae-diff">(+2.3)</span>
+                </div>
+                <div class="cvae-tip">💡 Aim to increase this to 7.3.</div>
+            </div>
+            
+            </div>
+            <p class="cvae-note">✨ Tips based on behavioral science research.</p>
+        </div>
+        
         
         <div class="footer">
             <p>Powered by ML - University Project</p>

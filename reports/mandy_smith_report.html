@@ -298,6 +298,93 @@
             color: #856404;
         }
         
+        /* CVAE AI Suggestions */
+        .cvae-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            color: white;
+        }
+        
+        .cvae-section h3 {
+            margin-bottom: 10px;
+            color: white;
+        }
+        
+        .cvae-intro {
+            opacity: 0.9;
+            margin-bottom: 15px;
+            font-size: 0.95rem;
+        }
+        
+        .cvae-suggestions {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .cvae-item {
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 0.95rem;
+        }
+        
+        .cvae-item:last-child {
+            border-bottom: none;
+        }
+        
+        .cvae-change {
+            margin-bottom: 6px;
+        }
+        
+        .cvae-tip {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            margin-top: 4px;
+        }
+        
+        .cvae-arrow {
+            margin-right: 5px;
+        }
+        
+        .cvae-label {
+            font-weight: 500;
+        }
+        
+        .cvae-current {
+            opacity: 0.7;
+        }
+        
+        .cvae-arrow-text {
+            margin: 0 5px;
+        }
+        
+        .cvae-suggested {
+            font-weight: 600;
+        }
+        
+        .cvae-diff {
+            opacity: 0.8;
+            font-size: 0.85rem;
+        }
+        
+        .cvae-note {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            opacity: 0.85;
+        }
+        
+        .cvae-error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        
         @media (max-width: 600px) {
             .header h1 { font-size: 1.8rem; }
             .risk-badge { font-size: 1.2rem; padding: 10px 25px; }
@@ -309,7 +396,7 @@
     <div class="container">
         <div class="header">
             <h1>🧠 Burnout Risk Assessment</h1>
-            <p>Generated on December 01, 2025 at 17:39</p>
+            <p>Generated on December 01, 2025 at 18:20</p>
         </div>
         
         <div class="person-name">Report for: <strong>Mandy Smith</strong></div>
@@ -323,10 +410,10 @@
     <div class="meter-container">
         <div class="meter-label">
             <span>🟢 Low Risk</span>
-            <span>36%</span>
+            <span>37%</span>
         </div>
         <div class="meter">
-            <div class="meter-fill meter-low" style="width: 36%"></div>
+            <div class="meter-fill meter-low" style="width: 37%"></div>
         </div>
         
         <div class="meter-label">
@@ -339,10 +426,10 @@
         
         <div class="meter-label">
             <span>🔴 High Risk</span>
-            <span>22%</span>
+            <span>23%</span>
         </div>
         <div class="meter">
-            <div class="meter-fill meter-high" style="width: 22%"></div>
+            <div class="meter-fill meter-high" style="width: 23%"></div>
         </div>
     </div>
 </div>
@@ -402,13 +489,13 @@
         <li class="recommendation-item">
             <div class="rec-header">
                 <strong>Caffeine (mg)</strong>
-                <span class="impact-badge impact-good">↓16% risk</span>
+                <span class="impact-badge impact-good">↓22% risk</span>
             </div>
             <div class="rec-values">
                 Current: <span class="value-bad">380</span> → 
                 Target: <span class="value-good">80</span>
             </div>
-            <div class="rec-advice">💡 Try half-caff: same ritual, 190mg less caffeine.</div>
+            <div class="rec-advice">💡 You're at 380mg. Cut 300mg by skipping one coffee.</div>
         </li>
         
 
@@ -441,7 +528,7 @@
         <li class="recommendation-item">
             <div class="rec-header">
                 <strong>Sleep Quality (1-10)</strong>
-                <span class="impact-badge impact-neutral">minimal impact</span>
+                <span class="impact-badge impact-good">↓3% risk</span>
             </div>
             <div class="rec-values">
                 Current: <span class="value-bad">3</span> → 
@@ -454,18 +541,18 @@
         <li class="recommendation-item">
             <div class="rec-header">
                 <strong>Exercise (minutes)</strong>
-                <span class="impact-badge impact-good">↓3% risk</span>
+                <span class="impact-badge impact-good">↓1% risk</span>
             </div>
             <div class="rec-values">
                 Current: <span class="value-bad">30</span> → 
                 Target: <span class="value-good">45</span>
             </div>
-            <div class="rec-advice">💡 10 min of movement beats 0. Take stairs, walk during calls.</div>
+            <div class="rec-advice">💡 Add a 15-min walk after lunch. Start today.</div>
         </li>
         
 
         <li class="recommendation-summary">
-            📈 <strong>Combined potential risk reduction: ~20%</strong>
+            📈 <strong>Combined potential risk reduction: ~26%</strong>
             <br><small>(if you address all factors above)</small>
         </li>
         
@@ -483,6 +570,75 @@
         <div class="warning-item warning-normal">⚠️ High caffeine (380mg) with poor sleep quality (3/10). This is likely not a coincidence! Caffeine blocks adenosine (your sleep signal) for 6+ hours. Try cutting caffeine after noon.</div><div class="warning-item warning-normal">⚠️ High caffeine (380mg) and only 5 hours of sleep. You might be using caffeine to compensate for sleep deprivation. This creates a vicious cycle - caffeine disrupts sleep, poor sleep needs more caffeine.</div><div class="warning-item warning-normal">⚠️ Great mood (9/10) but only 5 hours of sleep. Mood often stays positive temporarily during sleep deprivation (adrenaline), then crashes. Make sure this isn't the calm before the storm.</div><div class="warning-item warning-normal">⚠️ Great mood (9/10) but terrible sleep quality (3/10). Poor sleep quality affects mood over time. You might be resilient now, but chronic poor sleep accumulates.</div>
     </div>
     
+        <div class="cvae-section">
+            <h3>🤖 AI-Powered Suggestions</h3>
+            <p class="cvae-intro">Personalized changes with actionable tips:</p>
+            <div class="cvae-suggestions">
+                
+            <div class="cvae-item">
+                <div class="cvae-change">
+                    <span class="cvae-arrow">↘️</span>
+                    <span class="cvae-label">Caffeine (mg):</span>
+                    <span class="cvae-current">380.0</span>
+                    <span class="cvae-arrow-text">→</span>
+                    <span class="cvae-suggested">348.0</span>
+                    <span class="cvae-diff">(-32.0)</span>
+                </div>
+                <div class="cvae-tip">💡 No caffeine after 2pm. It has a 6-hour half-life.</div>
+            </div>
+            
+            <div class="cvae-item">
+                <div class="cvae-change">
+                    <span class="cvae-arrow">↗️</span>
+                    <span class="cvae-label">Sleep Quality (1-10):</span>
+                    <span class="cvae-current">3.0</span>
+                    <span class="cvae-arrow-text">→</span>
+                    <span class="cvae-suggested">6.1</span>
+                    <span class="cvae-diff">(+3.1)</span>
+                </div>
+                <div class="cvae-tip">💡 No screens 1h before bed. Blue light disrupts melatonin.</div>
+            </div>
+            
+            <div class="cvae-item">
+                <div class="cvae-change">
+                    <span class="cvae-arrow">↗️</span>
+                    <span class="cvae-label">Sleep Hours:</span>
+                    <span class="cvae-current">5.0</span>
+                    <span class="cvae-arrow-text">→</span>
+                    <span class="cvae-suggested">6.9</span>
+                    <span class="cvae-diff">(+1.9)</span>
+                </div>
+                <div class="cvae-tip">💡 Set a bedtime alarm for 1h before your wake time.</div>
+            </div>
+            
+            <div class="cvae-item">
+                <div class="cvae-change">
+                    <span class="cvae-arrow">↘️</span>
+                    <span class="cvae-label">Meetings:</span>
+                    <span class="cvae-current">6.0</span>
+                    <span class="cvae-arrow-text">→</span>
+                    <span class="cvae-suggested">4.8</span>
+                    <span class="cvae-diff">(-1.2)</span>
+                </div>
+                <div class="cvae-tip">💡 Block 'focus time' on your calendar before others fill it.</div>
+            </div>
+            
+            <div class="cvae-item">
+                <div class="cvae-change">
+                    <span class="cvae-arrow">↘️</span>
+                    <span class="cvae-label">Stress Level (1-10):</span>
+                    <span class="cvae-current">5.0</span>
+                    <span class="cvae-arrow-text">→</span>
+                    <span class="cvae-suggested">3.9</span>
+                    <span class="cvae-diff">(-1.1)</span>
+                </div>
+                <div class="cvae-tip">💡 Try box breathing: 4s inhale, 4s hold, 4s exhale, 4s hold. Repeat 5x.</div>
+            </div>
+            
+            </div>
+            <p class="cvae-note">✨ Tips based on behavioral science research.</p>
+        </div>
+        
         
         <div class="footer">
             <p>Powered by ML - University Project</p>

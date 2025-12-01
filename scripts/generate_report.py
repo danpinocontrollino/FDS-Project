@@ -35,6 +35,7 @@ from predict_burnout import (
     FEATURE_LABELS,
     get_specific_advice,
     detect_contradictions,
+    get_cvae_advisor,
 )
 
 
@@ -338,6 +339,93 @@ HTML_TEMPLATE = """
             color: #856404;
         }
         
+        /* CVAE AI Suggestions */
+        .cvae-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            color: white;
+        }
+        
+        .cvae-section h3 {
+            margin-bottom: 10px;
+            color: white;
+        }
+        
+        .cvae-intro {
+            opacity: 0.9;
+            margin-bottom: 15px;
+            font-size: 0.95rem;
+        }
+        
+        .cvae-suggestions {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .cvae-item {
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 0.95rem;
+        }
+        
+        .cvae-item:last-child {
+            border-bottom: none;
+        }
+        
+        .cvae-change {
+            margin-bottom: 6px;
+        }
+        
+        .cvae-tip {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            margin-top: 4px;
+        }
+        
+        .cvae-arrow {
+            margin-right: 5px;
+        }
+        
+        .cvae-label {
+            font-weight: 500;
+        }
+        
+        .cvae-current {
+            opacity: 0.7;
+        }
+        
+        .cvae-arrow-text {
+            margin: 0 5px;
+        }
+        
+        .cvae-suggested {
+            font-weight: 600;
+        }
+        
+        .cvae-diff {
+            opacity: 0.8;
+            font-size: 0.85rem;
+        }
+        
+        .cvae-note {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            opacity: 0.85;
+        }
+        
+        .cvae-error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        
         @media (max-width: 600px) {
             .header h1 { font-size: 1.8rem; }
             .risk-badge { font-size: 1.2rem; padding: 10px 25px; }
@@ -553,6 +641,149 @@ def generate_recommendations_html(data: dict, pred_class: int, model, feature_co
     return "\n".join(html_parts)
 
 
+def generate_cvae_suggestions_html(data: dict, pred_class: int, probs: list = None) -> str:
+    """
+    Generate HTML for AI-powered CVAE suggestions.
+    
+    IMPORTANT: We filter suggestions to only show BENEFICIAL changes that align
+    with health science. The CVAE learns correlations, not causation.
+    
+    Shows suggestions for:
+    - Medium/High risk users (always)
+    - Borderline low risk users (< 75% confidence) 
+    """
+    import torch
+    
+    # Skip if clearly low risk (>= 75% confidence)
+    if pred_class == 0 and probs is not None and probs[0] >= 0.75:
+        return ""  # Strong low risk, no suggestions needed
+    
+    cvae, stats = get_cvae_advisor()
+    if cvae is None:
+        return ""
+    
+    # Define what direction is ACTUALLY healthy for each feature
+    # True = higher is better, False = lower is better
+    HEALTHY_DIRECTION = {
+        "stress_level": False,      # Lower stress is better
+        "sleep_hours": True,        # More sleep is better
+        "sleep_quality": True,      # Better sleep quality is better
+        "work_hours": False,        # Fewer work hours is better
+        "exercise_minutes": True,   # More exercise is better
+        "mood_score": True,         # Better mood is better
+        "energy_level": True,       # More energy is better
+        "focus_score": True,        # Better focus is better
+        "caffeine_mg": False,       # Less caffeine is better
+        "screen_time_hours": False, # Less screen time is better
+        "meetings_count": False,    # Fewer meetings is better
+        "alcohol_units": False,     # Less alcohol is better
+        "steps_count": True,        # More steps is better
+        "tasks_completed": True,    # More tasks completed is better
+        "work_pressure": False,     # Lower pressure is better
+        "commute_minutes": False,   # Shorter commute is better
+        "emails_received": False,   # Fewer emails is better
+    }
+    
+    try:
+        # Use CVAE's feature columns
+        cvae_feature_cols = stats.get("feature_cols", FEATURE_COLS)
+        
+        # Create sequence
+        sequence = create_weekly_sequence(data, cvae_feature_cols)
+        x = torch.tensor(sequence, dtype=torch.float32).unsqueeze(0)
+        current_label = torch.tensor([pred_class])
+        
+        # Normalize if stats available
+        mean_val = stats.get("mean")
+        std_val = stats.get("std")
+        if mean_val is not None and std_val is not None:
+            mean = torch.tensor(mean_val, dtype=torch.float32)
+            std = torch.tensor(std_val, dtype=torch.float32)
+            x_norm = (x - mean) / (std + 1e-8)
+        else:
+            x_norm = x
+        
+        # Generate counterfactual
+        suggested = cvae.suggest_changes(x_norm, current_label, target_label=0)
+        
+        # Denormalize
+        if mean_val is not None and std_val is not None:
+            suggested = suggested * (std + 1e-8) + mean
+        
+        # Average over week
+        suggested_avg = suggested.squeeze(0).mean(dim=0).numpy()
+        
+        # Build suggestions list - ONLY beneficial changes
+        changes = []
+        for i, feature in enumerate(cvae_feature_cols):
+            current = data.get(feature, DEFAULTS.get(feature, 5))
+            suggested_val = suggested_avg[i] if i < len(suggested_avg) else current
+            diff = suggested_val - current
+            
+            # Skip tiny changes
+            if abs(diff) < 0.5 and (abs(diff) / max(abs(current), 1)) < 0.1:
+                continue
+            
+            # CRITICAL: Only show suggestions that align with health science!
+            higher_is_better = HEALTHY_DIRECTION.get(feature, True)
+            is_beneficial = (diff > 0 and higher_is_better) or (diff < 0 and not higher_is_better)
+            
+            if is_beneficial:
+                changes.append({
+                    "feature": feature,
+                    "current": current,
+                    "suggested": suggested_val,
+                    "diff": diff,
+                })
+        
+        changes.sort(key=lambda x: abs(x["diff"]), reverse=True)
+        
+        if not changes:
+            return ""  # No beneficial suggestions found
+        
+        # Build HTML with actionable advice
+        items = []
+        for change in changes[:5]:
+            feature = change["feature"]
+            current = change["current"]
+            suggested = change["suggested"]
+            diff = change["diff"]
+            
+            feature_label = FEATURE_LABELS.get(feature, feature.replace("_", " ").title())
+            arrow = "↗️" if diff > 0 else "↘️"
+            
+            # Get actionable advice for HOW to make this change
+            actionable_tip = get_specific_advice(feature, current, suggested, abs(diff))
+            
+            items.append(f"""
+            <div class="cvae-item">
+                <div class="cvae-change">
+                    <span class="cvae-arrow">{arrow}</span>
+                    <span class="cvae-label">{feature_label}:</span>
+                    <span class="cvae-current">{current:.1f}</span>
+                    <span class="cvae-arrow-text">→</span>
+                    <span class="cvae-suggested">{suggested:.1f}</span>
+                    <span class="cvae-diff">({diff:+.1f})</span>
+                </div>
+                <div class="cvae-tip">💡 {actionable_tip}</div>
+            </div>
+            """)
+        
+        return f"""
+        <div class="cvae-section">
+            <h3>🤖 AI-Powered Suggestions</h3>
+            <p class="cvae-intro">Personalized changes with actionable tips:</p>
+            <div class="cvae-suggestions">
+                {"".join(items)}
+            </div>
+            <p class="cvae-note">✨ Tips based on behavioral science research.</p>
+        </div>
+        """
+        
+    except Exception as e:
+        return f'<div class="cvae-error">⚠️ Could not generate AI suggestions: {e}</div>'
+
+
 def generate_contradictions_html(data: dict) -> str:
     """Generate HTML for contradiction warnings."""
     warnings = detect_contradictions(data)
@@ -638,7 +869,10 @@ def generate_single_report(data: dict, name: str, model, feature_cols: list, out
     # Add contradictions check (if any)
     contradictions_html = generate_contradictions_html(data)
     
-    result_html = name_html + result_html + contradictions_html
+    # Add CVAE AI suggestions (if available and not clearly low risk)
+    cvae_html = generate_cvae_suggestions_html(data, pred_class, probs)
+    
+    result_html = name_html + result_html + contradictions_html + cvae_html
     
     # Generate full HTML
     html = HTML_TEMPLATE.replace("{date}", datetime.now().strftime("%B %d, %Y at %H:%M"))

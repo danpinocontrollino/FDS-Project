@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -169,13 +170,47 @@ class GRUClassifier(nn.Module):
         return self.head(out[:, -1, :])
 
 
-class TransformerClassifier(nn.Module):
-    """Simplified Transformer for loading saved models."""
-    def __init__(self, input_dim: int = 17, d_model: int = 64, num_classes: int = 3):
+class PositionalEncoding(nn.Module):
+    """Sinusoidal positional encoding for Transformer models."""
+    def __init__(self, d_model: int, max_len: int = 100, dropout: float = 0.0):
         super().__init__()
+        self.dropout = nn.Dropout(p=dropout) if dropout > 0 else nn.Identity()
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0)
+        self.register_buffer("pe", pe)
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = x + self.pe[:, :x.size(1), :]
+        return self.dropout(x)
+
+
+class TransformerClassifier(nn.Module):
+    """Transformer classifier matching the training architecture."""
+    def __init__(
+        self,
+        input_dim: int = 17,
+        d_model: int = 64,
+        nhead: int = 4,
+        num_layers: int = 2,
+        dim_feedforward: int = 256,
+        num_classes: int = 3,
+    ):
+        super().__init__()
+        self.d_model = d_model
         self.input_projection = nn.Linear(input_dim, d_model)
-        encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=4, batch_first=True)
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=2)
+        self.pos_encoder = PositionalEncoding(d_model)
+        
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_model,
+            nhead=nhead,
+            dim_feedforward=dim_feedforward,
+            batch_first=True,
+        )
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
         self.head = nn.Sequential(
             nn.LayerNorm(d_model),
             nn.Dropout(0.1),
@@ -184,9 +219,213 @@ class TransformerClassifier(nn.Module):
     
     def forward(self, x):
         x = self.input_projection(x)
+        x = self.pos_encoder(x)
         x = self.transformer_encoder(x)
         x = x.mean(dim=1)
         return self.head(x)
+
+
+class MAEClassifier(nn.Module):
+    """
+    Burnout classifier using pre-trained MAE encoder (65% accuracy).
+    
+    This model was pre-trained on 1.4M behavioral sequences using
+    masked autoencoding, then fine-tuned for burnout classification.
+    """
+    
+    def __init__(
+        self,
+        input_dim: int = 17,
+        d_model: int = 64,
+        nhead: int = 4,
+        num_layers: int = 2,
+        num_classes: int = 3,
+        dim_feedforward: int = 256,
+        dropout: float = 0.1,
+    ):
+        super().__init__()
+        
+        self.d_model = d_model
+        
+        # Encoder components
+        self.input_proj = nn.Linear(input_dim, d_model)
+        self.pos_encoder = PositionalEncoding(d_model)
+        
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_model,
+            nhead=nhead,
+            dim_feedforward=dim_feedforward,
+            dropout=dropout,
+            batch_first=True,
+        )
+        self.transformer_encoder = nn.TransformerEncoder(
+            encoder_layer,
+            num_layers=num_layers,
+        )
+        
+        # Classification head
+        self.classifier = nn.Sequential(
+            nn.LayerNorm(d_model),
+            nn.Dropout(dropout),
+            nn.Linear(d_model, dim_feedforward),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(dim_feedforward, num_classes),
+        )
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        embeddings = self.input_proj(x)
+        embeddings = self.pos_encoder(embeddings)
+        encoded = self.transformer_encoder(embeddings)
+        pooled = encoded.mean(dim=1)
+        return self.classifier(pooled)
+
+
+class CVAESmartAdvisor(nn.Module):
+    """
+    Conditional Variational Autoencoder for generating "what-if" behavioral suggestions.
+    
+    This model was trained to understand the latent patterns that distinguish
+    low, medium, and high burnout behaviors. It can suggest behavioral changes
+    by encoding your current week, then decoding with a "low burnout" condition.
+    """
+    
+    def __init__(
+        self,
+        input_dim: int = 17,
+        seq_len: int = 7,
+        latent_dim: int = 32,
+        hidden_dim: int = 128,
+        num_classes: int = 3,
+        condition_dim: int = 16,
+    ):
+        super().__init__()
+        
+        self.input_dim = input_dim
+        self.seq_len = seq_len
+        self.latent_dim = latent_dim
+        self.hidden_dim = hidden_dim
+        self.flat_dim = seq_len * input_dim
+        
+        # Condition embedding: burnout level → vector
+        self.condition_embedding = nn.Embedding(num_classes, condition_dim)
+        
+        # ENCODER
+        encoder_input_dim = self.flat_dim + condition_dim
+        self.encoder = nn.Sequential(
+            nn.Linear(encoder_input_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.LeakyReLU(0.2),
+            nn.Dropout(0.1),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.LeakyReLU(0.2),
+        )
+        
+        self.fc_mu = nn.Linear(hidden_dim, latent_dim)
+        self.fc_logvar = nn.Linear(hidden_dim, latent_dim)
+        
+        # DECODER
+        decoder_input_dim = latent_dim + condition_dim
+        self.decoder = nn.Sequential(
+            nn.Linear(decoder_input_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.LeakyReLU(0.2),
+            nn.Dropout(0.1),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.LeakyReLU(0.2),
+            nn.Linear(hidden_dim, self.flat_dim),
+        )
+    
+    def encode(self, x: torch.Tensor, condition: torch.Tensor):
+        batch_size = x.size(0)
+        x_flat = x.reshape(batch_size, -1)
+        cond_emb = self.condition_embedding(condition)
+        encoder_input = torch.cat([x_flat, cond_emb], dim=-1)
+        hidden = self.encoder(encoder_input)
+        return self.fc_mu(hidden), self.fc_logvar(hidden)
+    
+    def decode(self, z: torch.Tensor, condition: torch.Tensor):
+        batch_size = z.size(0)
+        cond_emb = self.condition_embedding(condition)
+        decoder_input = torch.cat([z, cond_emb], dim=-1)
+        x_flat = self.decoder(decoder_input)
+        return x_flat.reshape(batch_size, self.seq_len, self.input_dim)
+    
+    def suggest_changes(
+        self,
+        original_sequence: torch.Tensor,
+        original_label: torch.Tensor,
+        target_label: int = 0,
+    ) -> torch.Tensor:
+        """
+        THE "SMART ADVISOR" FUNCTION
+        
+        Generate a counterfactual schedule: "What would this week look like
+        if you had low burnout?"
+        """
+        self.eval()
+        with torch.no_grad():
+            mu, _ = self.encode(original_sequence, original_label)
+            target_cond = torch.tensor([target_label], device=mu.device)
+            suggested = self.decode(mu, target_cond)
+        return suggested
+
+
+def load_cvae_advisor(model_dir: Path = None) -> Optional[Tuple[CVAESmartAdvisor, dict]]:
+    """
+    Load the CVAE Smart Advisor model if available.
+    
+    Returns:
+        (model, stats_dict) or None if not available
+    """
+    if model_dir is None:
+        model_dir = MODEL_DIR
+    
+    cvae_path = model_dir / "cvae_advisor.pt"
+    
+    if not cvae_path.exists():
+        return None
+    
+    try:
+        checkpoint = torch.load(cvae_path, map_location="cpu", weights_only=False)
+        
+        # Get model parameters from checkpoint
+        input_dim = checkpoint.get("input_dim", 17)
+        seq_len = checkpoint.get("seq_len", 7)
+        latent_dim = checkpoint.get("latent_dim", 32)
+        hidden_dim = checkpoint.get("hidden_dim", 128)
+        
+        # Build model
+        model = CVAESmartAdvisor(
+            input_dim=input_dim,
+            seq_len=seq_len,
+            latent_dim=latent_dim,
+            hidden_dim=hidden_dim,
+        )
+        
+        # Load weights
+        model.load_state_dict(checkpoint["model_state"])
+        model.eval()
+        
+        # Get normalization stats (may be in 'normalization' dict or directly in checkpoint)
+        norm_dict = checkpoint.get("normalization", {})
+        mean_val = norm_dict.get("mean") if norm_dict else checkpoint.get("mean")
+        std_val = norm_dict.get("std") if norm_dict else checkpoint.get("std")
+        
+        stats = {
+            "mean": mean_val,
+            "std": std_val,
+            "feature_cols": checkpoint.get("feature_cols", FEATURE_COLS),
+        }
+        
+        print(f"✅ Loaded CVAE Smart Advisor from {cvae_path}")
+        return model, stats
+        
+    except Exception as e:
+        print(f"⚠️  Could not load CVAE advisor: {e}")
+        return None
 
 
 def load_model(model_path: str) -> tuple:
@@ -224,21 +463,56 @@ def load_model(model_path: str) -> tuple:
         model_type = "gru"
     elif "transformer" in str(model_path).lower():
         model_type = "transformer"
+    elif "mae" in str(model_path).lower():
+        model_type = "mae"
     
     # Build appropriate model with CORRECT input dimension
+    state_dict = checkpoint["model_state"]
+    
     if model_type == "lstm":
         model = LSTMClassifier(input_dim=input_dim)
     elif model_type == "gru":
         model = GRUClassifier(input_dim=input_dim)
     elif model_type == "transformer":
         d_model = checkpoint.get("d_model", 64)
-        model = TransformerClassifier(input_dim=input_dim, d_model=d_model)
+        nhead = checkpoint.get("nhead", 4)
+        num_layers = checkpoint.get("num_layers", 2)
+        dim_feedforward = checkpoint.get("dim_feedforward", 256)
+        model = TransformerClassifier(
+            input_dim=input_dim,
+            d_model=d_model,
+            nhead=nhead,
+            num_layers=num_layers,
+            dim_feedforward=dim_feedforward,
+        )
+        # Handle positional encoding buffer size mismatch (checkpoint has seq_len, model has 100)
+        if "pos_encoder.pe" in state_dict:
+            saved_pe = state_dict["pos_encoder.pe"]  # (1, seq_len, d_model)
+            model_pe = model.pos_encoder.pe  # (1, 100, d_model)
+            # Copy saved PE values to model's PE buffer
+            seq_len = saved_pe.size(1)
+            model_pe[:, :seq_len, :] = saved_pe
+            # Remove from state_dict to avoid error
+            state_dict = {k: v for k, v in state_dict.items() if k != "pos_encoder.pe"}
+    elif model_type == "mae":
+        # MAE classifier with its full architecture
+        d_model = checkpoint.get("d_model", 64)
+        nhead = checkpoint.get("nhead", 4)
+        num_layers = checkpoint.get("num_layers", 2)
+        dim_feedforward = checkpoint.get("dim_feedforward", 256)
+        model = MAEClassifier(
+            input_dim=input_dim,
+            d_model=d_model,
+            nhead=nhead,
+            num_layers=num_layers,
+            dim_feedforward=dim_feedforward,
+        )
     else:
         # Default to LSTM
         model = LSTMClassifier(input_dim=input_dim)
     
-    # Load weights
-    model.load_state_dict(checkpoint["model_state"])
+    # Load weights (use strict=False to handle any remaining mismatches)
+    model.load_state_dict(state_dict, strict=False)
     model.eval()
     
     print(f"✅ Loaded {model_type.upper()} model from {model_path}")
@@ -1132,6 +1406,153 @@ def get_specific_advice(feature: str, current: float, target: float, diff: float
     return random.choice(templates)
 
 
+# Global CVAE advisor (loaded once)
+_cvae_advisor = None
+_cvae_stats = None
+
+
+def get_cvae_advisor():
+    """Load CVAE advisor on first use (lazy loading)."""
+    global _cvae_advisor, _cvae_stats
+    
+    if _cvae_advisor is None:
+        result = load_cvae_advisor()
+        if result is not None:
+            _cvae_advisor, _cvae_stats = result
+    
+    return _cvae_advisor, _cvae_stats
+
+
+def print_cvae_suggestions(data: Dict[str, float], pred_class: int, feature_cols: List[str]) -> None:
+    """
+    Print AI-generated behavioral suggestions from the CVAE Smart Advisor.
+    
+    This uses a generative model trained on 1.4M behavioral sequences to
+    suggest what your week would look like with low burnout.
+    
+    IMPORTANT: We filter suggestions to only show BENEFICIAL changes that align
+    with health science. The CVAE learns correlations, not causation - so we
+    must filter out spurious suggestions like "receive more emails" or "walk less".
+    """
+    cvae, stats = get_cvae_advisor()
+    
+    if cvae is None:
+        return  # CVAE not available
+    
+    if pred_class == 0:
+        # Already low risk, no need for suggestions
+        return
+    
+    # Define what direction is ACTUALLY healthy for each feature
+    # True = higher is better, False = lower is better
+    HEALTHY_DIRECTION = {
+        "stress_level": False,      # Lower stress is better
+        "sleep_hours": True,        # More sleep is better
+        "sleep_quality": True,      # Better sleep quality is better
+        "work_hours": False,        # Fewer work hours is better (up to a point)
+        "exercise_minutes": True,   # More exercise is better
+        "mood_score": True,         # Better mood is better
+        "energy_level": True,       # More energy is better
+        "focus_score": True,        # Better focus is better
+        "caffeine_mg": False,       # Less caffeine is better
+        "screen_time_hours": False, # Less screen time is better
+        "meetings_count": False,    # Fewer meetings is better
+        "alcohol_units": False,     # Less alcohol is better
+        "steps_count": True,        # More steps is better
+        "tasks_completed": True,    # More tasks completed is better
+        "work_pressure": False,     # Lower pressure is better
+        "commute_minutes": False,   # Shorter commute is better
+        "emails_received": False,   # Fewer emails is better (less overload)
+    }
+    
+    try:
+        # Use CVAE's feature columns (may differ from classification model)
+        cvae_feature_cols = stats.get("feature_cols", FEATURE_COLS)
+        
+        # Create sequence from data using CVAE's feature columns
+        sequence = create_weekly_sequence(data, cvae_feature_cols)
+        
+        # Convert to tensor
+        x = torch.tensor(sequence, dtype=torch.float32).unsqueeze(0)
+        current_label = torch.tensor([pred_class])
+        
+        # Normalize if stats available
+        if stats and stats.get("mean") is not None and stats.get("std") is not None:
+            mean = torch.tensor(stats["mean"], dtype=torch.float32)
+            std = torch.tensor(stats["std"], dtype=torch.float32)
+            x_norm = (x - mean) / (std + 1e-8)
+        else:
+            x_norm = x
+        
+        # Generate "low burnout" counterfactual
+        suggested = cvae.suggest_changes(x_norm, current_label, target_label=0)
+        
+        # Denormalize
+        if stats and stats.get("mean") is not None and stats.get("std") is not None:
+            suggested = suggested * (std + 1e-8) + mean
+        
+        # Average over the week
+        suggested_avg = suggested.squeeze(0).mean(dim=0).numpy()
+        
+        # Compare with current and FILTER to only beneficial changes
+        changes = []
+        for i, feature in enumerate(cvae_feature_cols):
+            current = data.get(feature, DEFAULTS.get(feature, 5))
+            suggested_val = suggested_avg[i] if i < len(suggested_avg) else current
+            
+            diff = suggested_val - current
+            
+            # Skip tiny changes
+            if abs(diff) < 0.5 and (abs(diff) / max(abs(current), 1)) < 0.1:
+                continue
+            
+            # CRITICAL: Only show suggestions that align with health science!
+            # The CVAE learns correlations, not causation - we must filter out
+            # spurious suggestions like "receive more emails" or "walk less"
+            higher_is_better = HEALTHY_DIRECTION.get(feature, True)
+            
+            # Check if the suggestion is in the healthy direction
+            is_beneficial = (diff > 0 and higher_is_better) or (diff < 0 and not higher_is_better)
+            
+            if is_beneficial:
+                changes.append({
+                    "feature": feature,
+                    "current": current,
+                    "suggested": suggested_val,
+                    "diff": diff,
+                    "higher_is_better": higher_is_better,
+                })
+        
+        # Sort by magnitude of change
+        changes.sort(key=lambda x: abs(x["diff"]), reverse=True)
+        
+        if not changes:
+            # No beneficial suggestions found
+            return
+        
+        print("\n" + "─" * 50)
+        print("🤖 AI-POWERED BEHAVIORAL SUGGESTIONS")
+        print("\n  📊 Changes that could help:\n")
+        
+        # Show top 5 beneficial changes
+        for change in changes[:5]:
+            feature = change["feature"]
+            current = change["current"]
+            suggested = change["suggested"]
+            diff = change["diff"]
+            
+            feature_label = FEATURE_LABELS.get(feature, feature.replace("_", " ").title())
+            arrow = "↗️" if diff > 0 else "↘️"
+            
+            print(f"    {arrow} {feature_label}: {current:.1f} → {suggested:.1f} ({diff:+.1f})")
+        
+        print("\n  💡 These suggestions are based on patterns from people")
+        print("     with similar profiles who had LOW burnout risk.")
+        
+    except Exception as e:
+        print(f"\n  ⚠️  Could not generate AI suggestions: {e}")
+
+
 def print_prediction_result(data: Dict[str, float], pred_class: int, probs: np.ndarray, model: nn.Module = None, feature_cols: List[str] = None) -> None:
     """Print the full prediction result with visualizations."""
     risk = RISK_LEVELS[pred_class]
@@ -1172,6 +1593,10 @@ def print_prediction_result(data: Dict[str, float], pred_class: int, probs: np.n
     # Data-driven recommendations (if model available)
     if model is not None and feature_cols is not None:
         print_recommendations(data, pred_class, model, feature_cols)
+    
+    # AI-powered suggestions from CVAE (if available and not already low risk)
+    if feature_cols is not None and pred_class > 0:
+        print_cvae_suggestions(data, pred_class, feature_cols)
     
     # Footer
     print("\n" + "=" * 60)

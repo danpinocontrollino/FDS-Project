@@ -298,6 +298,93 @@
             color: #856404;
         }
         
+        /* CVAE AI Suggestions */
+        .cvae-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            color: white;
+        }
+        
+        .cvae-section h3 {
+            margin-bottom: 10px;
+            color: white;
+        }
+        
+        .cvae-intro {
+            opacity: 0.9;
+            margin-bottom: 15px;
+            font-size: 0.95rem;
+        }
+        
+        .cvae-suggestions {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .cvae-item {
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 0.95rem;
+        }
+        
+        .cvae-item:last-child {
+            border-bottom: none;
+        }
+        
+        .cvae-change {
+            margin-bottom: 6px;
+        }
+        
+        .cvae-tip {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            margin-top: 4px;
+        }
+        
+        .cvae-arrow {
+            margin-right: 5px;
+        }
+        
+        .cvae-label {
+            font-weight: 500;
+        }
+        
+        .cvae-current {
+            opacity: 0.7;
+        }
+        
+        .cvae-arrow-text {
+            margin: 0 5px;
+        }
+        
+        .cvae-suggested {
+            font-weight: 600;
+        }
+        
+        .cvae-diff {
+            opacity: 0.8;
+            font-size: 0.85rem;
+        }
+        
+        .cvae-note {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            opacity: 0.85;
+        }
+        
+        .cvae-error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        
         @media (max-width: 600px) {
             .header h1 { font-size: 1.8rem; }
             .risk-badge { font-size: 1.2rem; padding: 10px 25px; }
@@ -309,40 +396,40 @@
     <div class="container">
         <div class="header">
             <h1>🧠 Burnout Risk Assessment</h1>
-            <p>Generated on December 01, 2025 at 17:39</p>
+            <p>Generated on December 01, 2025 at 18:20</p>
         </div>
         
         <div class="person-name">Report for: <strong>Silvia</strong></div>
 <div class="card result-card">
-    <div class="emoji">😰</div>
+    <div class="emoji">😐</div>
     <h2>Your Burnout Risk Level</h2>
-    <div class="risk-badge risk-high">HIGH RISK</div>
-    <div class="confidence">Confidence: 35%</div>
-    <p class="description">High burnout risk. Please prioritize self-care.</p>
+    <div class="risk-badge risk-medium">MEDIUM RISK</div>
+    <div class="confidence">Confidence: 34%</div>
+    <p class="description">Some warning signs. Consider adjusting your routine.</p>
     
     <div class="meter-container">
         <div class="meter-label">
             <span>🟢 Low Risk</span>
-            <span>32%</span>
+            <span>33%</span>
         </div>
         <div class="meter">
-            <div class="meter-fill meter-low" style="width: 32%"></div>
+            <div class="meter-fill meter-low" style="width: 33%"></div>
         </div>
         
         <div class="meter-label">
             <span>🟡 Medium Risk</span>
-            <span>33%</span>
+            <span>34%</span>
         </div>
         <div class="meter">
-            <div class="meter-fill meter-medium" style="width: 33%"></div>
+            <div class="meter-fill meter-medium" style="width: 34%"></div>
         </div>
         
         <div class="meter-label">
             <span>🔴 High Risk</span>
-            <span>35%</span>
+            <span>32%</span>
         </div>
         <div class="meter">
-            <div class="meter-fill meter-high" style="width: 35%"></div>
+            <div class="meter-fill meter-high" style="width: 32%"></div>
         </div>
     </div>
 </div>
@@ -402,13 +489,13 @@
         <li class="recommendation-item">
             <div class="rec-header">
                 <strong>Work Pressure (low/medium/high)</strong>
-                <span class="impact-badge impact-good">↓9% risk</span>
+                <span class="impact-badge impact-good">↓10% risk</span>
             </div>
             <div class="rec-values">
                 Current: <span class="value-bad">2</span> → 
                 Target: <span class="value-good">0</span>
             </div>
-            <div class="rec-advice">💡 High pressure often means unclear priorities. Ask: what's #1?</div>
+            <div class="rec-advice">💡 Pressure feels lower when you write tasks down. Brain dump now.</div>
         </li>
         
 
@@ -421,20 +508,20 @@
                 Current: <span class="value-bad">2000</span> → 
                 Target: <span class="value-good">8000</span>
             </div>
-            <div class="rec-advice">💡 Park farther away. Small changes add up to big step counts.</div>
+            <div class="rec-advice">💡 Take calls while walking. Movement helps thinking too.</div>
         </li>
         
 
         <li class="recommendation-item">
             <div class="rec-header">
                 <strong>Exercise (minutes)</strong>
-                <span class="impact-badge impact-good">↓8% risk</span>
+                <span class="impact-badge impact-neutral">minimal impact</span>
             </div>
             <div class="rec-values">
                 Current: <span class="value-bad">10</span> → 
                 Target: <span class="value-good">45</span>
             </div>
-            <div class="rec-advice">💡 Even 17 more minutes daily compounds to 122 min/week.</div>
+            <div class="rec-advice">💡 10 min of movement beats 0. Take stairs, walk during calls.</div>
         </li>
         
 
@@ -447,7 +534,7 @@
                 Current: <span class="value-bad">2</span> → 
                 Target: <span class="value-good">7</span>
             </div>
-            <div class="rec-advice">💡 Try the Pomodoro technique: 25 min focus, 5 min break.</div>
+            <div class="rec-advice">💡 Single-task for 1 hour today. Multitasking is a myth.</div>
         </li>
         
 
@@ -460,12 +547,12 @@
                 Current: <span class="value-bad">7</span> → 
                 Target: <span class="value-good">4</span>
             </div>
-            <div class="rec-advice">💡 Your stress is 7/10. Target: 4. What's one thing you can delegate?</div>
+            <div class="rec-advice">💡 Try box breathing: 4s inhale, 4s hold, 4s exhale, 4s hold. Repeat 5x.</div>
         </li>
         
 
         <li class="recommendation-summary">
-            📈 <strong>Combined potential risk reduction: ~18%</strong>
+            📈 <strong>Combined potential risk reduction: ~11%</strong>
             <br><small>(if you address all factors above)</small>
         </li>
         
@@ -483,6 +570,75 @@
         <div class="warning-item warning-normal">⚠️ Only 5 work hours but HIGH pressure? This suggests intense, demanding work. Quality matters as much as quantity. Even short bursts of high-pressure work can burn you out.</div>
     </div>
     
+        <div class="cvae-section">
+            <h3>🤖 AI-Powered Suggestions</h3>
+            <p class="cvae-intro">Personalized changes with actionable tips:</p>
+            <div class="cvae-suggestions">
+                
+            <div class="cvae-item">
+                <div class="cvae-change">
+                    <span class="cvae-arrow">↗️</span>
+                    <span class="cvae-label">Steps:</span>
+                    <span class="cvae-current">2000.0</span>
+                    <span class="cvae-arrow-text">→</span>
+                    <span class="cvae-suggested">7110.9</span>
+                    <span class="cvae-diff">(+5110.9)</span>
+                </div>
+                <div class="cvae-tip">💡 Park farther away. Small changes add up to big step counts.</div>
+            </div>
+            
+            <div class="cvae-item">
+                <div class="cvae-change">
+                    <span class="cvae-arrow">↗️</span>
+                    <span class="cvae-label">Exercise (minutes):</span>
+                    <span class="cvae-current">10.0</span>
+                    <span class="cvae-arrow-text">→</span>
+                    <span class="cvae-suggested">13.8</span>
+                    <span class="cvae-diff">(+3.8)</span>
+                </div>
+                <div class="cvae-tip">💡 Even 1 more minutes daily compounds to 13 min/week.</div>
+            </div>
+            
+            <div class="cvae-item">
+                <div class="cvae-change">
+                    <span class="cvae-arrow">↗️</span>
+                    <span class="cvae-label">Focus (1-10):</span>
+                    <span class="cvae-current">2.0</span>
+                    <span class="cvae-arrow-text">→</span>
+                    <span class="cvae-suggested">5.2</span>
+                    <span class="cvae-diff">(+3.2)</span>
+                </div>
+                <div class="cvae-tip">💡 Put phone in another room. Out of sight = out of mind.</div>
+            </div>
+            
+            <div class="cvae-item">
+                <div class="cvae-change">
+                    <span class="cvae-arrow">↗️</span>
+                    <span class="cvae-label">Energy Level (1-10):</span>
+                    <span class="cvae-current">4.0</span>
+                    <span class="cvae-arrow-text">→</span>
+                    <span class="cvae-suggested">5.7</span>
+                    <span class="cvae-diff">(+1.7)</span>
+                </div>
+                <div class="cvae-tip">💡 Energy dip? Try a 10-min walk instead of coffee.</div>
+            </div>
+            
+            <div class="cvae-item">
+                <div class="cvae-change">
+                    <span class="cvae-arrow">↘️</span>
+                    <span class="cvae-label">Stress Level (1-10):</span>
+                    <span class="cvae-current">7.0</span>
+                    <span class="cvae-arrow-text">→</span>
+                    <span class="cvae-suggested">5.5</span>
+                    <span class="cvae-diff">(-1.5)</span>
+                </div>
+                <div class="cvae-tip">💡 Your stress is 7/10. Target: 6. What's one thing you can delegate?</div>
+            </div>
+            
+            </div>
+            <p class="cvae-note">✨ Tips based on behavioral science research.</p>
+        </div>
+        
         
         <div class="footer">
             <p>Powered by ML - University Project</p>
