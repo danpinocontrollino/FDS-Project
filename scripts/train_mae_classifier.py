@@ -111,6 +111,8 @@ def parse_args() -> argparse.Namespace:
                         help="Freeze encoder weights, only train classification head")
     parser.add_argument("--sample-users", type=float, default=0.1,
                         help="Fraction of users to include (default: 0.1 for CPU)")
+    parser.add_argument("--forecast-horizon", type=int, default=7,
+                        help="Days ahead to predict burnout (default 7 = next week)")
     return parser.parse_args()
 
 
@@ -118,9 +120,12 @@ def parse_args() -> argparse.Namespace:
 # DATA LOADING
 # ============================================================================
 
-def load_sequences_with_labels(window: int, sample_users: float = 1.0) -> Tuple[np.ndarray, np.ndarray]:
+def load_sequences_with_labels(window: int, sample_users: float = 1.0, forecast_horizon: int = 7) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Load sequences with burnout labels for supervised fine-tuning.
+    Load sequences with FUTURE burnout labels for supervised fine-tuning.
+    
+    CRITICAL: Predicts burnout forecast_horizon days AFTER the window ends.
+    This prevents leakage and enables realistic early warning prediction.
     """
     if not DAILY_PATH.exists():
         raise FileNotFoundError(
@@ -147,16 +152,19 @@ def load_sequences_with_labels(window: int, sample_users: float = 1.0) -> Tuple[
         feats = group[FEATURE_COLS].to_numpy(dtype=np.float32)
         labs = group["burnout_level"].to_numpy(dtype=np.int64)
         
-        if len(group) < window:
+        # Need enough data for window + forecast horizon
+        if len(group) < window + forecast_horizon:
             continue
         
-        for idx in range(window, len(group) + 1):
+        # Create windows with FUTURE labels
+        for idx in range(window, len(group) - forecast_horizon + 1):
             seq = feats[idx - window: idx]
-            label = labs[idx - 1]
+            label = labs[idx + forecast_horizon - 1]  # Future burnout
             if not np.isnan(seq).any():
                 sequences.append(seq)
                 labels.append(label)
     
+    print(f"Forecasting mode: predicting burnout {forecast_horizon} days ahead")
     return np.stack(sequences), np.array(labels)
 
 
@@ -307,9 +315,9 @@ def train(args: argparse.Namespace) -> None:
     mean = np.array(norm_stats.get("mean", [0] * len(FEATURE_COLS)))
     std = np.array(norm_stats.get("std", [1] * len(FEATURE_COLS)))
     
-    # Load sequences with labels
+    # Load sequences with labels (forecasting mode)
     print("Loading sequences with labels...")
-    X, y = load_sequences_with_labels(args.window, args.sample_users)
+    X, y = load_sequences_with_labels(args.window, args.sample_users, args.forecast_horizon)
     print(f"Total sequences: {len(X):,}")
     
     # Normalize using MAE's statistics (important for transfer learning!)

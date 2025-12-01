@@ -128,6 +128,8 @@ def parse_args() -> argparse.Namespace:
                         help="Learning rate for Adam optimizer")
     parser.add_argument("--sample-users", type=float, default=0.1,
                         help="Fraction of USERS to include (default 0.1 = 10%% for CPU training)")
+    parser.add_argument("--forecast-horizon", type=int, default=7,
+                        help="Days ahead to predict burnout (default 7 = next week)")
     return parser.parse_args()
 
 
@@ -135,30 +137,34 @@ def parse_args() -> argparse.Namespace:
 # DATA LOADING & SEQUENCE CREATION
 # ============================================================================
 
-def load_daily(window: int, sample_users: float = 1.0) -> Tuple[np.ndarray, np.ndarray]:
+def load_daily(window: int, sample_users: float = 1.0, forecast_horizon: int = 7) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Load daily data and create sliding window sequences.
+    Load daily data and create sliding window sequences for FORECASTING.
+    
+    CRITICAL CHANGE: We now predict FUTURE burnout, not same-period burnout.
+    This prevents data leakage and creates a realistic early warning system.
     
     Process:
     1. Load daily records (1000 users × 365 days)
     2. Optional: Stratified user sampling for CPU optimization
     3. Create sliding windows: each 7-day window → 1 sequence
-    4. Label = burnout level of the LAST day in the window
+    4. Label = burnout level FORECAST_HORIZON days AFTER the window ends
     
     Args:
-        window: Number of days in each sequence
+        window: Number of days in each sequence (default 7)
         sample_users: Fraction of users to include (for CPU training)
+        forecast_horizon: Days into the future to predict (default 7 = next week)
         
     Returns:
         X: Sequences array (N × window × features)
         y: Labels array (N,)
         
-    Example:
-        For user with 365 days and window=7:
-        - Sequence 1: days 1-7, label = day 7's burnout
-        - Sequence 2: days 2-8, label = day 8's burnout
+    Example (window=7, forecast_horizon=7):
+        For user with 365 days:
+        - Sequence 1: days 1-7, label = day 14's burnout (1 week ahead)
+        - Sequence 2: days 2-8, label = day 15's burnout
         - ...
-        - Sequence 359: days 359-365, label = day 365's burnout
+        This forces the model to learn PREDICTIVE patterns, not correlations.
     """
     if not DAILY_PATH.exists():
         raise FileNotFoundError(
@@ -206,21 +212,21 @@ def load_daily(window: int, sample_users: float = 1.0) -> Tuple[np.ndarray, np.n
         print(f"Stratified sampling: {len(selected_users):,} users ({sample_users*100:.0f}% of {n_users_total:,})")
         print(f"  Class distribution preserved: {daily['burnout_level'].value_counts(normalize=True).round(3).to_dict()}")
 
-    # ========== SLIDING WINDOW SEQUENCE CREATION ==========
+    # ========== SLIDING WINDOW SEQUENCE CREATION (FORECASTING) ==========
     sequences, labels = [], []
     
     for uid, group in daily.groupby("user_id"):
         feats = group[FEATURE_COLS].to_numpy(dtype=np.float32)
         labs = group["burnout_level"].to_numpy(dtype=np.int64)
         
-        # Skip users with insufficient data for even one window
-        if len(group) < window:
+        # Need enough data for window + forecast horizon
+        if len(group) < window + forecast_horizon:
             continue
         
-        # Create sliding windows
-        for idx in range(window, len(group) + 1):
-            seq = feats[idx - window: idx]  # 7-day feature window
-            label = labs[idx - 1]            # Last day's burnout level
+        # Create sliding windows with FUTURE labels
+        for idx in range(window, len(group) - forecast_horizon + 1):
+            seq = feats[idx - window: idx]       # 7-day feature window (days t-6 to t)
+            label = labs[idx + forecast_horizon - 1]  # Burnout at day t+7 (1 week ahead)
             
             # Skip windows with missing values
             if np.isnan(seq).any():
@@ -229,6 +235,7 @@ def load_daily(window: int, sample_users: float = 1.0) -> Tuple[np.ndarray, np.n
             sequences.append(seq)
             labels.append(label)
     
+    print(f"Forecasting mode: predicting burnout {forecast_horizon} days ahead")
     return np.stack(sequences), np.array(labels)
 
 
@@ -401,8 +408,8 @@ def train(args: argparse.Namespace) -> None:
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {DEVICE}")
     
-    # Load sequences
-    seq_X, seq_y = load_daily(args.window, args.sample_users)
+    # Load sequences with forecasting
+    seq_X, seq_y = load_daily(args.window, args.sample_users, args.forecast_horizon)
     print(f"Total sequences: {len(seq_X):,}")
     
     # ========== FEATURE STANDARDIZATION ==========
