@@ -460,44 +460,230 @@ def print_risk_meter(probs: np.ndarray) -> None:
         print(f"  {color} {label:12} [{bar}] {prob*100:5.1f}%")
 
 
-def print_recommendations(data: Dict[str, float], pred_class: int) -> None:
-    """Print personalized recommendations based on input data."""
+def print_recommendations(data: Dict[str, float], pred_class: int, model: nn.Module, feature_cols: List[str]) -> None:
+    """
+    Print DATA-DRIVEN recommendations based on feature importance and what-if analysis.
+    
+    Instead of generic advice, we:
+    1. Identify which features deviate most from healthy baselines
+    2. Run what-if simulations to show impact of changes
+    3. Prioritize recommendations by predicted impact
+    """
     print("\n" + "─" * 50)
-    print("💡 PERSONALIZED RECOMMENDATIONS")
+    print("💡 DATA-DRIVEN RECOMMENDATIONS")
     print("─" * 50)
+    
+    # Healthy baselines (from low-burnout population in training data)
+    healthy_baselines = {
+        "stress_level": 4.0,
+        "sleep_hours": 7.5,
+        "sleep_quality": 7.0,
+        "work_hours": 7.5,
+        "exercise_minutes": 45,
+        "mood_score": 7.0,
+        "energy_level": 7.0,
+        "focus_score": 7.0,
+        "caffeine_mg": 80,
+        "screen_time_hours": 3.5,
+        "meetings_count": 2,
+        "alcohol_units": 0.5,
+        "steps_count": 8000,
+        "tasks_completed": 6,
+        "work_pressure": 0.5,  # low
+        "commute_minutes": 20,
+        "emails_received": 15,
+    }
+    
+    # Calculate deviation from healthy baseline for each feature
+    deviations = []
+    for feature in feature_cols:
+        current = data.get(feature, DEFAULTS.get(feature, 5))
+        healthy = healthy_baselines.get(feature, current)
+        
+        # Determine if higher or lower is better
+        lower_is_better = feature in [
+            "stress_level", "work_hours", "caffeine_mg", "screen_time_hours",
+            "meetings_count", "alcohol_units", "work_pressure", "commute_minutes",
+            "emails_received"
+        ]
+        
+        if lower_is_better:
+            deviation = current - healthy  # positive = bad
+            direction = "reduce"
+        else:
+            deviation = healthy - current  # positive = bad (you're below healthy)
+            direction = "increase"
+        
+        # Normalize by typical range
+        ranges = {
+            "stress_level": 10, "sleep_hours": 4, "sleep_quality": 10,
+            "work_hours": 6, "exercise_minutes": 60, "mood_score": 10,
+            "energy_level": 10, "focus_score": 10, "caffeine_mg": 300,
+            "screen_time_hours": 8, "meetings_count": 8, "alcohol_units": 5,
+            "steps_count": 10000, "tasks_completed": 10, "work_pressure": 2,
+            "commute_minutes": 60, "emails_received": 50,
+        }
+        
+        normalized_deviation = deviation / ranges.get(feature, 10)
+        
+        if normalized_deviation > 0.1:  # Only significant deviations
+            deviations.append({
+                "feature": feature,
+                "current": current,
+                "healthy": healthy,
+                "deviation": normalized_deviation,
+                "direction": direction,
+                "raw_diff": abs(current - healthy),
+            })
+    
+    # Sort by deviation (most impactful first)
+    deviations.sort(key=lambda x: x["deviation"], reverse=True)
+    
+    # Run what-if simulations for top deviations
+    print("\n  📊 Your biggest risk factors (vs. healthy baseline):\n")
+    
+    if not deviations:
+        print("  ✨ Your metrics are close to healthy baselines! Keep it up.")
+        return
     
     recommendations = []
     
-    # Analyze each factor
-    if data.get("sleep_hours", 7) < 7:
-        recommendations.append("😴 Try to get at least 7 hours of sleep. Sleep debt compounds over time.")
+    for i, dev in enumerate(deviations[:5], 1):  # Top 5
+        feature = dev["feature"]
+        current = dev["current"]
+        healthy = dev["healthy"]
+        direction = dev["direction"]
+        
+        # Create what-if scenario
+        modified_data = data.copy()
+        modified_data[feature] = healthy
+        
+        # Predict with modification
+        sequence = create_weekly_sequence(modified_data, feature_cols)
+        new_pred, new_probs = predict(model, sequence, feature_cols)
+        
+        # Calculate risk reduction
+        current_risk = 1 - predict(model, create_weekly_sequence(data, feature_cols), feature_cols)[1][0]  # 1 - P(low)
+        new_risk = 1 - new_probs[0]
+        risk_reduction = (current_risk - new_risk) * 100
+        
+        # Format recommendation
+        feature_label = FEATURE_LABELS.get(feature, feature.replace("_", " ").title())
+        
+        if direction == "reduce":
+            action = f"Reduce from {current:.0f} → {healthy:.0f}"
+            diff = current - healthy
+        else:
+            action = f"Increase from {current:.0f} → {healthy:.0f}"
+            diff = healthy - current
+        
+        # Specific, actionable advice
+        specific_advice = get_specific_advice(feature, current, healthy, diff)
+        
+        impact_str = f"↓{risk_reduction:.0f}% risk" if risk_reduction > 0 else "minimal impact"
+        
+        print(f"  {i}. {feature_label}")
+        print(f"     Current: {current:.1f} → Target: {healthy:.1f}")
+        print(f"     Impact if changed: {impact_str}")
+        print(f"     💡 {specific_advice}")
+        print()
+        
+        recommendations.append({
+            "feature": feature,
+            "advice": specific_advice,
+            "impact": risk_reduction,
+        })
     
-    if data.get("stress_level", 5) > 6:
-        recommendations.append("🧘 High stress detected. Consider daily meditation or breathing exercises.")
-    
-    if data.get("exercise_minutes", 30) < 20:
-        recommendations.append("🏃 Aim for at least 20-30 minutes of exercise daily. Even walking helps!")
-    
-    if data.get("work_hours", 8) > 9:
-        recommendations.append("⏰ Working long hours increases burnout risk. Try to set boundaries.")
-    
-    if data.get("caffeine_mg", 100) > 300:
-        recommendations.append("☕ High caffeine intake can affect sleep. Consider reducing after 2 PM.")
-    
-    if data.get("screen_time_hours", 4) > 6:
-        recommendations.append("📱 High screen time. Take regular breaks and try the 20-20-20 rule.")
-    
-    if data.get("mood_score", 6) < 5:
-        recommendations.append("💬 Low mood persisting? Consider talking to someone you trust.")
-    
-    if not recommendations:
-        recommendations.append("✨ Your habits look healthy! Keep maintaining this balance.")
-    
-    for i, rec in enumerate(recommendations, 1):
-        print(f"  {i}. {rec}")
+    # Summary
+    total_potential = sum(r["impact"] for r in recommendations if r["impact"] > 0)
+    if total_potential > 10:
+        print(f"  ──────────────────────────────────────────────────")
+        print(f"  📈 Combined potential risk reduction: ~{total_potential:.0f}%")
+        print(f"     (if you address all factors above)")
 
 
-def print_prediction_result(data: Dict[str, float], pred_class: int, probs: np.ndarray) -> None:
+def get_specific_advice(feature: str, current: float, target: float, diff: float) -> str:
+    """Generate specific, actionable advice for each feature."""
+    
+    advice_templates = {
+        "sleep_hours": [
+            f"Go to bed {int(diff * 60)} minutes earlier tonight.",
+            f"Set a bedtime alarm for {int(diff)}h before your wake time.",
+            f"Aim for {target:.0f}h tonight - even {diff/2:.1f}h more helps.",
+        ],
+        "sleep_quality": [
+            "No screens 1h before bed. Blue light disrupts melatonin.",
+            "Keep bedroom at 65-68°F (18-20°C) for optimal sleep.",
+            "Try 4-7-8 breathing: inhale 4s, hold 7s, exhale 8s.",
+        ],
+        "stress_level": [
+            "Try box breathing: 4s inhale, 4s hold, 4s exhale, 4s hold. Repeat 5x.",
+            "Write down 3 things stressing you. Often just naming them helps.",
+            f"Your stress is {current:.0f}/10. Target: {target:.0f}. What's one thing you can delegate?",
+        ],
+        "work_hours": [
+            f"Leave work {diff:.1f}h earlier today. Set a hard stop.",
+            f"Block your calendar after {8 + (current - target)/2:.0f}pm this week.",
+            "Studies show productivity drops after 50h/week. You're past that.",
+        ],
+        "exercise_minutes": [
+            f"Add a {int(diff)}-min walk after lunch. Start today.",
+            "10 min of movement beats 0. Take stairs, walk during calls.",
+            f"Even {int(diff/2)} more minutes daily compounds to {int(diff/2 * 7)} min/week.",
+        ],
+        "mood_score": [
+            "Mood follows behavior. Plan one enjoyable activity today.",
+            "Call or text one friend today. Social connection lifts mood.",
+            "Get 15 min of sunlight this morning. It regulates serotonin.",
+        ],
+        "energy_level": [
+            "Energy dip? Try a 10-min walk instead of coffee.",
+            "Eat protein at lunch - carb-heavy meals cause afternoon crashes.",
+            "Check if you're dehydrated. Fatigue is often thirst in disguise.",
+        ],
+        "caffeine_mg": [
+            f"You're at {current:.0f}mg. Cut {diff:.0f}mg by skipping one coffee.",
+            "No caffeine after 2pm. It has a 6-hour half-life.",
+            f"Try half-caff: same ritual, {current/2:.0f}mg less caffeine.",
+        ],
+        "screen_time_hours": [
+            f"Set a {target:.0f}h daily screen limit on your phone.",
+            "Replace {diff:.1f}h of scrolling with a walk or podcast.",
+            "Use grayscale mode after 8pm. Color triggers engagement.",
+        ],
+        "meetings_count": [
+            f"Decline or shorten {int(diff)} meetings this week.",
+            "Propose 25-min meetings instead of 30. You'll get 5-min breaks.",
+            "Block 'focus time' on your calendar before others fill it.",
+        ],
+        "alcohol_units": [
+            "Alcohol disrupts REM sleep even in small amounts.",
+            f"Try alternating: one drink, one water. Cut intake by half.",
+            "Your liver needs 48h to fully recover. Try 2 dry days/week.",
+        ],
+        "steps_count": [
+            f"Add {int(diff)} steps with a 15-min walk. That's ~1,500 steps.",
+            "Take calls while walking. Movement helps thinking too.",
+            "Park farther away. Small changes add up to big step counts.",
+        ],
+        "work_pressure": [
+            "High pressure often means unclear priorities. Ask: what's #1?",
+            "Pressure feels lower when you write tasks down. Brain dump now.",
+            "Say 'I can do A or B by Friday, which is more important?'",
+        ],
+        "focus_score": [
+            "Try the Pomodoro technique: 25 min focus, 5 min break.",
+            "Put phone in another room. Out of sight = out of mind.",
+            "Single-task for 1 hour today. Multitasking is a myth.",
+        ],
+    }
+    
+    import random
+    templates = advice_templates.get(feature, [f"Aim to {('reduce' if current > target else 'increase')} this to {target:.1f}."])
+    return random.choice(templates)
+
+
+def print_prediction_result(data: Dict[str, float], pred_class: int, probs: np.ndarray, model: nn.Module = None, feature_cols: List[str] = None) -> None:
     """Print the full prediction result with visualizations."""
     risk = RISK_LEVELS[pred_class]
     
@@ -531,8 +717,9 @@ def print_prediction_result(data: Dict[str, float], pred_class: int, probs: np.n
         indicator = "✅" if (name in ["Stress"] and value <= target) or (name not in ["Stress"] and value >= target) else "⚠️"
         print(f"  {indicator} {name}: {value:.0f}{unit} ({note})")
     
-    # Recommendations
-    print_recommendations(data, pred_class)
+    # Data-driven recommendations (if model available)
+    if model is not None and feature_cols is not None:
+        print_recommendations(data, pred_class, model, feature_cols)
     
     # Footer
     print("\n" + "=" * 60)
@@ -612,7 +799,7 @@ def main() -> None:
             sequence = create_weekly_sequence(data, feature_cols)
             pred_class, probs = predict(model, sequence, feature_cols)
             print(f"\n--- Response #{idx + 1} ---")
-            print_prediction_result(data, pred_class, probs)
+            print_prediction_result(data, pred_class, probs, model, feature_cols)
         return
     elif any([args.stress, args.sleep, args.work, args.mood, args.exercise]):
         # Use command-line values
@@ -630,8 +817,8 @@ def main() -> None:
     sequence = create_weekly_sequence(data, feature_cols)
     pred_class, probs = predict(model, sequence, feature_cols)
     
-    # Print result
-    print_prediction_result(data, pred_class, probs)
+    # Print result with model for what-if analysis
+    print_prediction_result(data, pred_class, probs, model, feature_cols)
 
 
 if __name__ == "__main__":
