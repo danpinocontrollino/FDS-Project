@@ -84,6 +84,10 @@ NUMERIC_SIGNAL_COLS = [
     "mood_score",            # Self-reported mood (1-10)
     "energy_level",          # Self-reported energy (1-10)
     "focus_score",           # Self-reported focus (1-10)
+    # === NEW V2 FEATURES ===
+    "social_quality",        # Quality of social interactions (1-10)
+    "environment_distractions",  # How distracting is work environment (1-10)
+    "recovery_ability",      # How well you recover after stress (1-10)
 ]
 
 # Categorical user attributes (will be one-hot encoded)
@@ -95,7 +99,24 @@ CAT_COLS = [
     "mental_health_history", # Previous mental health issues
     "exercise_habit",        # Regular exerciser or not
     "work_pressure",         # Low/medium/high work pressure
+    # === NEW V2 FEATURES ===
+    "work_arrangement",      # Remote, hybrid, office, field
+    "workspace_type",        # Private office, open plan, home office, etc.
+    "job_type",              # Knowledge work, creative, healthcare, etc.
+    "loneliness_level",      # Never, rarely, sometimes, often, always
+    "break_flexibility",     # How flexible are work breaks
+    "work_life_boundary",    # Clear separation or blurred
+    "after_hours_checking",  # Frequency of checking work outside hours
 ]
+
+# New: Job types that inherently require screen time
+# Used to contextualize screen_time_hours
+SCREEN_INTENSIVE_JOBS = {
+    "knowledge_work",        # Software, research, writing
+    "creative_work",         # Design, marketing, content
+    "finance",               # Finance, accounting
+    "customer_service",      # Often computer-based
+}
 
 # Binary intervention flags (was user receiving any intervention that week?)
 INTERVENTION_FLAGS = [
@@ -107,6 +128,45 @@ INTERVENTION_FLAGS = [
     "intervention_vacation",
     "intervention_workload_cap",
 ]
+
+# === NEW V2: Feature for contextualizing screen time ===
+def adjust_screen_time_for_job(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Create an adjusted screen time metric that accounts for job requirements.
+    
+    For jobs that inherently require screen time (developers, designers, etc.),
+    we create a 'leisure_screen_time' estimate and weight it differently.
+    
+    Args:
+        df: DataFrame with screen_time_hours and job_type columns
+        
+    Returns:
+        DataFrame with additional adjusted screen time column
+    """
+    df = df.copy()
+    
+    if "job_type" not in df.columns or "screen_time_hours" not in df.columns:
+        return df
+    
+    # Estimate work-required screen time based on job type
+    job_screen_requirements = {
+        "knowledge_work": 6,
+        "creative_work": 5,
+        "finance": 6,
+        "customer_service": 5,
+        "management": 4,
+        "sales": 3,
+        "healthcare": 2,
+        "education": 3,
+        "manual_labor": 1,
+        "other": 3,
+    }
+    
+    # Calculate excess screen time (leisure portion)
+    df["job_screen_requirement"] = df["job_type"].map(job_screen_requirements).fillna(3)
+    df["leisure_screen_hours"] = (df["screen_time_hours"] - df["job_screen_requirement"]).clip(lower=0)
+    
+    return df
 
 
 # ============================================================================

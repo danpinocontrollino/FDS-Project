@@ -385,10 +385,207 @@
             margin-top: 10px;
         }
         
+        /* 7-Day Action Plan */
+        .action-plan {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        .action-plan h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .plan-intro {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+        
+        .priority-focus {
+            background: linear-gradient(135deg, #667eea15, #764ba215);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .priority-focus h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+        
+        .priority-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .priority-item {
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 25px;
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #667eea;
+        }
+        
+        .priority-item.critical {
+            background: #dc3545;
+            border-color: #dc3545;
+            color: white;
+        }
+        
+        .weekly-schedule {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+        }
+        
+        .day-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 15px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .day-card.rest-day {
+            border-left-color: #28a745;
+            background: #f0fff4;
+        }
+        
+        .day-header {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+        
+        .day-tasks {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .day-tasks li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 0.9rem;
+            color: #555;
+        }
+        
+        .day-tasks li:last-child {
+            border-bottom: none;
+        }
+        
+        .task-time {
+            font-weight: 500;
+            color: #667eea;
+            margin-right: 8px;
+        }
+        
+        .task-category {
+            display: inline-block;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 5px;
+        }
+        
+        .cat-sleep { background: #e3f2fd; color: #1565c0; }
+        .cat-exercise { background: #e8f5e9; color: #2e7d32; }
+        .cat-stress { background: #fce4ec; color: #c2185b; }
+        .cat-work { background: #fff3e0; color: #e65100; }
+        .cat-social { background: #f3e5f5; color: #7b1fa2; }
+        
+        .weekly-goals {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .weekly-goals h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+        
+        .goal-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .goal-item:last-child {
+            border-bottom: none;
+        }
+        
+        .goal-checkbox {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #667eea;
+            border-radius: 6px;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+        
+        .goal-text {
+            flex: 1;
+            font-size: 0.95rem;
+        }
+        
+        .goal-metric {
+            font-size: 0.85rem;
+            color: #666;
+            background: #e9ecef;
+            padding: 4px 10px;
+            border-radius: 15px;
+        }
+        
+        .intervention-banner {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+            color: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .intervention-banner h3 {
+            margin-bottom: 10px;
+            color: white;
+        }
+        
+        .intervention-banner p {
+            opacity: 0.95;
+            margin-bottom: 15px;
+        }
+        
+        .intervention-options {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .intervention-option {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+        
         @media (max-width: 600px) {
             .header h1 { font-size: 1.8rem; }
             .risk-badge { font-size: 1.2rem; padding: 10px 25px; }
             .emoji { font-size: 3rem; }
+            .weekly-schedule { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -396,7 +593,7 @@
     <div class="container">
         <div class="header">
             <h1>🧠 Burnout Risk Assessment</h1>
-            <p>Generated on December 01, 2025 at 18:20</p>
+            <p>Generated on December 01, 2025 at 20:08</p>
         </div>
         
         <div class="person-name">Report for: <strong>Silvia</strong></div>
@@ -410,10 +607,10 @@
     <div class="meter-container">
         <div class="meter-label">
             <span>🟢 Low Risk</span>
-            <span>33%</span>
+            <span>34%</span>
         </div>
         <div class="meter">
-            <div class="meter-fill meter-low" style="width: 33%"></div>
+            <div class="meter-fill meter-low" style="width: 34%"></div>
         </div>
         
         <div class="meter-label">
@@ -489,13 +686,13 @@
         <li class="recommendation-item">
             <div class="rec-header">
                 <strong>Work Pressure (low/medium/high)</strong>
-                <span class="impact-badge impact-good">↓10% risk</span>
+                <span class="impact-badge impact-good">↓11% risk</span>
             </div>
             <div class="rec-values">
                 Current: <span class="value-bad">2</span> → 
                 Target: <span class="value-good">0</span>
             </div>
-            <div class="rec-advice">💡 Pressure feels lower when you write tasks down. Brain dump now.</div>
+            <div class="rec-advice">💡 High pressure + long hours is a burnout recipe. Consider a workload conversation.</div>
         </li>
         
 
@@ -508,20 +705,20 @@
                 Current: <span class="value-bad">2000</span> → 
                 Target: <span class="value-good">8000</span>
             </div>
-            <div class="rec-advice">💡 Take calls while walking. Movement helps thinking too.</div>
+            <div class="rec-advice">💡 Consider a step-tracking challenge with colleagues or friends for motivation.</div>
         </li>
         
 
         <li class="recommendation-item">
             <div class="rec-header">
                 <strong>Exercise (minutes)</strong>
-                <span class="impact-badge impact-neutral">minimal impact</span>
+                <span class="impact-badge impact-good">↓6% risk</span>
             </div>
             <div class="rec-values">
                 Current: <span class="value-bad">10</span> → 
                 Target: <span class="value-good">45</span>
             </div>
-            <div class="rec-advice">💡 10 min of movement beats 0. Take stairs, walk during calls.</div>
+            <div class="rec-advice">💡 WHO recommends 150 min moderate activity/week. That's just 22 min/day.</div>
         </li>
         
 
@@ -534,7 +731,7 @@
                 Current: <span class="value-bad">2</span> → 
                 Target: <span class="value-good">7</span>
             </div>
-            <div class="rec-advice">💡 Single-task for 1 hour today. Multitasking is a myth.</div>
+            <div class="rec-advice">💡 Persistent focus issues may indicate ADHD or other conditions worth evaluating.</div>
         </li>
         
 
@@ -547,12 +744,12 @@
                 Current: <span class="value-bad">7</span> → 
                 Target: <span class="value-good">4</span>
             </div>
-            <div class="rec-advice">💡 Try box breathing: 4s inhale, 4s hold, 4s exhale, 4s hold. Repeat 5x.</div>
+            <div class="rec-advice">💡 Stress hack: Hold ice cubes for 30 seconds. Physical sensation interrupts stress spiral.</div>
         </li>
         
 
         <li class="recommendation-summary">
-            📈 <strong>Combined potential risk reduction: ~11%</strong>
+            📈 <strong>Combined potential risk reduction: ~16%</strong>
             <br><small>(if you address all factors above)</small>
         </li>
         
@@ -581,10 +778,10 @@
                     <span class="cvae-label">Steps:</span>
                     <span class="cvae-current">2000.0</span>
                     <span class="cvae-arrow-text">→</span>
-                    <span class="cvae-suggested">7110.9</span>
-                    <span class="cvae-diff">(+5110.9)</span>
+                    <span class="cvae-suggested">7103.0</span>
+                    <span class="cvae-diff">(+5103.0)</span>
                 </div>
-                <div class="cvae-tip">💡 Park farther away. Small changes add up to big step counts.</div>
+                <div class="cvae-tip">💡 Post-meal walks improve blood sugar regulation. 10 min after eating helps.</div>
             </div>
             
             <div class="cvae-item">
@@ -593,10 +790,10 @@
                     <span class="cvae-label">Exercise (minutes):</span>
                     <span class="cvae-current">10.0</span>
                     <span class="cvae-arrow-text">→</span>
-                    <span class="cvae-suggested">13.8</span>
-                    <span class="cvae-diff">(+3.8)</span>
+                    <span class="cvae-suggested">13.7</span>
+                    <span class="cvae-diff">(+3.7)</span>
                 </div>
-                <div class="cvae-tip">💡 Even 1 more minutes daily compounds to 13 min/week.</div>
+                <div class="cvae-tip">💡 Take calls while walking. 30-min call = ~3,000 steps.</div>
             </div>
             
             <div class="cvae-item">
@@ -608,7 +805,7 @@
                     <span class="cvae-suggested">5.2</span>
                     <span class="cvae-diff">(+3.2)</span>
                 </div>
-                <div class="cvae-tip">💡 Put phone in another room. Out of sight = out of mind.</div>
+                <div class="cvae-tip">💡 Sleep impacts focus more than anything. Poor sleep = poor focus next day.</div>
             </div>
             
             <div class="cvae-item">
@@ -620,7 +817,7 @@
                     <span class="cvae-suggested">5.7</span>
                     <span class="cvae-diff">(+1.7)</span>
                 </div>
-                <div class="cvae-tip">💡 Energy dip? Try a 10-min walk instead of coffee.</div>
+                <div class="cvae-tip">💡 Energy follows sleep, exercise, and nutrition. Which is your weakest link?</div>
             </div>
             
             <div class="cvae-item">
@@ -632,13 +829,306 @@
                     <span class="cvae-suggested">5.5</span>
                     <span class="cvae-diff">(-1.5)</span>
                 </div>
-                <div class="cvae-tip">💡 Your stress is 7/10. Target: 6. What's one thing you can delegate?</div>
+                <div class="cvae-tip">💡 Write down 3 things stressing you right now. Naming reduces amygdala activation by 30%.</div>
             </div>
             
             </div>
             <p class="cvae-note">✨ Tips based on behavioral science research.</p>
         </div>
         
+    <div class="card action-plan">
+        <h2>📋 Your 7-Day Action Plan</h2>
+        <p class="plan-intro">A structured plan to improve your work-life balance. Focus on small, consistent changes.</p>
+        
+        <div class="priority-focus">
+            <h3>🎯 Your Priority Focus Areas</h3>
+            <div class="priority-items">
+                <span class="priority-item critical">Exercise (minutes)</span><span class="priority-item critical">Stress Level (1-10)</span><span class="priority-item critical">Steps</span><span class="priority-item critical">Focus (1-10)</span>
+            </div>
+        </div>
+        
+    <div class="weekly-schedule">
+        
+        <div class="day-card">
+            <div class="day-header">📅 Monday</div>
+            <ul class="day-tasks">
+                
+            <li>
+                <span class="task-time">12:30</span>
+                15-min walk after lunch
+                <span class="task-category cat-exercise">exercise</span>
+            </li>
+            
+            <li>
+                <span class="task-time">20:00</span>
+                10-min evening meditation or journaling
+                <span class="task-category cat-stress">stress</span>
+            </li>
+            
+            <li>
+                <span class="task-time">22:30</span>
+                Bedtime (aim for 11h sleep)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">7:30</span>
+                5-min breathing exercise or meditation
+                <span class="task-category cat-stress">stress</span>
+            </li>
+            
+            <li>
+                <span class="task-time">8:00</span>
+                Set 3 priority tasks for the week
+                <span class="task-category cat-work">work</span>
+            </li>
+            
+            </ul>
+        </div>
+        
+        <div class="day-card">
+            <div class="day-header">📅 Tuesday</div>
+            <ul class="day-tasks">
+                
+            <li>
+                <span class="task-time">12:30</span>
+                15-min walk after lunch
+                <span class="task-category cat-exercise">exercise</span>
+            </li>
+            
+            <li>
+                <span class="task-time">20:00</span>
+                10-min evening meditation or journaling
+                <span class="task-category cat-stress">stress</span>
+            </li>
+            
+            <li>
+                <span class="task-time">22:30</span>
+                Bedtime (aim for 11h sleep)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">7:30</span>
+                5-min breathing exercise or meditation
+                <span class="task-category cat-stress">stress</span>
+            </li>
+            
+            </ul>
+        </div>
+        
+        <div class="day-card">
+            <div class="day-header">📅 Wednesday</div>
+            <ul class="day-tasks">
+                
+            <li>
+                <span class="task-time">12:30</span>
+                15-min walk after lunch
+                <span class="task-category cat-exercise">exercise</span>
+            </li>
+            
+            <li>
+                <span class="task-time">18:00</span>
+                Mid-week social connection (call a friend)
+                <span class="task-category cat-social">social</span>
+            </li>
+            
+            <li>
+                <span class="task-time">20:00</span>
+                10-min evening meditation or journaling
+                <span class="task-category cat-stress">stress</span>
+            </li>
+            
+            <li>
+                <span class="task-time">22:30</span>
+                Bedtime (aim for 11h sleep)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">7:30</span>
+                5-min breathing exercise or meditation
+                <span class="task-category cat-stress">stress</span>
+            </li>
+            
+            </ul>
+        </div>
+        
+        <div class="day-card">
+            <div class="day-header">📅 Thursday</div>
+            <ul class="day-tasks">
+                
+            <li>
+                <span class="task-time">12:30</span>
+                15-min walk after lunch
+                <span class="task-category cat-exercise">exercise</span>
+            </li>
+            
+            <li>
+                <span class="task-time">20:00</span>
+                10-min evening meditation or journaling
+                <span class="task-category cat-stress">stress</span>
+            </li>
+            
+            <li>
+                <span class="task-time">22:30</span>
+                Bedtime (aim for 11h sleep)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">7:30</span>
+                5-min breathing exercise or meditation
+                <span class="task-category cat-stress">stress</span>
+            </li>
+            
+            </ul>
+        </div>
+        
+        <div class="day-card">
+            <div class="day-header">📅 Friday</div>
+            <ul class="day-tasks">
+                
+            <li>
+                <span class="task-time">12:30</span>
+                15-min walk after lunch
+                <span class="task-category cat-exercise">exercise</span>
+            </li>
+            
+            <li>
+                <span class="task-time">17:00</span>
+                Weekly review - celebrate wins
+                <span class="task-category cat-work">work</span>
+            </li>
+            
+            <li>
+                <span class="task-time">20:00</span>
+                10-min evening meditation or journaling
+                <span class="task-category cat-stress">stress</span>
+            </li>
+            
+            <li>
+                <span class="task-time">22:30</span>
+                Bedtime (aim for 11h sleep)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            <li>
+                <span class="task-time">7:30</span>
+                5-min breathing exercise or meditation
+                <span class="task-category cat-stress">stress</span>
+            </li>
+            
+            </ul>
+        </div>
+        
+        <div class="day-card rest-day">
+            <div class="day-header">📅 Saturday</div>
+            <ul class="day-tasks">
+                
+            <li>
+                <span class="task-time">10:00</span>
+                30-min exercise or outdoor activity
+                <span class="task-category cat-exercise">exercise</span>
+            </li>
+            
+            <li>
+                <span class="task-time">12:00</span>
+                Social activity (friends, family, hobby)
+                <span class="task-category cat-social">social</span>
+            </li>
+            
+            <li>
+                <span class="task-time">16:00</span>
+                Nature time - park, hike, or garden
+                <span class="task-category cat-stress">stress</span>
+            </li>
+            
+            <li>
+                <span class="task-time">21:00</span>
+                Prepare for week ahead (light planning)
+                <span class="task-category cat-work">work</span>
+            </li>
+            
+            <li>
+                <span class="task-time">8:00</span>
+                Sleep in (max 1h later than weekdays)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            </ul>
+        </div>
+        
+        <div class="day-card rest-day">
+            <div class="day-header">📅 Sunday</div>
+            <ul class="day-tasks">
+                
+            <li>
+                <span class="task-time">10:00</span>
+                30-min exercise or outdoor activity
+                <span class="task-category cat-exercise">exercise</span>
+            </li>
+            
+            <li>
+                <span class="task-time">12:00</span>
+                Social activity (friends, family, hobby)
+                <span class="task-category cat-social">social</span>
+            </li>
+            
+            <li>
+                <span class="task-time">16:00</span>
+                Nature time - park, hike, or garden
+                <span class="task-category cat-stress">stress</span>
+            </li>
+            
+            <li>
+                <span class="task-time">21:00</span>
+                Prepare for week ahead (light planning)
+                <span class="task-category cat-work">work</span>
+            </li>
+            
+            <li>
+                <span class="task-time">8:00</span>
+                Sleep in (max 1h later than weekdays)
+                <span class="task-category cat-sleep">sleep</span>
+            </li>
+            
+            </ul>
+        </div>
+        
+    </div>
+    
+    <div class="weekly-goals">
+        <h3>✅ Weekly Goals (Track Your Progress)</h3>
+        
+        <div class="goal-item">
+            <div class="goal-checkbox"></div>
+            <div class="goal-text">Exercise 25 minutes daily (up from 10)</div>
+            <div class="goal-metric">175 min/week</div>
+        </div>
+        
+        <div class="goal-item">
+            <div class="goal-checkbox"></div>
+            <div class="goal-text">Reach 4000 steps daily</div>
+            <div class="goal-metric">4000 steps × 7</div>
+        </div>
+        
+        <div class="goal-item">
+            <div class="goal-checkbox"></div>
+            <div class="goal-text">Practice stress management (breathing, meditation)</div>
+            <div class="goal-metric">10 min × 5 days</div>
+        </div>
+        
+        <div class="goal-item">
+            <div class="goal-checkbox"></div>
+            <div class="goal-text">Connect with a friend or loved one</div>
+            <div class="goal-metric">2+ times/week</div>
+        </div>
+        
+    </div>
+    
+    </div>
+    
         
         <div class="footer">
             <p>Powered by ML - University Project</p>

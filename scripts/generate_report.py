@@ -426,10 +426,207 @@ HTML_TEMPLATE = """
             margin-top: 10px;
         }
         
+        /* 7-Day Action Plan */
+        .action-plan {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        .action-plan h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .plan-intro {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+        
+        .priority-focus {
+            background: linear-gradient(135deg, #667eea15, #764ba215);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .priority-focus h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+        
+        .priority-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .priority-item {
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 25px;
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #667eea;
+        }
+        
+        .priority-item.critical {
+            background: #dc3545;
+            border-color: #dc3545;
+            color: white;
+        }
+        
+        .weekly-schedule {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+        }
+        
+        .day-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 15px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .day-card.rest-day {
+            border-left-color: #28a745;
+            background: #f0fff4;
+        }
+        
+        .day-header {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+        
+        .day-tasks {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .day-tasks li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 0.9rem;
+            color: #555;
+        }
+        
+        .day-tasks li:last-child {
+            border-bottom: none;
+        }
+        
+        .task-time {
+            font-weight: 500;
+            color: #667eea;
+            margin-right: 8px;
+        }
+        
+        .task-category {
+            display: inline-block;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 5px;
+        }
+        
+        .cat-sleep { background: #e3f2fd; color: #1565c0; }
+        .cat-exercise { background: #e8f5e9; color: #2e7d32; }
+        .cat-stress { background: #fce4ec; color: #c2185b; }
+        .cat-work { background: #fff3e0; color: #e65100; }
+        .cat-social { background: #f3e5f5; color: #7b1fa2; }
+        
+        .weekly-goals {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .weekly-goals h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+        
+        .goal-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .goal-item:last-child {
+            border-bottom: none;
+        }
+        
+        .goal-checkbox {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #667eea;
+            border-radius: 6px;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+        
+        .goal-text {
+            flex: 1;
+            font-size: 0.95rem;
+        }
+        
+        .goal-metric {
+            font-size: 0.85rem;
+            color: #666;
+            background: #e9ecef;
+            padding: 4px 10px;
+            border-radius: 15px;
+        }
+        
+        .intervention-banner {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+            color: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .intervention-banner h3 {
+            margin-bottom: 10px;
+            color: white;
+        }
+        
+        .intervention-banner p {
+            opacity: 0.95;
+            margin-bottom: 15px;
+        }
+        
+        .intervention-options {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .intervention-option {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+        
         @media (max-width: 600px) {
             .header h1 { font-size: 1.8rem; }
             .risk-badge { font-size: 1.2rem; padding: 10px 25px; }
             .emoji { font-size: 3rem; }
+            .weekly-schedule { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -784,6 +981,403 @@ def generate_cvae_suggestions_html(data: dict, pred_class: int, probs: list = No
         return f'<div class="cvae-error">⚠️ Could not generate AI suggestions: {e}</div>'
 
 
+def generate_action_plan_html(data: dict, pred_class: int) -> str:
+    """
+    Generate a comprehensive 7-day action plan based on the user's data.
+    
+    This creates a structured weekly plan with:
+    - Priority focus areas (what to fix first)
+    - Daily action items with specific times
+    - Weekly goals with measurable targets
+    - Professional intervention suggestions if needed
+    
+    Based on intervention data: meditation, therapy, exercise_plan, 
+    diet_coaching, workload_cap, vacation patterns from our dataset.
+    """
+    
+    if pred_class == 0:
+        # Low risk - maintenance plan
+        return generate_maintenance_plan_html(data)
+    
+    # Identify priority areas (biggest gaps from healthy baseline)
+    healthy_baselines = {
+        "stress_level": 4.0,
+        "sleep_hours": 7.5,
+        "sleep_quality": 7.0,
+        "work_hours": 7.5,
+        "exercise_minutes": 45,
+        "mood_score": 7.0,
+        "energy_level": 7.0,
+        "focus_score": 7.0,
+        "caffeine_mg": 100,
+        "screen_time_hours": 3.0,
+        "meetings_count": 3,
+        "alcohol_units": 0.5,
+        "steps_count": 8000,
+        "commute_minutes": 30,
+        "emails_received": 20,
+    }
+    
+    lower_is_better = {
+        "stress_level", "work_hours", "caffeine_mg", "screen_time_hours",
+        "meetings_count", "alcohol_units", "commute_minutes", "emails_received"
+    }
+    
+    # Calculate deviations and identify priorities
+    priorities = []
+    for feature, healthy in healthy_baselines.items():
+        current = data.get(feature, healthy)
+        if feature in lower_is_better:
+            deviation = (current - healthy) / max(healthy, 1)
+        else:
+            deviation = (healthy - current) / max(healthy, 1)
+        
+        if deviation > 0.2:  # More than 20% off target
+            priorities.append({
+                "feature": feature,
+                "current": current,
+                "target": healthy,
+                "deviation": deviation,
+                "critical": deviation > 0.5
+            })
+    
+    priorities.sort(key=lambda x: x["deviation"], reverse=True)
+    top_priorities = priorities[:4]
+    
+    # Determine which interventions are recommended
+    interventions_needed = []
+    
+    stress = data.get("stress_level", 5)
+    sleep_quality = data.get("sleep_quality", 5)
+    exercise = data.get("exercise_minutes", 30)
+    work_hours = data.get("work_hours", 8)
+    mood = data.get("mood_score", 5)
+    
+    if stress >= 7 or mood <= 4:
+        interventions_needed.append(("meditation", "Daily 10-min meditation practice"))
+    if mood <= 3 or stress >= 8:
+        interventions_needed.append(("therapy", "Consider professional counseling"))
+    if exercise < 20:
+        interventions_needed.append(("exercise_plan", "Structured 4-week fitness program"))
+    if work_hours > 10:
+        interventions_needed.append(("workload_cap", "Discuss workload limits with manager"))
+    if stress >= 8 and work_hours > 9:
+        interventions_needed.append(("vacation", "Plan recovery time off"))
+    
+    # Generate the action plan HTML
+    html_parts = []
+    
+    # Priority Focus Section
+    priority_items = []
+    for p in top_priorities:
+        label = FEATURE_LABELS.get(p["feature"], p["feature"].replace("_", " ").title())
+        css_class = "priority-item critical" if p["critical"] else "priority-item"
+        priority_items.append(f'<span class="{css_class}">{label}</span>')
+    
+    if priority_items:
+        html_parts.append(f"""
+        <div class="priority-focus">
+            <h3>🎯 Your Priority Focus Areas</h3>
+            <div class="priority-items">
+                {"".join(priority_items)}
+            </div>
+        </div>
+        """)
+    
+    # Weekly Schedule
+    days = generate_weekly_schedule(data, top_priorities)
+    
+    day_cards = []
+    for day in days:
+        is_rest = day["name"] in ["Saturday", "Sunday"]
+        css_class = "day-card rest-day" if is_rest else "day-card"
+        
+        tasks_html = ""
+        for task in day["tasks"]:
+            cat_class = f"task-category cat-{task['category']}"
+            tasks_html += f"""
+            <li>
+                <span class="task-time">{task['time']}</span>
+                {task['action']}
+                <span class="{cat_class}">{task['category']}</span>
+            </li>
+            """
+        
+        day_cards.append(f"""
+        <div class="{css_class}">
+            <div class="day-header">📅 {day['name']}</div>
+            <ul class="day-tasks">
+                {tasks_html}
+            </ul>
+        </div>
+        """)
+    
+    html_parts.append(f"""
+    <div class="weekly-schedule">
+        {"".join(day_cards)}
+    </div>
+    """)
+    
+    # Weekly Goals
+    goals = generate_weekly_goals(data, top_priorities)
+    goals_html = ""
+    for goal in goals:
+        goals_html += f"""
+        <div class="goal-item">
+            <div class="goal-checkbox"></div>
+            <div class="goal-text">{goal['text']}</div>
+            <div class="goal-metric">{goal['metric']}</div>
+        </div>
+        """
+    
+    html_parts.append(f"""
+    <div class="weekly-goals">
+        <h3>✅ Weekly Goals (Track Your Progress)</h3>
+        {goals_html}
+    </div>
+    """)
+    
+    # Professional Intervention Banner (if needed)
+    if interventions_needed and pred_class == 2:  # High risk
+        options_html = ""
+        for int_type, desc in interventions_needed[:3]:
+            options_html += f'<span class="intervention-option">📊 {desc}</span>'
+        
+        html_parts.append(f"""
+        <div class="intervention-banner">
+            <h3>🏥 Consider Professional Support</h3>
+            <p>Based on your assessment, these evidence-based interventions could help:</p>
+            <div class="intervention-options">
+                {options_html}
+            </div>
+        </div>
+        """)
+    
+    return f"""
+    <div class="card action-plan">
+        <h2>📋 Your 7-Day Action Plan</h2>
+        <p class="plan-intro">A structured plan to improve your work-life balance. Focus on small, consistent changes.</p>
+        {"".join(html_parts)}
+    </div>
+    """
+
+
+def generate_maintenance_plan_html(data: dict) -> str:
+    """Generate a lighter maintenance plan for low-risk users."""
+    return """
+    <div class="card action-plan">
+        <h2>📋 Your Wellness Maintenance Plan</h2>
+        <p class="plan-intro">You're doing great! Here's how to maintain your healthy balance.</p>
+        
+        <div class="priority-focus">
+            <h3>✨ Keep Up These Healthy Habits</h3>
+            <div class="priority-items">
+                <span class="priority-item">Consistent Sleep</span>
+                <span class="priority-item">Regular Exercise</span>
+                <span class="priority-item">Work-Life Balance</span>
+                <span class="priority-item">Stress Management</span>
+            </div>
+        </div>
+        
+        <div class="weekly-goals">
+            <h3>✅ Weekly Wellness Check</h3>
+            <div class="goal-item">
+                <div class="goal-checkbox"></div>
+                <div class="goal-text">Maintained 7+ hours of sleep most nights</div>
+                <div class="goal-metric">5/7 nights</div>
+            </div>
+            <div class="goal-item">
+                <div class="goal-checkbox"></div>
+                <div class="goal-text">Got at least 30 min of movement daily</div>
+                <div class="goal-metric">150 min/week</div>
+            </div>
+            <div class="goal-item">
+                <div class="goal-checkbox"></div>
+                <div class="goal-text">Took real breaks during work</div>
+                <div class="goal-metric">Daily</div>
+            </div>
+            <div class="goal-item">
+                <div class="goal-checkbox"></div>
+                <div class="goal-text">Connected with friends or family</div>
+                <div class="goal-metric">2+ times</div>
+            </div>
+        </div>
+    </div>
+    """
+
+
+def generate_weekly_schedule(data: dict, priorities: list) -> list:
+    """Generate a 7-day schedule based on priorities."""
+    
+    stress = data.get("stress_level", 5)
+    sleep_hours = data.get("sleep_hours", 7)
+    sleep_quality = data.get("sleep_quality", 5)
+    exercise = data.get("exercise_minutes", 30)
+    work_hours = data.get("work_hours", 8)
+    screen_time = data.get("screen_time_hours", 4)
+    caffeine = data.get("caffeine_mg", 200)
+    steps = data.get("steps_count", 5000)
+    
+    # Build personalized daily tasks based on priorities
+    priority_features = {p["feature"] for p in priorities}
+    
+    # Morning routine (same every day)
+    morning_routine = []
+    if sleep_quality < 6 or sleep_hours < 7:
+        morning_routine.append({"time": "7:00", "action": "Wake at consistent time (no snooze)", "category": "sleep"})
+        morning_routine.append({"time": "7:15", "action": "10 min sunlight exposure", "category": "sleep"})
+    
+    if stress >= 6:
+        morning_routine.append({"time": "7:30", "action": "5-min breathing exercise or meditation", "category": "stress"})
+    
+    # Work day structure
+    work_tasks = []
+    if work_hours > 9:
+        work_tasks.append({"time": "12:00", "action": "Take a real lunch break (away from desk)", "category": "work"})
+        work_tasks.append({"time": "17:00", "action": "Hard stop - close laptop, shutdown ritual", "category": "work"})
+    
+    if steps < 6000 or exercise < 30:
+        work_tasks.append({"time": "12:30", "action": "15-min walk after lunch", "category": "exercise"})
+    
+    if screen_time > 5:
+        work_tasks.append({"time": "19:00", "action": "Screen-free time begins", "category": "work"})
+    
+    # Evening routine
+    evening_routine = []
+    if sleep_quality < 6:
+        evening_routine.append({"time": "21:00", "action": "No screens, dim lights", "category": "sleep"})
+        evening_routine.append({"time": "21:30", "action": "Wind-down routine (reading, stretching)", "category": "sleep"})
+    
+    if caffeine > 200:
+        evening_routine.append({"time": "14:00", "action": "No more caffeine after this time", "category": "sleep"})
+    
+    if stress >= 7:
+        evening_routine.append({"time": "20:00", "action": "10-min evening meditation or journaling", "category": "stress"})
+    
+    evening_routine.append({"time": "22:30", "action": f"Bedtime (aim for {max(7, 8-int(work_hours-8))}h sleep)", "category": "sleep"})
+    
+    # Build week
+    days = []
+    day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    
+    for i, day_name in enumerate(day_names):
+        is_weekend = i >= 5
+        
+        if is_weekend:
+            # Weekend schedule - focus on recovery
+            tasks = [
+                {"time": "8:00", "action": "Sleep in (max 1h later than weekdays)", "category": "sleep"},
+                {"time": "10:00", "action": "30-min exercise or outdoor activity", "category": "exercise"},
+                {"time": "12:00", "action": "Social activity (friends, family, hobby)", "category": "social"},
+            ]
+            if stress >= 7:
+                tasks.append({"time": "16:00", "action": "Nature time - park, hike, or garden", "category": "stress"})
+            tasks.append({"time": "21:00", "action": "Prepare for week ahead (light planning)", "category": "work"})
+        else:
+            # Weekday schedule
+            tasks = morning_routine.copy()
+            tasks.extend(work_tasks)
+            tasks.extend(evening_routine)
+            
+            # Add variety
+            if i == 0:  # Monday
+                tasks.insert(2, {"time": "8:00", "action": "Set 3 priority tasks for the week", "category": "work"})
+            elif i == 2:  # Wednesday
+                tasks.insert(2, {"time": "18:00", "action": "Mid-week social connection (call a friend)", "category": "social"})
+            elif i == 4:  # Friday
+                tasks.insert(2, {"time": "17:00", "action": "Weekly review - celebrate wins", "category": "work"})
+        
+        # Sort by time
+        tasks.sort(key=lambda x: x["time"])
+        
+        days.append({"name": day_name, "tasks": tasks[:6]})  # Max 6 tasks per day
+    
+    return days
+
+
+def generate_weekly_goals(data: dict, priorities: list) -> list:
+    """Generate measurable weekly goals based on priorities."""
+    
+    goals = []
+    
+    stress = data.get("stress_level", 5)
+    sleep_hours = data.get("sleep_hours", 7)
+    sleep_quality = data.get("sleep_quality", 5)
+    exercise = data.get("exercise_minutes", 30)
+    work_hours = data.get("work_hours", 8)
+    steps = data.get("steps_count", 5000)
+    caffeine = data.get("caffeine_mg", 200)
+    screen_time = data.get("screen_time_hours", 4)
+    
+    # Sleep goals
+    if sleep_hours < 7:
+        target = min(sleep_hours + 1, 8)
+        goals.append({
+            "text": f"Increase sleep from {sleep_hours:.0f}h to {target:.0f}h per night",
+            "metric": f"{target:.0f}h × 7 nights"
+        })
+    
+    if sleep_quality < 6:
+        goals.append({
+            "text": "No screens 1 hour before bed",
+            "metric": "5/7 nights"
+        })
+    
+    # Exercise goals
+    if exercise < 30:
+        target = min(exercise + 15, 45)
+        goals.append({
+            "text": f"Exercise {target:.0f} minutes daily (up from {exercise:.0f})",
+            "metric": f"{target * 7:.0f} min/week"
+        })
+    
+    if steps < 7000:
+        target = min(steps + 2000, 8000)
+        goals.append({
+            "text": f"Reach {target:.0f} steps daily",
+            "metric": f"{target:.0f} steps × 7"
+        })
+    
+    # Stress goals
+    if stress >= 7:
+        goals.append({
+            "text": "Practice stress management (breathing, meditation)",
+            "metric": "10 min × 5 days"
+        })
+    
+    # Work goals
+    if work_hours > 9:
+        target = max(work_hours - 1, 8)
+        goals.append({
+            "text": f"Reduce work hours from {work_hours:.0f}h to {target:.0f}h daily",
+            "metric": f"Leave by {18 - int(work_hours - target)}:00"
+        })
+    
+    # Caffeine
+    if caffeine > 300:
+        target = caffeine - 100
+        goals.append({
+            "text": f"Reduce caffeine from {caffeine:.0f}mg to {target:.0f}mg",
+            "metric": "Skip 1 coffee"
+        })
+    
+    # Screen time
+    if screen_time > 5:
+        target = screen_time - 1
+        goals.append({
+            "text": f"Reduce leisure screen time to {target:.0f}h",
+            "metric": f"{target:.0f}h/day max"
+        })
+    
+    # Always include social
+    goals.append({
+        "text": "Connect with a friend or loved one",
+        "metric": "2+ times/week"
+    })
+    
+    return goals[:6]  # Max 6 goals
+
+
 def generate_contradictions_html(data: dict) -> str:
     """Generate HTML for contradiction warnings."""
     warnings = detect_contradictions(data)
@@ -872,7 +1466,10 @@ def generate_single_report(data: dict, name: str, model, feature_cols: list, out
     # Add CVAE AI suggestions (if available and not clearly low risk)
     cvae_html = generate_cvae_suggestions_html(data, pred_class, probs)
     
-    result_html = name_html + result_html + contradictions_html + cvae_html
+    # Add 7-Day Action Plan
+    action_plan_html = generate_action_plan_html(data, pred_class)
+    
+    result_html = name_html + result_html + contradictions_html + cvae_html + action_plan_html
     
     # Generate full HTML
     html = HTML_TEMPLATE.replace("{date}", datetime.now().strftime("%B %d, %Y at %H:%M"))
