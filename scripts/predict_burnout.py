@@ -1561,6 +1561,13 @@ def print_recommendations(data: Dict[str, float], pred_class: int, model: nn.Mod
         current = data.get(feature, DEFAULTS.get(feature, healthy_baselines.get(feature, 5)))
         healthy = healthy_baselines.get(feature, current)
         
+        # Skip non-numeric values (some V2 features may be text like job_type)
+        try:
+            current = float(current) if not isinstance(current, (int, float)) else current
+            healthy = float(healthy) if not isinstance(healthy, (int, float)) else healthy
+        except (ValueError, TypeError):
+            continue  # Skip features that can't be compared numerically
+        
         if feature in lower_is_better:
             deviation = current - healthy  # positive = bad
             direction = "reduce"
@@ -2489,6 +2496,596 @@ def print_prediction_result(data: Dict[str, float], pred_class: int, probs: np.n
 
 
 # ============================================================================
+# HTML REPORT GENERATION
+# ============================================================================
+
+def generate_html_report(data: dict, pred_class: int, probs: list, 
+                         model, feature_cols: list, output_path: str,
+                         name: str = "User") -> None:
+    """Generate a beautiful HTML report for the burnout prediction."""
+    from datetime import datetime
+    
+    risk_levels = ["LOW", "MEDIUM", "HIGH"]
+    risk_colors = ["low", "medium", "high"]
+    risk_emojis = ["😊", "😐", "😰"]
+    risk_descriptions = [
+        "Your metrics look healthy! Keep up the good habits.",
+        "Some warning signs. Consider adjusting your routine.",
+        "Multiple risk factors detected. Please prioritize self-care."
+    ]
+    
+    risk_level = risk_levels[pred_class]
+    risk_color = risk_colors[pred_class]
+    risk_emoji = risk_emojis[pred_class]
+    risk_desc = risk_descriptions[pred_class]
+    confidence = probs[pred_class] * 100
+    
+    # Get context for intelligent recommendations
+    context = get_user_context(data)
+    
+    # Key metrics with status
+    def metric_status(value, good_threshold, bad_threshold, higher_is_better=True):
+        if higher_is_better:
+            return "✅" if value >= good_threshold else ("⚠️" if value >= bad_threshold else "❌")
+        else:
+            return "✅" if value <= good_threshold else ("⚠️" if value <= bad_threshold else "❌")
+    
+    metrics = [
+        ("Stress", f"{data.get('stress_level', 5):.0f}/10", 
+         metric_status(data.get('stress_level', 5), 4, 7, higher_is_better=False)),
+        ("Sleep", f"{data.get('sleep_hours', 7):.0f}hrs",
+         metric_status(data.get('sleep_hours', 7), 7, 5, higher_is_better=True)),
+        ("Work", f"{data.get('work_hours', 8):.0f}hrs",
+         metric_status(data.get('work_hours', 8), 8, 10, higher_is_better=False)),
+        ("Exercise", f"{data.get('exercise_minutes', 30):.0f}min",
+         metric_status(data.get('exercise_minutes', 30), 30, 10, higher_is_better=True)),
+        ("Mood", f"{data.get('mood_score', 7):.0f}/10",
+         metric_status(data.get('mood_score', 7), 7, 4, higher_is_better=True)),
+        ("Energy", f"{data.get('energy_level', 7):.0f}/10",
+         metric_status(data.get('energy_level', 7), 7, 4, higher_is_better=True)),
+    ]
+    
+    # Generate recommendations HTML
+    recommendations_html = ""
+    
+    # Calculate deviations like print_recommendations does
+    healthy_baselines = HEALTHY_BASELINES_V2.copy()
+    lower_is_better = {
+        "stress_level", "work_hours", "caffeine_mg", "screen_time_hours",
+        "meetings_count", "alcohol_units", "work_pressure", "commute_minutes",
+        "emails_received", "loneliness_score", "after_hours_checking",
+        "environment_distractions"
+    }
+    
+    deviations = []
+    all_features = set(feature_cols) | set(healthy_baselines.keys())
+    
+    for feature in all_features:
+        current = data.get(feature, DEFAULTS.get(feature, healthy_baselines.get(feature, 5)))
+        healthy = healthy_baselines.get(feature, current)
+        
+        try:
+            current = float(current) if not isinstance(current, (int, float)) else current
+            healthy = float(healthy) if not isinstance(healthy, (int, float)) else healthy
+        except (ValueError, TypeError):
+            continue
+        
+        if feature in lower_is_better:
+            deviation = current - healthy
+        else:
+            deviation = healthy - current
+        
+        ranges = {"stress_level": 10, "sleep_hours": 4, "caffeine_mg": 300, 
+                  "exercise_minutes": 60, "commute_minutes": 60, "emails_received": 50}
+        normalized = deviation / ranges.get(feature, 10)
+        
+        if normalized > 0.1:
+            deviations.append((feature, current, healthy, abs(deviation) * 2))  # rough impact estimate
+    
+    # Sort and filter
+    deviations.sort(key=lambda x: x[3], reverse=True)
+    
+    for feature, current, target, impact in deviations[:5]:
+        display_name = feature.replace("_", " ").title()
+        
+        # Simple advice lookup
+        simple_advice = {
+            "stress_level": "High stress needs both immediate relief (breathing) and root cause work.",
+            "sleep_hours": "Prioritize 7-9 hours. Sleep is when your brain repairs.",
+            "exercise_minutes": "Even 10-minute walks count. Start small, build consistency.",
+            "caffeine_mg": "Try cutting by 50mg per week. Withdrawal causes temporary fatigue.",
+            "commute_minutes": "Long commutes drain energy. Use the time for podcasts or audiobooks.",
+            "emails_received": "Set specific times to check email. Constant checking fragments focus.",
+            "screen_time_hours": "Take 20-20-20 breaks: every 20 min, look 20 feet away for 20 seconds.",
+            "work_hours": "Working longer rarely means working better. Protect your recovery time.",
+            "meetings_count": "Consider which meetings need you vs. could send an update instead.",
+            "alcohol_units": "Alcohol disrupts sleep quality even in moderate amounts.",
+            "diet_quality": "Add protein to lunch, reduce refined carbs for stable energy.",
+            "social_quality": "One meaningful conversation beats many shallow interactions.",
+            "recovery_ability": "Recovery is active: sleep, rest, fun. Not just absence of work.",
+            "outdoor_time_minutes": "20 min in nature lowers cortisol more than indoor exercise.",
+        }
+        advice = simple_advice.get(feature, f"Consider adjusting your {display_name.lower()}.")
+        
+        # Skip screen time for knowledge workers
+        if feature == "screen_time_hours" and context.get("screen_time_justified"):
+            continue
+            
+        impact_class = "impact-good" if impact > 5 else "impact-neutral"
+        impact_text = f"↓{impact:.0f}% risk" if impact > 0 else "lifestyle factor"
+        
+        recommendations_html += f"""
+        <li class="recommendation-item">
+            <div class="rec-header">
+                <strong>{display_name}</strong>
+                <span class="impact-badge {impact_class}">{impact_text}</span>
+            </div>
+            <div class="rec-values">
+                Current: <span class="value-bad">{current:.0f}</span> → 
+                Target: <span class="value-good">{target:.0f}</span>
+            </div>
+            <div class="rec-advice">💡 {advice}</div>
+        </li>
+        """
+    
+    # Generate data consistency warnings
+    warnings_html = ""
+    warnings = detect_contradictions(data)
+    if warnings:
+        warnings_html = """
+        <div class="contradictions-section">
+            <h3>🔍 Data Consistency Check</h3>
+            <p class="contradictions-intro">We noticed some patterns in your responses:</p>
+        """
+        for warning in warnings:
+            severity = "warning-critical" if "caffeine" in warning.lower() or "sleep" in warning.lower() else "warning-normal"
+            warnings_html += f'<div class="warning-item {severity}">{warning}</div>'
+        warnings_html += "</div>"
+    
+    # Generate lifestyle section HTML (for V2 features)
+    lifestyle_html = ""
+    diet = data.get("diet_quality", 5)
+    energy = data.get("energy_level", 5)
+    social_quality = data.get("social_quality", 6)
+    social_interactions = data.get("social_interactions", 3)
+    outdoor = data.get("outdoor_time_minutes", 30)
+    recovery = data.get("recovery_ability", 5)
+    
+    lifestyle_items = []
+    
+    if diet < 6 or (diet < 6 and energy < 6):
+        diet_warning = "⚠️ Your low energy is likely diet-related." if energy < 6 else ""
+        lifestyle_items.append(f"""
+        <div class="lifestyle-item">
+            <span class="lifestyle-icon">🍽️</span>
+            <div class="lifestyle-content">
+                <strong>Diet Quality: {diet:.0f}/10</strong> {diet_warning}
+                <p>💡 Add protein to lunch, reduce refined carbs.</p>
+            </div>
+        </div>
+        """)
+    
+    if social_quality < 6 or social_interactions < 3:
+        social_warning = "⚠️ PRIORITY: Isolation is multiplying your stress." if context.get("is_isolated_stressed") else ""
+        lifestyle_items.append(f"""
+        <div class="lifestyle-item">
+            <span class="lifestyle-icon">👥</span>
+            <div class="lifestyle-content">
+                <strong>Social: Quality {social_quality:.0f}/10, Interactions {social_interactions:.0f}/day</strong>
+                <p>{social_warning}</p>
+                <p>💡 One meaningful conversation today > gym session.</p>
+            </div>
+        </div>
+        """)
+    
+    if outdoor < 20:
+        lifestyle_items.append(f"""
+        <div class="lifestyle-item">
+            <span class="lifestyle-icon">🌳</span>
+            <div class="lifestyle-content">
+                <strong>Outdoor Time: {outdoor:.0f} min</strong>
+                <p>💡 20 min in nature lowers cortisol more than indoor exercise.</p>
+            </div>
+        </div>
+        """)
+    
+    if recovery < 5:
+        lifestyle_items.append(f"""
+        <div class="lifestyle-item critical">
+            <span class="lifestyle-icon">🔋</span>
+            <div class="lifestyle-content">
+                <strong>Recovery Ability: {recovery:.0f}/10</strong> ⚠️ CRITICAL
+                <p>💡 You MUST add passive recovery: extra sleep, meditation, no screens before bed.</p>
+            </div>
+        </div>
+        """)
+    
+    if lifestyle_items:
+        lifestyle_html = """
+        <div class="card">
+            <h2>🌱 Lifestyle & Environment</h2>
+            <div class="lifestyle-grid">
+        """ + "\n".join(lifestyle_items) + """
+            </div>
+        </div>
+        """
+    
+    # Generate 7-day action plan for MEDIUM/HIGH risk
+    action_plan_html = ""
+    if pred_class >= 1:  # MEDIUM or HIGH
+        action_plan_html = generate_action_plan_html(data, context, pred_class)
+    
+    # Generate CVAE suggestions if available
+    cvae_html = ""
+    try:
+        cvae_model = load_cvae_model()
+        if cvae_model:
+            suggestions = get_cvae_suggestions(cvae_model, data)
+            if suggestions:
+                cvae_items = ""
+                for feature, current, suggested, diff in suggestions[:5]:
+                    arrow = "↗️" if diff > 0 else "↘️"
+                    display_name = feature.replace("_", " ").title()
+                    cvae_items += f"""
+                    <div class="cvae-item">
+                        <span class="cvae-arrow">{arrow}</span>
+                        <span class="cvae-label">{display_name}:</span>
+                        <span class="cvae-current">{current:.1f}</span>
+                        <span class="cvae-arrow-text">→</span>
+                        <span class="cvae-suggested">{suggested:.1f}</span>
+                        <span class="cvae-diff">({diff:+.1f})</span>
+                    </div>
+                    """
+                cvae_html = f"""
+                <div class="cvae-section">
+                    <h3>🤖 AI-Powered Behavioral Suggestions</h3>
+                    <p class="cvae-intro">Based on patterns from people with similar profiles who had LOW burnout risk:</p>
+                    <div class="cvae-suggestions">
+                        {cvae_items}
+                    </div>
+                </div>
+                """
+    except:
+        pass  # CVAE not available
+    
+    # Build the full HTML
+    now = datetime.now()
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Burnout Risk Assessment - {name}</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }}
+        .container {{ max-width: 900px; margin: 0 auto; }}
+        .header {{ text-align: center; color: white; margin-bottom: 40px; }}
+        .header h1 {{ font-size: 2.5rem; margin-bottom: 10px; }}
+        .header p {{ opacity: 0.9; }}
+        .card {{
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }}
+        .result-card {{ text-align: center; }}
+        .risk-badge {{
+            display: inline-block;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 20px 0;
+        }}
+        .risk-low {{ background: #d4edda; color: #155724; }}
+        .risk-medium {{ background: #fff3cd; color: #856404; }}
+        .risk-high {{ background: #f8d7da; color: #721c24; }}
+        .confidence {{ font-size: 1.2rem; color: #666; margin-bottom: 20px; }}
+        .emoji {{ font-size: 4rem; margin-bottom: 10px; }}
+        .description {{ font-size: 1.1rem; color: #555; max-width: 500px; margin: 0 auto; }}
+        .meter-container {{ margin: 30px 0; }}
+        .meter-label {{ display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 500; }}
+        .meter {{ height: 25px; background: #e9ecef; border-radius: 15px; overflow: hidden; margin-bottom: 15px; }}
+        .meter-fill {{ height: 100%; border-radius: 15px; }}
+        .meter-low {{ background: linear-gradient(90deg, #28a745, #5cb85c); }}
+        .meter-medium {{ background: linear-gradient(90deg, #ffc107, #ffdb58); }}
+        .meter-high {{ background: linear-gradient(90deg, #dc3545, #ff6b6b); }}
+        .metrics-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; margin-top: 20px; }}
+        .metric {{ text-align: center; padding: 20px; background: #f8f9fa; border-radius: 15px; }}
+        .metric-value {{ font-size: 2rem; font-weight: bold; color: #333; }}
+        .metric-label {{ color: #666; margin-top: 5px; }}
+        .metric-status {{ font-size: 1.5rem; margin-bottom: 5px; }}
+        .recommendations {{ list-style: none; }}
+        .recommendations li {{ padding: 15px; margin: 10px 0; background: #f8f9fa; border-radius: 10px; border-left: 4px solid #667eea; }}
+        .rec-header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }}
+        .impact-badge {{ font-size: 0.85rem; padding: 4px 10px; border-radius: 15px; font-weight: 500; }}
+        .impact-good {{ background: #d4edda; color: #155724; }}
+        .impact-neutral {{ background: #e9ecef; color: #6c757d; }}
+        .rec-values {{ font-size: 0.95rem; color: #555; margin-bottom: 8px; }}
+        .value-bad {{ color: #dc3545; font-weight: 600; }}
+        .value-good {{ color: #28a745; font-weight: 600; }}
+        .rec-advice {{ font-size: 0.95rem; color: #333; background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #e9ecef; }}
+        .contradictions-section {{ background: #fff8e6; border: 2px solid #ffc107; border-radius: 15px; padding: 20px; margin: 20px 0; }}
+        .contradictions-section h3 {{ color: #856404; margin-bottom: 10px; }}
+        .contradictions-intro {{ color: #666; margin-bottom: 15px; }}
+        .warning-item {{ padding: 12px 15px; margin: 10px 0; border-radius: 8px; line-height: 1.5; }}
+        .warning-normal {{ background: #fff3cd; border-left: 4px solid #ffc107; color: #856404; }}
+        .warning-critical {{ background: #f8d7da; border-left: 4px solid #dc3545; color: #721c24; }}
+        h2 {{ color: #333; margin-bottom: 20px; font-size: 1.5rem; }}
+        .footer {{ text-align: center; color: white; opacity: 0.8; margin-top: 20px; }}
+        .disclaimer {{ background: #fff3cd; border: 1px solid #ffc107; border-radius: 10px; padding: 15px; margin-top: 20px; font-size: 0.9rem; color: #856404; }}
+        .person-name {{ text-align: center; font-size: 1.2rem; color: #555; margin-bottom: 20px; padding: 10px; background: linear-gradient(135deg, #667eea15, #764ba215); border-radius: 10px; }}
+        .person-name strong {{ color: #333; font-size: 1.4rem; }}
+        .cvae-section {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; padding: 20px; margin-top: 20px; color: white; }}
+        .cvae-section h3 {{ margin-bottom: 10px; color: white; }}
+        .cvae-intro {{ opacity: 0.9; margin-bottom: 15px; font-size: 0.95rem; }}
+        .cvae-suggestions {{ background: rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 15px; }}
+        .cvae-item {{ padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.2); font-size: 0.95rem; }}
+        .cvae-item:last-child {{ border-bottom: none; }}
+        .cvae-arrow {{ margin-right: 5px; }}
+        .cvae-label {{ font-weight: 500; }}
+        .cvae-current {{ opacity: 0.7; }}
+        .cvae-arrow-text {{ margin: 0 5px; }}
+        .cvae-suggested {{ font-weight: 600; }}
+        .cvae-diff {{ opacity: 0.8; font-size: 0.85rem; }}
+        .lifestyle-grid {{ display: grid; gap: 15px; }}
+        .lifestyle-item {{ display: flex; padding: 15px; background: #f8f9fa; border-radius: 10px; }}
+        .lifestyle-item.critical {{ background: #f8d7da; border: 2px solid #dc3545; }}
+        .lifestyle-icon {{ font-size: 2rem; margin-right: 15px; }}
+        .lifestyle-content {{ flex: 1; }}
+        .lifestyle-content strong {{ display: block; margin-bottom: 5px; }}
+        .lifestyle-content p {{ font-size: 0.9rem; color: #555; margin-top: 5px; }}
+        .action-plan {{ background: white; border-radius: 20px; padding: 30px; margin-bottom: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }}
+        .priority-focus {{ background: linear-gradient(135deg, #667eea15, #764ba215); border-radius: 12px; padding: 20px; margin-bottom: 25px; }}
+        .priority-focus h3 {{ color: #667eea; margin-bottom: 15px; font-size: 1.1rem; }}
+        .priority-items {{ display: flex; flex-wrap: wrap; gap: 10px; }}
+        .priority-item {{ background: white; border: 2px solid #667eea; border-radius: 25px; padding: 8px 16px; font-size: 0.9rem; font-weight: 500; color: #667eea; }}
+        .priority-item.critical {{ background: #dc3545; border-color: #dc3545; color: white; }}
+        .weekly-schedule {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; }}
+        .day-card {{ background: #f8f9fa; border-radius: 12px; padding: 15px; border-left: 4px solid #667eea; }}
+        .day-card.rest-day {{ border-left-color: #28a745; background: #f0fff4; }}
+        .day-header {{ font-weight: 600; color: #333; margin-bottom: 10px; font-size: 1rem; }}
+        .day-tasks {{ list-style: none; padding: 0; margin: 0; }}
+        .day-tasks li {{ padding: 8px 0; border-bottom: 1px solid #e9ecef; font-size: 0.9rem; color: #555; }}
+        .day-tasks li:last-child {{ border-bottom: none; }}
+        .task-time {{ font-weight: 500; color: #667eea; margin-right: 8px; }}
+        .weekly-goals {{ background: #f8f9fa; border-radius: 12px; padding: 20px; margin-top: 20px; }}
+        .weekly-goals h3 {{ color: #333; margin-bottom: 15px; font-size: 1.1rem; }}
+        .goal-item {{ display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #e9ecef; }}
+        .goal-item:last-child {{ border-bottom: none; }}
+        .goal-checkbox {{ width: 24px; height: 24px; border: 2px solid #667eea; border-radius: 6px; margin-right: 12px; flex-shrink: 0; }}
+        .goal-text {{ flex: 1; font-size: 0.95rem; }}
+        .goal-metric {{ font-size: 0.85rem; color: #666; background: #e9ecef; padding: 4px 10px; border-radius: 15px; }}
+        @media (max-width: 600px) {{
+            .header h1 {{ font-size: 1.8rem; }}
+            .risk-badge {{ font-size: 1.2rem; padding: 10px 25px; }}
+            .emoji {{ font-size: 3rem; }}
+            .weekly-schedule {{ grid-template-columns: 1fr; }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 Burnout Risk Assessment</h1>
+            <p>Generated on {now.strftime('%B %d, %Y')} at {now.strftime('%H:%M')}</p>
+        </div>
+        
+        <div class="person-name">Report for: <strong>{name}</strong></div>
+        
+        <div class="card result-card">
+            <div class="emoji">{risk_emoji}</div>
+            <h2>Your Burnout Risk Level</h2>
+            <div class="risk-badge risk-{risk_color}">{risk_level} RISK</div>
+            <div class="confidence">Confidence: {confidence:.0f}%</div>
+            <p class="description">{risk_desc}</p>
+            
+            <div class="meter-container">
+                <div class="meter-label">
+                    <span>🟢 Low Risk</span>
+                    <span>{probs[0]*100:.0f}%</span>
+                </div>
+                <div class="meter">
+                    <div class="meter-fill meter-low" style="width: {probs[0]*100:.0f}%"></div>
+                </div>
+                
+                <div class="meter-label">
+                    <span>🟡 Medium Risk</span>
+                    <span>{probs[1]*100:.0f}%</span>
+                </div>
+                <div class="meter">
+                    <div class="meter-fill meter-medium" style="width: {probs[1]*100:.0f}%"></div>
+                </div>
+                
+                <div class="meter-label">
+                    <span>🔴 High Risk</span>
+                    <span>{probs[2]*100:.0f}%</span>
+                </div>
+                <div class="meter">
+                    <div class="meter-fill meter-high" style="width: {probs[2]*100:.0f}%"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>📊 Your Key Metrics</h2>
+            <div class="metrics-grid">
+                {"".join(f'''
+                <div class="metric">
+                    <div class="metric-status">{status}</div>
+                    <div class="metric-value">{value}</div>
+                    <div class="metric-label">{label}</div>
+                </div>
+                ''' for label, value, status in metrics)}
+            </div>
+        </div>
+        
+        {warnings_html}
+        
+        {lifestyle_html}
+        
+        <div class="card">
+            <h2>💡 Personalized Recommendations</h2>
+            <ul class="recommendations">
+                {recommendations_html}
+            </ul>
+            {cvae_html}
+        </div>
+        
+        {action_plan_html}
+        
+        <div class="card">
+            <div class="disclaimer">
+                ⚠️ <strong>Disclaimer:</strong> This is a demo prediction model for educational purposes.
+                For real mental health concerns, please consult a healthcare professional.
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Generated by Burnout Prediction System v2.0</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+    
+    # Write the HTML file
+    import os
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(html)
+    
+    print(f"✅ HTML report saved to: {output_path}")
+
+
+def generate_action_plan_html(data: dict, context: dict, pred_class: int) -> str:
+    """Generate 7-day action plan HTML section."""
+    
+    # Determine priority areas
+    priorities = []
+    if data.get("stress_level", 5) > 7:
+        priorities.append(("Stress Management", "critical" if data.get("stress_level", 5) > 8 else ""))
+    if data.get("sleep_hours", 7) < 6:
+        priorities.append(("Sleep Recovery", "critical"))
+    if data.get("exercise_minutes", 30) < 20:
+        priorities.append(("Physical Activity", ""))
+    if context.get("is_isolated_stressed"):
+        priorities.append(("Social Connection", "critical"))
+    if context.get("is_recovery_critical"):
+        priorities.append(("Recovery & Rest", "critical"))
+    
+    if not priorities:
+        priorities = [("General Wellness", "")]
+    
+    priority_items = "".join(
+        f'<span class="priority-item {crit}">{name}</span>' 
+        for name, crit in priorities[:4]
+    )
+    
+    # Generate weekly schedule
+    days = [
+        ("Monday", [
+            ("Morning", "10-min walk before work"),
+            ("Lunch", "Step away from desk, eat mindfully"),
+            ("Evening", "Wind down: no screens 1hr before bed"),
+        ]),
+        ("Tuesday", [
+            ("Morning", "Start with your hardest task (when energy peaks)"),
+            ("Afternoon", "15-min outdoor break"),
+            ("Evening", "Stretching or light yoga"),
+        ]),
+        ("Wednesday", [
+            ("Morning", "Gratitude journaling (3 things)"),
+            ("Lunch", "Social meal - eat with a colleague or friend"),
+            ("Evening", "Early bedtime - aim for +30min sleep"),
+        ]),
+        ("Thursday", [
+            ("Morning", "Review stress triggers from the week"),
+            ("Afternoon", "Take a real break - no phone"),
+            ("Evening", "Relaxing activity: reading, bath, hobby"),
+        ]),
+        ("Friday", [
+            ("Morning", "Set boundaries: realistic to-do list only"),
+            ("Afternoon", "Celebrate one small win"),
+            ("Evening", "Plan weekend recovery time"),
+        ], True),  # Rest day marker
+        ("Weekend", [
+            ("Saturday", "Full recovery day - no work emails"),
+            ("Sunday", "Prep for the week - meal prep, organize"),
+            ("Both days", "At least 30min outdoor activity"),
+        ], True),
+    ]
+    
+    days_html = ""
+    for day_info in days:
+        day_name = day_info[0]
+        tasks = day_info[1]
+        is_rest = len(day_info) > 2 and day_info[2]
+        
+        rest_class = "rest-day" if is_rest else ""
+        tasks_html = "".join(
+            f'<li><span class="task-time">{time}</span> {task}</li>'
+            for time, task in tasks
+        )
+        
+        days_html += f"""
+        <div class="day-card {rest_class}">
+            <div class="day-header">📅 {day_name}</div>
+            <ul class="day-tasks">
+                {tasks_html}
+            </ul>
+        </div>
+        """
+    
+    # Weekly goals
+    goals = [
+        ("Sleep 7+ hours at least 5 nights", f"Current: {data.get('sleep_hours', 7):.0f}h avg"),
+        ("Exercise 3x this week (even 15min counts)", f"Current: {data.get('exercise_minutes', 30):.0f}min/day"),
+        ("One meaningful social interaction daily", ""),
+        ("Take all lunch breaks away from desk", ""),
+        ("No work emails after 8pm", ""),
+    ]
+    
+    goals_html = "".join(f"""
+        <div class="goal-item">
+            <div class="goal-checkbox"></div>
+            <span class="goal-text">{goal}</span>
+            {f'<span class="goal-metric">{metric}</span>' if metric else ''}
+        </div>
+    """ for goal, metric in goals)
+    
+    return f"""
+    <div class="action-plan">
+        <h2>📋 Your 7-Day Action Plan</h2>
+        <p class="plan-intro">Small, consistent changes work better than dramatic overhauls. Focus on these priorities:</p>
+        
+        <div class="priority-focus">
+            <h3>🎯 Your Priority Areas</h3>
+            <div class="priority-items">
+                {priority_items}
+            </div>
+        </div>
+        
+        <div class="weekly-schedule">
+            {days_html}
+        </div>
+        
+        <div class="weekly-goals">
+            <h3>✅ Weekly Goals Checklist</h3>
+            {goals_html}
+        </div>
+    </div>
+    """
+
+
+# ============================================================================
 # MAIN FUNCTION
 # ============================================================================
 
@@ -2526,6 +3123,7 @@ Examples:
     parser.add_argument("--work", type=float, help="Work hours")
     parser.add_argument("--mood", type=float, help="Mood score (1-10)")
     parser.add_argument("--exercise", type=float, help="Exercise minutes")
+    parser.add_argument("--html", type=str, help="Output path for HTML report (e.g., reports/report.html)")
     
     return parser.parse_args()
 
@@ -2580,10 +3178,28 @@ def main() -> None:
             print(f"📊 Detected WEEKLY AVERAGES format ({len(mapped_df)} responses)")
             for idx, row in mapped_df.iterrows():
                 data = {f: row[f] for f in FEATURE_COLS if f in row}
+                # Also include V2 features for context-aware logic
+                v2_features = ["social_quality", "social_interactions", "outdoor_time_minutes",
+                              "diet_quality", "job_satisfaction", "recovery_ability", "job_type",
+                              "job_requires_screen", "loneliness_level", "work_life_boundary"]
+                for v2_feat in v2_features:
+                    if v2_feat in row:
+                        data[v2_feat] = row[v2_feat]
+                
                 sequence = create_weekly_sequence(data, feature_cols)
                 pred_class, probs = predict(model, sequence, feature_cols)
+                
+                # Get user name if available
+                name = row.get("_name", f"Response #{idx + 1}")
+                if pd.isna(name):
+                    name = f"Response #{idx + 1}"
+                
                 print(f"\n--- Response #{idx + 1} ---")
                 print_prediction_result(data, pred_class, probs, model, feature_cols)
+                
+                # Generate HTML report if requested
+                if args.html:
+                    generate_html_report(data, pred_class, probs, model, feature_cols, args.html, name)
         return
     elif any([args.stress, args.sleep, args.work, args.mood, args.exercise]):
         # Use command-line values
