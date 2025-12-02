@@ -6,7 +6,9 @@ This script creates the target variables for our machine learning models:
 
 1. BURNOUT PREDICTION (from weekly mental health surveys):
    - burnout_score: Composite index from stress, anxiety, depression, sleep debt, job satisfaction
-   - burnout_level: 3-class (Low/Medium/High) using 33rd/66th percentile thresholds
+   - burnout_binary: 2-class (Healthy/At-Risk) - PRIMARY TARGET
+     * Healthy (0): Bottom 33% of burnout scores
+     * At-Risk (1): Top 67% (merged Medium+High for better accuracy)
 
 2. FOCUS/DEEP WORK PREDICTION (from daily logs):
    - focus_level: 3-class (Low/Medium/High) based on focus_score
@@ -111,6 +113,7 @@ def compute_burnout_targets(weekly: pd.DataFrame) -> pd.DataFrame:
     #
     # Positive contributors: stress, anxiety, depression, sleep debt
     # Negative contributor: job satisfaction (higher satisfaction = lower burnout)
+    # The weights were found using PCA.
     weekly = weekly.copy()
     weekly["burnout_score"] = (
         0.278 * weekly_z["perceived_stress_scale"]
@@ -259,19 +262,14 @@ def main() -> None:
     print(f"   - {PROCESSED_DIR / 'weekly_with_burnout.parquet'}")
     print(f"   - {PROCESSED_DIR / 'daily_with_burnout.parquet'}")
     print()
-    print("📊 Burnout Level Distribution (weekly, 3-class):")
-    burnout_dist = weekly_targets["burnout_level"].value_counts(normalize=True).sort_index()
-    for level, pct in burnout_dist.items():
-        label = ["Low", "Medium", "High"][level]
-        print(f"   {label}: {pct:.1%}")
-    print()
-    print("🏥 Burnout Binary Distribution (weekly, 2-class):")
+    print("🏥 Burnout Binary Distribution (PRIMARY - Healthy vs At-Risk):")
     binary_dist = weekly_targets["burnout_binary"].value_counts(normalize=True).sort_index()
     for level, pct in binary_dist.items():
         label = ["Healthy", "At Risk"][level]
-        print(f"   {label}: {pct:.1%}")
+        emoji = "🟢" if level == 0 else "🔴"
+        print(f"   {emoji} {label}: {pct:.1%}")
     print()
-    print("🎯 Focus Level Distribution (daily):")
+    print("🎯 Focus Level Distribution (daily, 3-class):")
     focus_dist = merged_daily["focus_level"].value_counts(normalize=True).sort_index()
     for level, pct in focus_dist.items():
         label = ["Low", "Medium", "High"][level]

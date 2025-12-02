@@ -126,8 +126,10 @@ def parse_args() -> argparse.Namespace:
                         help="Model architecture: lstm, gru, cnn, or lstm_attn (with attention)")
     parser.add_argument("--target", choices=["burnout", "focus"], default="burnout",
                         help="Prediction target: burnout (weekly risk) or focus (daily deep work)")
-    parser.add_argument("--binary", action="store_true",
-                        help="Use binary classification (Healthy vs At-Risk) instead of 3-class")
+    parser.add_argument("--binary", action="store_true", default=True,
+                        help="Use binary classification (Healthy vs At-Risk) - DEFAULT")
+    parser.add_argument("--three-class", action="store_true",
+                        help="Use 3-class classification (Low/Med/High) instead of binary")
     parser.add_argument("--window", type=int, default=7,
                         help="Sequence window size in days (default: 7)")
     parser.add_argument("--epochs", type=int, default=20, 
@@ -485,9 +487,9 @@ def train(args: argparse.Namespace) -> None:
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {DEVICE}")
     
-    # Determine classification mode
-    is_binary = args.binary and args.target == "burnout"
-    mode_str = "BINARY (Healthy vs At-Risk)" if is_binary else "3-CLASS"
+    # Determine classification mode (binary is default, --three-class overrides)
+    is_binary = (args.target == "burnout") and not getattr(args, 'three_class', False)
+    mode_str = "BINARY (Healthy vs At-Risk)" if is_binary else "3-CLASS (Low/Med/High)"
     print(f"Target: {args.target.upper()} [{mode_str}]")
     
     # Load sequences with forecasting

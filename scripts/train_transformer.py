@@ -160,14 +160,14 @@ def load_daily(window: int, sample_users: float = 1.0, forecast_horizon: int = 7
         window: Number of days in each sequence
         sample_users: Fraction of users to include (for CPU training)
         forecast_horizon: Days into the future to predict (default 7 = next week)
-        target: "burnout" (burnout_level) or "focus" (focus_level)
+        target: "burnout" (burnout_binary) or "focus" (focus_level)
         
     Returns:
         X: Sequences array (N × window × features)
         y: Labels array (N,)
     """
-    # Determine target column
-    target_col = "burnout_level" if target == "burnout" else "focus_level"
+    # Determine target column - burnout uses binary (Healthy/At-Risk) by default
+    target_col = "burnout_binary" if target == "burnout" else "focus_level"
     
     if not DAILY_PATH.exists():
         raise FileNotFoundError(
@@ -591,6 +591,8 @@ def train(args: argparse.Namespace) -> None:
                 "model_state": model.state_dict(),
                 "model_type": "transformer",
                 "target": args.target,  # burnout or focus
+                "is_binary": args.target == "burnout",  # burnout always binary now
+                "num_classes": num_classes,
                 "feature_cols": FEATURE_COLS,
                 "window": args.window,
                 "forecast_horizon": args.forecast_horizon,
@@ -601,22 +603,30 @@ def train(args: argparse.Namespace) -> None:
 
     # ========== FINAL METRICS ==========
     accuracy = accuracy_score(y_val, preds)
-    f1 = f1_score(y_val, preds, average="macro")
+    is_binary = args.target == "burnout"
+    f1 = f1_score(y_val, preds, average="binary" if is_binary else "macro")
     cm = confusion_matrix(y_val, preds)
     
     # Class labels depend on target
-    class_labels = ['LOW', 'MEDIUM', 'HIGH']
+    if is_binary:
+        class_labels = ['HEALTHY', 'AT_RISK']
+    else:
+        class_labels = ['LOW', 'MEDIUM', 'HIGH']
     
     print("\n" + "=" * 60)
-    print(f"TRAINING COMPLETE - {args.target.upper()} PREDICTION")
+    mode_str = "BINARY" if is_binary else "3-CLASS"
+    print(f"TRAINING COMPLETE - {args.target.upper()} [{mode_str}]")
     print("=" * 60)
     print(f"Best Validation Loss: {best_val:.4f}")
     print(f"Final Accuracy: {accuracy*100:.2f}%")
-    print(f"Final F1 (macro): {f1*100:.2f}%")
+    print(f"Final F1 ({'binary' if is_binary else 'macro'}): {f1*100:.2f}%")
     print(f"\nConfusion Matrix:")
-    print(f"        Pred→  LOW    MED   HIGH")
+    if is_binary:
+        print(f"        Pred→  HEALTHY  AT_RISK")
+    else:
+        print(f"        Pred→  LOW    MED   HIGH")
     for i, row in enumerate(cm):
-        label = class_labels[i][:4].ljust(4)
+        label = class_labels[i][:7].ljust(7)
         print(f"  {label}:  {row}")
     print(f"\nPer-class report:")
     print(classification_report(y_val, preds, target_names=class_labels))

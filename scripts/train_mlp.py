@@ -83,8 +83,10 @@ def parse_args() -> argparse.Namespace:
                         help="Learning rate for Adam optimizer")
     parser.add_argument("--weight-decay", type=float, default=1e-4,
                         help="L2 regularization strength")
-    parser.add_argument("--binary", action="store_true",
-                        help="Use binary classification (Healthy vs At-Risk) instead of 3-class")
+    parser.add_argument("--binary", action="store_true", default=True,
+                        help="Use binary classification (Healthy vs At-Risk) - DEFAULT")
+    parser.add_argument("--three-class", action="store_true",
+                        help="Use 3-class classification (Low/Med/High) instead of binary")
     return parser.parse_args()
 
 
@@ -418,8 +420,8 @@ def train(args: argparse.Namespace) -> None:
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {DEVICE}")
     
-    # Determine classification mode
-    is_binary = args.binary
+    # Determine classification mode (binary is default, --three-class overrides)
+    is_binary = not getattr(args, 'three_class', False)
     mode_str = "BINARY (Healthy vs At-Risk)" if is_binary else "3-CLASS (Low/Med/High)"
     print(f"Classification mode: {mode_str}")
     

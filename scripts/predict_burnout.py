@@ -688,9 +688,10 @@ def load_model(model_path: str) -> tuple:
     input_dim = len(feature_cols)
     
     # Detect binary mode from checkpoint or filename
-    is_binary = checkpoint.get("is_binary", False)
-    if "binary" in str(model_path).lower():
-        is_binary = True
+    # Default to binary=True for burnout models (new standard)
+    is_binary = checkpoint.get("is_binary", True)  # Default to binary
+    if "3class" in str(model_path).lower() or "three" in str(model_path).lower():
+        is_binary = False  # Explicit 3-class model
     
     # Determine number of classes
     num_classes = checkpoint.get("num_classes", 2 if is_binary else 3)
