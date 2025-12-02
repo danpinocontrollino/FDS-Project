@@ -633,11 +633,17 @@ def aggregate_daily_signals(daily: pd.DataFrame) -> pd.DataFrame:
     Returns:
         DataFrame with one row per (user_id, week), containing mean/std features
     """
+    # Only use columns that actually exist in the data
+    available_cols = [col for col in NUMERIC_SIGNAL_COLS if col in daily.columns]
+    missing_cols = [col for col in NUMERIC_SIGNAL_COLS if col not in daily.columns]
+    if missing_cols:
+        print(f"[INFO] Skipping missing numeric columns: {missing_cols}")
+    
     # Define aggregation: mean and std for each numeric column
-    agg_map = {col: ["mean", "std"] for col in NUMERIC_SIGNAL_COLS}
+    agg_map = {col: ["mean", "std"] for col in available_cols}
     
     # Ensure numeric type (some columns might be strings)
-    for col in NUMERIC_SIGNAL_COLS:
+    for col in available_cols:
         daily[col] = pd.to_numeric(daily[col], errors="coerce")
     
     # Group by user and week, then aggregate
@@ -672,10 +678,17 @@ def aggregate_daily_all(daily_all: pd.DataFrame) -> pd.DataFrame:
     daily_all["week"] = pd.to_datetime(daily_all["week_start"]).dt.isocalendar().week.astype(int)
     
     # For categorical columns, just take first value (they're constant per user)
-    agg = {col: "first" for col in CAT_COLS}
+    # Only use columns that exist in the data
+    available_cat_cols = [col for col in CAT_COLS if col in daily_all.columns]
+    missing_cat_cols = [col for col in CAT_COLS if col not in daily_all.columns]
+    if missing_cat_cols:
+        print(f"[INFO] Skipping missing categorical columns: {missing_cat_cols}")
+    
+    agg = {col: "first" for col in available_cat_cols}
     
     # For intervention flags, take max (1 if any day had intervention)
-    flag_agg = {flag: "max" for flag in ["has_intervention"] + INTERVENTION_FLAGS}
+    available_flags = [flag for flag in ["has_intervention"] + INTERVENTION_FLAGS if flag in daily_all.columns]
+    flag_agg = {flag: "max" for flag in available_flags}
     agg.update(flag_agg)
     
     weekly_cat = daily_all.groupby(["user_id", "week"], as_index=False).agg(agg)
