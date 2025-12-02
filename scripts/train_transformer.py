@@ -121,7 +121,9 @@ def parse_args() -> argparse.Namespace:
     - --nhead: Number of attention heads (must divide d_model evenly)
     - --num-layers: Depth of the encoder stack
     """
-    parser = argparse.ArgumentParser(description="Train Transformer burnout classifier")
+    parser = argparse.ArgumentParser(description="Train Transformer burnout/focus classifier")
+    parser.add_argument("--target", choices=["burnout", "focus"], default="burnout",
+                        help="Prediction target: burnout (weekly risk) or focus (daily deep work)")
     parser.add_argument("--window", type=int, default=7,
                         help="Sequence window size in days (default: 7)")
     parser.add_argument("--epochs", type=int, default=20, 
@@ -139,7 +141,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sample-users", type=float, default=0.1, 
                         help="Fraction of USERS to include (default 0.1 = 10%% for CPU training)")
     parser.add_argument("--forecast-horizon", type=int, default=7,
-                        help="Days ahead to predict burnout (default 7 = next week)")
+                        help="Days ahead to predict (default 7 for burnout, 1 for focus)")
     return parser.parse_args()
 
 
@@ -147,22 +149,26 @@ def parse_args() -> argparse.Namespace:
 # DATA LOADING & SEQUENCE CREATION
 # ============================================================================
 
-def load_daily(window: int, sample_users: float = 1.0, forecast_horizon: int = 7) -> Tuple[np.ndarray, np.ndarray]:
+def load_daily(window: int, sample_users: float = 1.0, forecast_horizon: int = 7, target: str = "burnout") -> Tuple[np.ndarray, np.ndarray]:
     """
     Load daily data and create sliding window sequences for FORECASTING.
     
-    CRITICAL: We predict FUTURE burnout, not same-period burnout.
+    CRITICAL: We predict FUTURE outcomes, not same-period outcomes.
     This prevents data leakage and creates a realistic early warning system.
     
     Args:
         window: Number of days in each sequence
         sample_users: Fraction of users to include (for CPU training)
         forecast_horizon: Days into the future to predict (default 7 = next week)
+        target: "burnout" (burnout_binary) or "focus" (focus_level)
         
     Returns:
         X: Sequences array (N × window × features)
         y: Labels array (N,)
     """
+    # Determine target column - burnout uses binary (Healthy/At-Risk) by default
+    target_col = "burnout_binary" if target == "burnout" else "focus_level"
+    
     if not DAILY_PATH.exists():
         raise FileNotFoundError(
             "Run scripts/create_burnout_labels.py first to generate daily_with_burnout.parquet"
@@ -178,23 +184,23 @@ def load_daily(window: int, sample_users: float = 1.0, forecast_horizon: int = 7
         daily["work_pressure"] = daily["work_pressure"].map(pressure_map).fillna(1).astype(np.float32)
 
     # ========== STRATIFIED USER SAMPLING ==========
-    # Sample users proportionally by their dominant burnout level
+    # Sample users proportionally by their dominant level
     # This preserves population-level class distribution
     if sample_users < 1.0:
-        # Compute dominant burnout level per user (mode)
-        user_burnout = daily.groupby("user_id")["burnout_level"].agg(
+        # Compute dominant level per user (mode)
+        user_target = daily.groupby("user_id")[target_col].agg(
             lambda x: x.mode().iloc[0] if len(x.mode()) > 0 else x.median()
         )
-        user_burnout = user_burnout.reset_index()
-        user_burnout.columns = ["user_id", "dominant_burnout"]
+        user_target = user_target.reset_index()
+        user_target.columns = ["user_id", "dominant_target"]
         
-        n_users_total = len(user_burnout)
+        n_users_total = len(user_target)
         n_users_sample = max(3, int(n_users_total * sample_users))
         
-        # Stratified sampling from each burnout stratum
+        # Stratified sampling from each class stratum
         selected_users = []
-        for level in sorted(user_burnout["dominant_burnout"].unique()):
-            level_users = user_burnout[user_burnout["dominant_burnout"] == level]["user_id"].values
+        for level in sorted(user_target["dominant_target"].unique()):
+            level_users = user_target[user_target["dominant_target"] == level]["user_id"].values
             level_proportion = len(level_users) / n_users_total
             n_from_level = max(1, int(n_users_sample * level_proportion))
             sampled = np.random.choice(level_users, min(n_from_level, len(level_users)), replace=False)
@@ -202,14 +208,14 @@ def load_daily(window: int, sample_users: float = 1.0, forecast_horizon: int = 7
         
         daily = daily[daily["user_id"].isin(selected_users)]
         print(f"Stratified sampling: {len(selected_users):,} users ({sample_users*100:.0f}% of {n_users_total:,})")
-        print(f"  Class distribution preserved: {daily['burnout_level'].value_counts(normalize=True).round(3).to_dict()}")
+        print(f"  Class distribution preserved: {daily[target_col].value_counts(normalize=True).round(3).to_dict()}")
 
     # ========== SLIDING WINDOW CREATION (FORECASTING) ==========
     sequences, labels = [], []
     
     for uid, group in daily.groupby("user_id"):
         feats = group[FEATURE_COLS].to_numpy(dtype=np.float32)
-        labs = group["burnout_level"].to_numpy(dtype=np.int64)
+        labs = group[target_col].to_numpy(dtype=np.int64)
         
         # Need enough data for window + forecast horizon
         if len(group) < window + forecast_horizon:
@@ -218,7 +224,7 @@ def load_daily(window: int, sample_users: float = 1.0, forecast_horizon: int = 7
         # Create windows with FUTURE labels
         for idx in range(window, len(group) - forecast_horizon + 1):
             seq = feats[idx - window: idx]          # 7-day window (days t-6 to t)
-            label = labs[idx + forecast_horizon - 1]  # Burnout at day t+7
+            label = labs[idx + forecast_horizon - 1]  # Target at day t+horizon
             
             if np.isnan(seq).any():
                 continue
@@ -226,7 +232,8 @@ def load_daily(window: int, sample_users: float = 1.0, forecast_horizon: int = 7
             sequences.append(seq)
             labels.append(label)
     
-    print(f"Forecasting mode: predicting burnout {forecast_horizon} days ahead")
+    target_name = "burnout" if target == "burnout" else "focus"
+    print(f"Forecasting mode: predicting {target_name} {forecast_horizon} day(s) ahead")
     return np.stack(sequences), np.array(labels)
 
 
@@ -485,10 +492,11 @@ def train(args: argparse.Namespace) -> None:
     # Select device
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {DEVICE}")
+    print(f"Target: {args.target.upper()}")
 
     # Load data with forecasting
     print("Loading data...")
-    seq_X, seq_y = load_daily(args.window, args.sample_users, args.forecast_horizon)
+    seq_X, seq_y = load_daily(args.window, args.sample_users, args.forecast_horizon, args.target)
     print(f"Total sequences: {len(seq_X):,} with shape {seq_X.shape}")
 
     # Build data loaders
@@ -524,7 +532,9 @@ def train(args: argparse.Namespace) -> None:
     best_val = float("inf")
     history = {"train_loss": [], "val_loss": []}
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
-    model_path = MODEL_DIR / "transformer_sequence.pt"
+    
+    # Model path includes target type: transformer_burnout_sequence.pt or transformer_focus_sequence.pt
+    model_path = MODEL_DIR / f"transformer_{args.target}_sequence.pt"
 
     # ========== TRAINING LOOP ==========
     print(f"\nStarting training for {args.epochs} epochs...")
@@ -580,8 +590,12 @@ def train(args: argparse.Namespace) -> None:
             torch.save({
                 "model_state": model.state_dict(),
                 "model_type": "transformer",
+                "target": args.target,  # burnout or focus
+                "is_binary": args.target == "burnout",  # burnout always binary now
+                "num_classes": num_classes,
                 "feature_cols": FEATURE_COLS,
                 "window": args.window,
+                "forecast_horizon": args.forecast_horizon,
                 "d_model": args.d_model,
                 "nhead": args.nhead,
                 "num_layers": args.num_layers,
@@ -589,22 +603,33 @@ def train(args: argparse.Namespace) -> None:
 
     # ========== FINAL METRICS ==========
     accuracy = accuracy_score(y_val, preds)
-    f1 = f1_score(y_val, preds, average="macro")
+    is_binary = args.target == "burnout"
+    f1 = f1_score(y_val, preds, average="binary" if is_binary else "macro")
     cm = confusion_matrix(y_val, preds)
     
+    # Class labels depend on target
+    if is_binary:
+        class_labels = ['HEALTHY', 'AT_RISK']
+    else:
+        class_labels = ['LOW', 'MEDIUM', 'HIGH']
+    
     print("\n" + "=" * 60)
-    print("TRAINING COMPLETE")
+    mode_str = "BINARY" if is_binary else "3-CLASS"
+    print(f"TRAINING COMPLETE - {args.target.upper()} [{mode_str}]")
     print("=" * 60)
     print(f"Best Validation Loss: {best_val:.4f}")
     print(f"Final Accuracy: {accuracy*100:.2f}%")
-    print(f"Final F1 (macro): {f1*100:.2f}%")
+    print(f"Final F1 ({'binary' if is_binary else 'macro'}): {f1*100:.2f}%")
     print(f"\nConfusion Matrix:")
-    print(f"        Pred→  LOW    MED   HIGH")
+    if is_binary:
+        print(f"        Pred→  HEALTHY  AT_RISK")
+    else:
+        print(f"        Pred→  LOW    MED   HIGH")
     for i, row in enumerate(cm):
-        label = ['LOW ', 'MED ', 'HIGH'][i]
+        label = class_labels[i][:7].ljust(7)
         print(f"  {label}:  {row}")
     print(f"\nPer-class report:")
-    print(classification_report(y_val, preds, target_names=['LOW', 'MEDIUM', 'HIGH']))
+    print(classification_report(y_val, preds, target_names=class_labels))
     
     # Update saved model with final metrics
     checkpoint = torch.load(model_path, weights_only=False)

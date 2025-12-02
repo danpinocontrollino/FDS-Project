@@ -793,7 +793,8 @@ def encode_and_scale(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         Encoded and scaled DataFrame ready for ML training
     """
-    target_cols = ["burnout_level", "burnout_score"]
+    # Target columns - burnout (weekly) and focus (daily)
+    target_cols = ["burnout_level", "burnout_score", "focus_level"]
     
     # Remove date columns that shouldn't be features
     feature_df = df.drop(columns=["week_start", "week_end"], errors="ignore")
