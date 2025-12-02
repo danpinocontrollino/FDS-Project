@@ -1,27 +1,23 @@
 """
 ================================================================================
-CREATE BURNOUT LABELS SCRIPT
+CREATE BURNOUT & FOCUS LABELS SCRIPT
 ================================================================================
-This script creates the target variables (burnout_score and burnout_level) that
-we will use to train our machine learning models.
+This script creates the target variables for our machine learning models:
 
-The burnout score is computed as a composite index from multiple mental health
-indicators, following the approach of combining standardized (z-score) values:
-    burnout_score = (stress + anxiety + depression + sleep_debt - job_satisfaction) / 5
+1. BURNOUT PREDICTION (from weekly mental health surveys):
+   - burnout_score: Composite index from stress, anxiety, depression, sleep debt, job satisfaction
+   - burnout_level: 3-class (Low/Medium/High) using 33rd/66th percentile thresholds
 
-We then discretize into 3 classes using quantile thresholds:
-    - Level 0 (Low):    bottom 33% of burnout scores
-    - Level 1 (Medium): middle 33% of burnout scores  
-    - Level 2 (High):   top 33% of burnout scores
-
-This creates a balanced 3-class classification problem.
+2. FOCUS/DEEP WORK PREDICTION (from daily logs):
+   - focus_level: 3-class (Low/Medium/High) based on focus_score
+   - Thresholds: Low (1-4), Medium (5-7), High (8-10)
 
 Usage:
     python scripts/create_burnout_labels.py
 
 Input:  data/raw/weekly_summaries.csv, data/raw/daily_logs.csv
 Output: data/processed/weekly_with_burnout.parquet
-        data/processed/daily_with_burnout.parquet
+        data/processed/daily_with_burnout.parquet (includes both burnout_level and focus_level)
 
 Author: University Project - Burnout Prediction
 ================================================================================
@@ -138,6 +134,43 @@ def compute_burnout_targets(weekly: pd.DataFrame) -> pd.DataFrame:
 # DATA MERGING
 # ============================================================================
 
+def compute_focus_labels(daily: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute focus_level (categorical) from daily focus_score.
+    
+    Focus/Deep Work prediction is valuable because:
+    - Strong correlates: meetings (-0.31), stress (-0.20), sleep (+0.16)
+    - Daily granularity allows actionable predictions ("optimize tomorrow")
+    - Complements burnout prediction (burnout = long-term, focus = short-term)
+    
+    Thresholds (based on 1-10 scale distribution analysis):
+    - Level 0 (Low):    focus_score 1-4 (23% of data - struggling to concentrate)
+    - Level 1 (Medium): focus_score 5-7 (64% of data - normal productivity)
+    - Level 2 (High):   focus_score 8-10 (14% of data - deep work state)
+    
+    Args:
+        daily: DataFrame with daily behavioral logs including focus_score
+        
+    Returns:
+        DataFrame with added focus_level column
+    """
+    daily = daily.copy()
+    
+    # Create focus_level using fixed thresholds (not quantiles)
+    # This makes the classes more interpretable and stable
+    def classify_focus(score: float) -> int:
+        """Map focus_score (1-10) to discrete class."""
+        if score <= 4:
+            return 0  # Low focus - difficulty concentrating
+        if score <= 7:
+            return 1  # Medium focus - normal productivity
+        return 2      # High focus - deep work state
+    
+    daily["focus_level"] = daily["focus_score"].apply(classify_focus)
+    
+    return daily
+
+
 def merge_daily_with_weekly(daily: pd.DataFrame, weekly: pd.DataFrame) -> pd.DataFrame:
     """
     Merge weekly burnout targets into daily logs.
@@ -178,7 +211,7 @@ def main() -> None:
     
     This creates two output files:
     1. weekly_with_burnout.parquet: Weekly summaries with burnout targets
-    2. daily_with_burnout.parquet: Daily logs with burnout targets (from their week)
+    2. daily_with_burnout.parquet: Daily logs with burnout AND focus targets
     """
     # Ensure output directory exists
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
@@ -189,16 +222,37 @@ def main() -> None:
     # Compute burnout targets from weekly mental health data
     weekly_targets = compute_burnout_targets(weekly)
     
-    # Merge targets into daily data (each day gets its week's burnout level)
-    merged_daily = merge_daily_with_weekly(daily, weekly_targets)
+    # Compute focus targets from daily data (before merging)
+    daily_with_focus = compute_focus_labels(daily)
+    
+    # Merge burnout targets into daily data (each day gets its week's burnout level)
+    merged_daily = merge_daily_with_weekly(daily_with_focus, weekly_targets)
 
     # Save as Parquet (efficient columnar format for ML workflows)
     weekly_targets.to_parquet(PROCESSED_DIR / "weekly_with_burnout.parquet", index=False)
     merged_daily.to_parquet(PROCESSED_DIR / "daily_with_burnout.parquet", index=False)
 
-    print("Saved:")
-    print("  -", PROCESSED_DIR / "weekly_with_burnout.parquet")
-    print("  -", PROCESSED_DIR / "daily_with_burnout.parquet")
+    # Print summary statistics
+    print("=" * 60)
+    print("TARGET LABELS CREATED")
+    print("=" * 60)
+    print()
+    print("📁 Saved files:")
+    print(f"   - {PROCESSED_DIR / 'weekly_with_burnout.parquet'}")
+    print(f"   - {PROCESSED_DIR / 'daily_with_burnout.parquet'}")
+    print()
+    print("📊 Burnout Level Distribution (weekly):")
+    burnout_dist = weekly_targets["burnout_level"].value_counts(normalize=True).sort_index()
+    for level, pct in burnout_dist.items():
+        label = ["Low", "Medium", "High"][level]
+        print(f"   {label}: {pct:.1%}")
+    print()
+    print("🎯 Focus Level Distribution (daily):")
+    focus_dist = merged_daily["focus_level"].value_counts(normalize=True).sort_index()
+    for level, pct in focus_dist.items():
+        label = ["Low", "Medium", "High"][level]
+        print(f"   {label}: {pct:.1%}")
+    print()
 
 
 # ============================================================================
