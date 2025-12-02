@@ -126,6 +126,8 @@ def parse_args() -> argparse.Namespace:
                         help="Model architecture: lstm, gru, cnn, or lstm_attn (with attention)")
     parser.add_argument("--target", choices=["burnout", "focus"], default="burnout",
                         help="Prediction target: burnout (weekly risk) or focus (daily deep work)")
+    parser.add_argument("--binary", action="store_true",
+                        help="Use binary classification (Healthy vs At-Risk) instead of 3-class")
     parser.add_argument("--window", type=int, default=7,
                         help="Sequence window size in days (default: 7)")
     parser.add_argument("--epochs", type=int, default=20, 
@@ -145,7 +147,8 @@ def parse_args() -> argparse.Namespace:
 # DATA LOADING & SEQUENCE CREATION
 # ============================================================================
 
-def load_daily(window: int, sample_users: float = 1.0, forecast_horizon: int = 7, target: str = "burnout") -> Tuple[np.ndarray, np.ndarray]:
+def load_daily(window: int, sample_users: float = 1.0, forecast_horizon: int = 7, 
+               target: str = "burnout", binary: bool = False) -> Tuple[np.ndarray, np.ndarray]:
     """
     Load daily data and create sliding window sequences for FORECASTING.
     
@@ -163,6 +166,7 @@ def load_daily(window: int, sample_users: float = 1.0, forecast_horizon: int = 7
         sample_users: Fraction of users to include (for CPU training)
         forecast_horizon: Days into the future to predict (default 7 for burnout, 1 for focus)
         target: "burnout" (burnout_level) or "focus" (focus_level)
+        binary: If True and target="burnout", use burnout_binary (2-class) instead of burnout_level (3-class)
         
     Returns:
         X: Sequences array (N × window × features)
@@ -180,7 +184,10 @@ def load_daily(window: int, sample_users: float = 1.0, forecast_horizon: int = 7
         - Goal: "Based on your last 7 days, predict tomorrow's focus"
     """
     # Determine target column
-    target_col = "burnout_level" if target == "burnout" else "focus_level"
+    if target == "burnout":
+        target_col = "burnout_binary" if binary else "burnout_level"
+    else:
+        target_col = "focus_level"
     
     if not DAILY_PATH.exists():
         raise FileNotFoundError(
@@ -477,10 +484,15 @@ def train(args: argparse.Namespace) -> None:
     # Select device
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {DEVICE}")
-    print(f"Target: {args.target.upper()}")
+    
+    # Determine classification mode
+    is_binary = args.binary and args.target == "burnout"
+    mode_str = "BINARY (Healthy vs At-Risk)" if is_binary else "3-CLASS"
+    print(f"Target: {args.target.upper()} [{mode_str}]")
     
     # Load sequences with forecasting
-    seq_X, seq_y = load_daily(args.window, args.sample_users, args.forecast_horizon, args.target)
+    seq_X, seq_y = load_daily(args.window, args.sample_users, args.forecast_horizon, 
+                               args.target, binary=is_binary)
     print(f"Total sequences: {len(seq_X):,}")
     
     # ========== FEATURE STANDARDIZATION ==========
@@ -520,8 +532,10 @@ def train(args: argparse.Namespace) -> None:
     history = []
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     
-    # Model path includes target type: lstm_burnout_sequence.pt or lstm_focus_sequence.pt
-    model_path = MODEL_DIR / f"{args.model}_{args.target}_sequence.pt"
+    # Model path: add "_binary" suffix for binary models
+    # e.g., lstm_burnout_binary_sequence.pt vs lstm_burnout_sequence.pt
+    binary_suffix = "_binary" if is_binary else ""
+    model_path = MODEL_DIR / f"{args.model}_{args.target}{binary_suffix}_sequence.pt"
 
     # ========== TRAINING LOOP ==========
     for epoch in range(1, args.epochs + 1):
@@ -572,6 +586,8 @@ def train(args: argparse.Namespace) -> None:
                 "model_state": model.state_dict(),
                 "model_type": args.model,
                 "target": args.target,  # burnout or focus
+                "is_binary": is_binary,  # True if binary burnout classification
+                "num_classes": num_classes,
                 "feature_cols": FEATURE_COLS,
                 "window": args.window,
                 "forecast_horizon": args.forecast_horizon,
@@ -580,22 +596,29 @@ def train(args: argparse.Namespace) -> None:
 
     # ========== FINAL METRICS ==========
     accuracy = accuracy_score(y_val, preds)
-    f1 = f1_score(y_val, preds, average="macro")
+    f1 = f1_score(y_val, preds, average="macro" if num_classes > 2 else "binary")
     cm = confusion_matrix(y_val, preds)
     
-    # Class labels depend on target
-    class_labels = ['LOW', 'MEDIUM', 'HIGH']
+    # Class labels depend on target and binary mode
+    if is_binary:
+        class_labels = ['HEALTHY', 'AT_RISK']
+    else:
+        class_labels = ['LOW', 'MEDIUM', 'HIGH']
     
     print("\n" + "=" * 60)
-    print(f"TRAINING COMPLETE - {args.target.upper()} PREDICTION")
+    mode_label = "BINARY" if is_binary else "3-CLASS"
+    print(f"TRAINING COMPLETE - {args.target.upper()} [{mode_label}]")
     print("=" * 60)
     print(f"Best Validation Loss: {best_val:.4f}")
     print(f"Final Accuracy: {accuracy*100:.2f}%")
-    print(f"Final F1 (macro): {f1*100:.2f}%")
+    print(f"Final F1 ({'binary' if is_binary else 'macro'}): {f1*100:.2f}%")
     print(f"\nConfusion Matrix:")
-    print(f"        Pred→  LOW    MED   HIGH")
+    if is_binary:
+        print(f"        Pred→  HEALTHY  AT_RISK")
+    else:
+        print(f"        Pred→  LOW    MED   HIGH")
     for i, row in enumerate(cm):
-        label = class_labels[i][:4].ljust(4)
+        label = class_labels[i][:7].ljust(7)
         print(f"  {label}:  {row}")
     print(f"\nPer-class report:")
     print(classification_report(y_val, preds, target_names=class_labels))

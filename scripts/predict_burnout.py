@@ -131,6 +131,12 @@ RISK_LEVELS = {
     2: {"name": "HIGH", "color": "🔴", "emoji": "😰", "desc": "High burnout risk. Please prioritize self-care."},
 }
 
+# Binary risk levels (for 2-class models)
+BINARY_RISK_LEVELS = {
+    0: {"name": "HEALTHY", "color": "🟢", "emoji": "😊", "desc": "You're in good shape! Maintain your current habits."},
+    1: {"name": "AT RISK", "color": "🔴", "emoji": "⚠️", "desc": "Warning: Burnout indicators detected. Take preventive action."},
+}
+
 # ============================================================================
 # CONTEXT-AWARE LOGIC SYSTEM
 # ============================================================================
@@ -664,6 +670,7 @@ def load_model(model_path: str) -> tuple:
         model: Loaded PyTorch model in eval mode
         model_type: Type of model (lstm/gru/transformer)
         feature_cols: List of feature columns used by this model
+        is_binary: True if this is a binary (2-class) model
     """
     model_path = Path(model_path)
     
@@ -680,6 +687,14 @@ def load_model(model_path: str) -> tuple:
     feature_cols = checkpoint.get("feature_cols", FEATURE_COLS)
     input_dim = len(feature_cols)
     
+    # Detect binary mode from checkpoint or filename
+    is_binary = checkpoint.get("is_binary", False)
+    if "binary" in str(model_path).lower():
+        is_binary = True
+    
+    # Determine number of classes
+    num_classes = checkpoint.get("num_classes", 2 if is_binary else 3)
+    
     # Detect model type from filename or checkpoint
     model_type = checkpoint.get("model_type", "lstm")
     if "lstm" in str(model_path).lower():
@@ -691,13 +706,13 @@ def load_model(model_path: str) -> tuple:
     elif "mae" in str(model_path).lower():
         model_type = "mae"
     
-    # Build appropriate model with CORRECT input dimension
+    # Build appropriate model with CORRECT input dimension and num_classes
     state_dict = checkpoint["model_state"]
     
     if model_type == "lstm":
-        model = LSTMClassifier(input_dim=input_dim)
+        model = LSTMClassifier(input_dim=input_dim, num_classes=num_classes)
     elif model_type == "gru":
-        model = GRUClassifier(input_dim=input_dim)
+        model = GRUClassifier(input_dim=input_dim, num_classes=num_classes)
     elif model_type == "transformer":
         d_model = checkpoint.get("d_model", 64)
         nhead = checkpoint.get("nhead", 4)
@@ -709,6 +724,7 @@ def load_model(model_path: str) -> tuple:
             nhead=nhead,
             num_layers=num_layers,
             dim_feedforward=dim_feedforward,
+            num_classes=num_classes,
         )
         # Handle positional encoding buffer size mismatch (checkpoint has seq_len, model has 100)
         if "pos_encoder.pe" in state_dict:
@@ -731,19 +747,22 @@ def load_model(model_path: str) -> tuple:
             nhead=nhead,
             num_layers=num_layers,
             dim_feedforward=dim_feedforward,
+            num_classes=num_classes,
         )
     else:
         # Default to LSTM
-        model = LSTMClassifier(input_dim=input_dim)
+        model = LSTMClassifier(input_dim=input_dim, num_classes=num_classes)
     
     # Load weights (use strict=False to handle any remaining mismatches)
     model.load_state_dict(state_dict, strict=False)
     model.eval()
     
+    mode_str = "BINARY (Healthy/At-Risk)" if is_binary else "3-CLASS (Low/Med/High)"
     print(f"✅ Loaded {model_type.upper()} model from {model_path}")
+    print(f"   Mode: {mode_str}")
     print(f"   Features: {len(feature_cols)} ({', '.join(feature_cols[:3])}...)")
     
-    return model, model_type, feature_cols
+    return model, model_type, feature_cols, is_binary
 
 
 # ============================================================================
@@ -1280,14 +1299,20 @@ def predict(model: nn.Module, sequence: np.ndarray, feature_cols: List[str]) -> 
     return pred_class, probs
 
 
-def print_risk_meter(probs: np.ndarray) -> None:
-    """Print a visual risk meter."""
+def print_risk_meter(probs: np.ndarray, is_binary: bool = False) -> None:
+    """Print a visual risk meter (2-zone for binary, 3-zone for 3-class)."""
     print("\n" + "─" * 50)
     print("📊 RISK BREAKDOWN")
     print("─" * 50)
     
-    labels = ["Low Risk", "Medium Risk", "High Risk"]
-    colors = ["🟢", "🟡", "🔴"]
+    if is_binary:
+        # Binary mode: Healthy vs At-Risk
+        labels = ["Healthy", "At Risk"]
+        colors = ["🟢", "🔴"]
+    else:
+        # 3-class mode: Low/Medium/High
+        labels = ["Low Risk", "Medium Risk", "High Risk"]
+        colors = ["🟢", "🟡", "🔴"]
     
     for i, (label, color, prob) in enumerate(zip(labels, colors, probs)):
         bar_length = int(prob * 30)
@@ -3018,13 +3043,19 @@ def print_cvae_suggestions(data: Dict[str, float], pred_class: int, feature_cols
         print(f"\n  ⚠️  Could not generate AI suggestions: {e}")
 
 
-def print_prediction_result(data: Dict[str, float], pred_class: int, probs: np.ndarray, model: nn.Module = None, feature_cols: List[str] = None) -> None:
+def print_prediction_result(data: Dict[str, float], pred_class: int, probs: np.ndarray, 
+                           model: nn.Module = None, feature_cols: List[str] = None, 
+                           is_binary: bool = False) -> None:
     """Print the full prediction result with visualizations."""
-    risk = RISK_LEVELS[pred_class]
+    # Select appropriate risk levels based on binary/3-class mode
+    risk_dict = BINARY_RISK_LEVELS if is_binary else RISK_LEVELS
+    risk = risk_dict[pred_class]
     
     # Header
+    mode_label = "BINARY" if is_binary else "3-CLASS"
     print("\n" + "=" * 60)
     print(f"{'🧠 BURNOUT PREDICTION RESULT':^60}")
+    print(f"{'(' + mode_label + ')':^60}")
     print("=" * 60)
     
     # Main result
@@ -3033,7 +3064,7 @@ def print_prediction_result(data: Dict[str, float], pred_class: int, probs: np.n
     print(f"\n  Confidence: {probs[pred_class]*100:.1f}%")
     
     # Risk meter
-    print_risk_meter(probs)
+    print_risk_meter(probs, is_binary)
     
     # Key metrics summary
     print("\n" + "─" * 50)
@@ -3059,7 +3090,7 @@ def print_prediction_result(data: Dict[str, float], pred_class: int, probs: np.n
     if model is not None and feature_cols is not None:
         print_recommendations(data, pred_class, model, feature_cols)
     
-    # AI-powered suggestions from CVAE (if available and not already low risk)
+    # AI-powered suggestions from CVAE (if available and not already low risk/healthy)
     if feature_cols is not None and pred_class > 0:
         print_cvae_suggestions(data, pred_class, feature_cols)
     
@@ -3076,18 +3107,28 @@ def print_prediction_result(data: Dict[str, float], pred_class: int, probs: np.n
 
 def generate_html_report(data: dict, pred_class: int, probs: list, 
                          model, feature_cols: list, output_path: str,
-                         name: str = "User") -> None:
+                         name: str = "User", is_binary: bool = False) -> None:
     """Generate a beautiful HTML report for the burnout prediction."""
     from datetime import datetime
     
-    risk_levels = ["LOW", "MEDIUM", "HIGH"]
-    risk_colors = ["low", "medium", "high"]
-    risk_emojis = ["😊", "😐", "😰"]
-    risk_descriptions = [
-        "Your metrics look healthy! Keep up the good habits.",
-        "Some warning signs. Consider adjusting your routine.",
-        "Multiple risk factors detected. Please prioritize self-care."
-    ]
+    # Select appropriate labels based on binary/3-class mode
+    if is_binary:
+        risk_levels = ["HEALTHY", "AT RISK"]
+        risk_colors = ["low", "high"]  # Green and Red
+        risk_emojis = ["😊", "⚠️"]
+        risk_descriptions = [
+            "Your metrics look healthy! Keep up the good habits.",
+            "Warning: Burnout indicators detected. Please prioritize self-care."
+        ]
+    else:
+        risk_levels = ["LOW", "MEDIUM", "HIGH"]
+        risk_colors = ["low", "medium", "high"]
+        risk_emojis = ["😊", "😐", "😰"]
+        risk_descriptions = [
+            "Your metrics look healthy! Keep up the good habits.",
+            "Some warning signs. Consider adjusting your routine.",
+            "Multiple risk factors detected. Please prioritize self-care."
+        ]
     
     risk_level = risk_levels[pred_class]
     risk_color = risk_colors[pred_class]
@@ -3952,7 +3993,7 @@ def main() -> None:
     
     # Load model
     try:
-        model, model_type, feature_cols = load_model(model_path)
+        model, model_type, feature_cols, is_binary = load_model(model_path)
     except FileNotFoundError as e:
         print(f"❌ {e}")
         print("\n📥 To get the model:")
@@ -3987,7 +4028,7 @@ def main() -> None:
                 
                 print(f"\n{'='*60}")
                 print(f"📊 Results for: {user_id}")
-                print_prediction_result(avg_data, pred_class, probs, model, feature_cols)
+                print_prediction_result(avg_data, pred_class, probs, model, feature_cols, is_binary)
         else:
             # Process as weekly averages (one row per person)
             print(f"📊 Detected WEEKLY AVERAGES format ({len(mapped_df)} responses)")
@@ -4010,11 +4051,11 @@ def main() -> None:
                     name = f"Response #{idx + 1}"
                 
                 print(f"\n--- Response #{idx + 1} ---")
-                print_prediction_result(data, pred_class, probs, model, feature_cols)
+                print_prediction_result(data, pred_class, probs, model, feature_cols, is_binary)
                 
                 # Generate HTML report if requested
                 if args.html:
-                    generate_html_report(data, pred_class, probs, model, feature_cols, args.html, name)
+                    generate_html_report(data, pred_class, probs, model, feature_cols, args.html, name, is_binary)
         return
     elif any([args.stress, args.sleep, args.work, args.mood, args.exercise]):
         # Use command-line values
@@ -4043,7 +4084,7 @@ def main() -> None:
         display_data = data
     
     # Print result with model for what-if analysis
-    print_prediction_result(display_data, pred_class, probs, model, feature_cols)
+    print_prediction_result(display_data, pred_class, probs, model, feature_cols, is_binary)
 
 
 if __name__ == "__main__":

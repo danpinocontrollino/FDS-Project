@@ -83,6 +83,8 @@ def parse_args() -> argparse.Namespace:
                         help="Learning rate for Adam optimizer")
     parser.add_argument("--weight-decay", type=float, default=1e-4,
                         help="L2 regularization strength")
+    parser.add_argument("--binary", action="store_true",
+                        help="Use binary classification (Healthy vs At-Risk) instead of 3-class")
     return parser.parse_args()
 
 
@@ -105,9 +107,12 @@ def load_embedding_metadata() -> Dict:
     return meta
 
 
-def load_data() -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str], Dict]:
+def load_data(binary: bool = False) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str], Dict]:
     """
     Load the preprocessed tabular dataset with separate handling for embeddings.
+    
+    Args:
+        binary: If True, use burnout_binary (2-class) instead of burnout_level (3-class)
     
     Returns:
         X_numeric: Numeric feature matrix (N x D_numeric) as float32
@@ -126,8 +131,20 @@ def load_data() -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str], Dict]:
     embedding_vocab_sizes = meta.get("embedding_vocab_sizes", {})
     embedding_cols = [c for c in EMBEDDING_COLS if c in df.columns]
     
+    # Determine target column
+    target_col = "burnout_binary" if binary else "burnout_level"
+    target_cols_to_exclude = {"burnout_level", "burnout_score", "burnout_binary"}
+    
+    # If using binary but column doesn't exist, create it from burnout_level
+    if binary and target_col not in df.columns:
+        if "burnout_level" not in df.columns:
+            raise ValueError("Neither burnout_binary nor burnout_level found in data")
+        # Create binary: Low (0) = Healthy (0), Medium (1) + High (2) = At Risk (1)
+        df["burnout_binary"] = (df["burnout_level"] >= 1).astype(int)
+        print("Created burnout_binary from burnout_level (Low=Healthy, Med+High=At-Risk)")
+    
     # Separate features from targets
-    all_feature_cols = [c for c in df.columns if c not in {"burnout_level", "burnout_score"}]
+    all_feature_cols = [c for c in df.columns if c not in target_cols_to_exclude]
     
     # Split into categorical (for embeddings) and numeric features
     cat_cols = [c for c in embedding_cols if c in df.columns]
@@ -143,7 +160,7 @@ def load_data() -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str], Dict]:
     X_numeric = df[numeric_cols].values.astype(np.float32)
     
     # Target labels
-    y = df["burnout_level"].values.astype(np.int64)
+    y = df[target_col].values.astype(np.int64)
     
     # Build embedding info
     embedding_info = {
@@ -401,13 +418,19 @@ def train(args: argparse.Namespace) -> None:
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {DEVICE}")
     
+    # Determine classification mode
+    is_binary = args.binary
+    mode_str = "BINARY (Healthy vs At-Risk)" if is_binary else "3-CLASS (Low/Med/High)"
+    print(f"Classification mode: {mode_str}")
+    
     # Load data with separate handling for embeddings
-    X_numeric, X_cat, y, feature_cols, embedding_info = load_data()
+    X_numeric, X_cat, y, feature_cols, embedding_info = load_data(binary=is_binary)
     train_loader, val_loader, y_val = build_loaders(X_numeric, X_cat, y, args.batch_size)
     num_classes = len(np.unique(y))
     
     print(f"Numeric features: {X_numeric.shape[1]}")
     print(f"Categorical features for embedding: {X_cat.shape[1]}")
+    print(f"Number of classes: {num_classes}")
     print(f"Embedding info: {embedding_info}")
     
     # Build model with embeddings
@@ -430,6 +453,10 @@ def train(args: argparse.Namespace) -> None:
     # Track best validation loss for model selection
     best_val = float("inf")
     history = []
+    
+    # Model output path: add "_binary" suffix for binary models
+    binary_suffix = "_binary" if is_binary else ""
+    model_out_path = MODEL_DIR / f"mlp{binary_suffix}_classifier.pt"
 
     # ========== TRAINING LOOP ==========
     for epoch in range(1, args.epochs + 1):
@@ -479,7 +506,7 @@ def train(args: argparse.Namespace) -> None:
         
         # Compute metrics
         val_loss = float(np.mean(val_losses))
-        f1 = f1_score(y_val, preds, average="macro")
+        f1 = f1_score(y_val, preds, average="macro" if num_classes > 2 else "binary")
         
         # Log history
         history.append({
@@ -491,7 +518,8 @@ def train(args: argparse.Namespace) -> None:
         
         # Print progress every 5 epochs
         if epoch % 5 == 0:
-            print(f"Epoch {epoch}: val_loss={val_loss:.4f} f1={f1:.3f}")
+            acc = accuracy_score(y_val, preds)
+            print(f"Epoch {epoch}: val_loss={val_loss:.4f} acc={acc:.3f} f1={f1:.3f}")
         
         # Save best model (lowest validation loss)
         if val_loss < best_val:
@@ -503,10 +531,21 @@ def train(args: argparse.Namespace) -> None:
                 "embedding_info": embedding_info,
                 "scaler_path": str(SCALER_PATH),
                 "model_type": "embedding" if isinstance(model, BurnoutMLPWithEmbeddings) else "simple",
-            }, MODEL_OUT)
+                "is_binary": is_binary,
+                "num_classes": num_classes,
+            }, model_out_path)
 
     # ========== TRAINING COMPLETE ==========
-    print("Training complete. Model saved to", MODEL_OUT)
+    final_acc = accuracy_score(y_val, preds)
+    final_f1 = f1_score(y_val, preds, average="macro" if num_classes > 2 else "binary")
+    
+    print("\n" + "=" * 60)
+    print(f"TRAINING COMPLETE - BURNOUT [{mode_str}]")
+    print("=" * 60)
+    print(f"Best Validation Loss: {best_val:.4f}")
+    print(f"Final Accuracy: {final_acc*100:.2f}%")
+    print(f"Final F1 ({'binary' if is_binary else 'macro'}): {final_f1*100:.2f}%")
+    print(f"\nModel saved to: {model_out_path}")
     print("Best epoch:", min(history, key=lambda x: x["val_loss"]))
 
 

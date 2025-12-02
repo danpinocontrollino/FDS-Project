@@ -124,6 +124,13 @@ def compute_burnout_targets(weekly: pd.DataFrame) -> pd.DataFrame:
 
     weekly["burnout_level"] = weekly["burnout_score"].apply(classify)
     
+    # Step 4: Create binary burnout classification (Healthy vs At-Risk)
+    # This merges Medium+High into "At Risk" for better prediction accuracy
+    # Rationale: Medium class is hardest to predict (38% accuracy), 
+    # and from a prevention standpoint, both Medium and High need intervention
+    weekly["burnout_binary"] = (weekly["burnout_level"] >= 1).astype(int)
+    # 0 = Healthy (was Low), 1 = At Risk (was Medium or High)
+    
     # Extract ISO week number for merging with daily data
     weekly["week"] = weekly["week_start"].dt.isocalendar().week.astype(int)
     
@@ -193,7 +200,7 @@ def merge_daily_with_weekly(daily: pd.DataFrame, weekly: pd.DataFrame) -> pd.Dat
     
     # Merge on user_id and week to assign weekly targets to daily records
     merged = daily.merge(
-        weekly[["user_id", "week", "burnout_score", "burnout_level"]],
+        weekly[["user_id", "week", "burnout_score", "burnout_level", "burnout_binary"]],
         on=["user_id", "week"],
         how="left",  # Keep all daily records, even if no weekly match
     )
@@ -241,10 +248,16 @@ def main() -> None:
     print(f"   - {PROCESSED_DIR / 'weekly_with_burnout.parquet'}")
     print(f"   - {PROCESSED_DIR / 'daily_with_burnout.parquet'}")
     print()
-    print("📊 Burnout Level Distribution (weekly):")
+    print("📊 Burnout Level Distribution (weekly, 3-class):")
     burnout_dist = weekly_targets["burnout_level"].value_counts(normalize=True).sort_index()
     for level, pct in burnout_dist.items():
         label = ["Low", "Medium", "High"][level]
+        print(f"   {label}: {pct:.1%}")
+    print()
+    print("🏥 Burnout Binary Distribution (weekly, 2-class):")
+    binary_dist = weekly_targets["burnout_binary"].value_counts(normalize=True).sort_index()
+    for level, pct in binary_dist.items():
+        label = ["Healthy", "At Risk"][level]
         print(f"   {label}: {pct:.1%}")
     print()
     print("🎯 Focus Level Distribution (daily):")
