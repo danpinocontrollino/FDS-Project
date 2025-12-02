@@ -770,6 +770,8 @@ def parse_google_form_csv(csv_path: str) -> Tuple[pd.DataFrame, bool]:
         # Recovery - MUST come before "stress" since recovery questions often contain "stress"
         "how well do you recover": "recovery_ability",
         "recover after stress": "recovery_ability",
+        "recover from a stressful": "recovery_ability",
+        "recover from": "recovery_ability",
         "recovery ability": "recovery_ability",
         "recovery:": "recovery_ability",  # Match "Recovery: How well..."
         
@@ -810,9 +812,11 @@ def parse_google_form_csv(csv_path: str) -> Tuple[pd.DataFrame, bool]:
         "pressure": "work_pressure",
         
         # Identifiers - be specific to avoid matching "today" etc.
-        "name": "_name",
-        "email": "_email",
+        # More specific patterns first, then generic
+        "name / email": "_name",
+        "name/email": "_name",
         "your name": "_name",
+        "what is your name": "_name",
         "which day": "_day",  # Changed from "day" to avoid matching "today"
         "what day": "_day",
         
@@ -836,6 +840,7 @@ def parse_google_form_csv(csv_path: str) -> Tuple[pd.DataFrame, bool]:
         
         # Job Context
         "job type": "job_type",
+        "job title": "job_type",
         "what best describes your job": "job_type",
         "does your job require": "job_requires_screen",
         "job require": "job_requires_screen",
@@ -1151,6 +1156,9 @@ def create_weekly_sequence(daily_data: Union[Dict[str, float], List[Dict[str, fl
             day_data = []
             for feature in feature_cols:
                 value = day_record.get(feature, DEFAULTS.get(feature, 5))
+                # Handle None values by using default
+                if value is None:
+                    value = DEFAULTS.get(feature, 5)
                 day_data.append(float(value))
             sequence.append(day_data)
         
@@ -1162,6 +1170,10 @@ def create_weekly_sequence(daily_data: Union[Dict[str, float], List[Dict[str, fl
         day_data = []
         for feature in feature_cols:
             base_value = daily_data.get(feature, DEFAULTS.get(feature, 5))
+            # Handle None values by using default
+            if base_value is None:
+                base_value = DEFAULTS.get(feature, 5)
+            base_value = float(base_value)
             # Add small random variation (±10%) to simulate daily fluctuation
             variation = np.random.uniform(-0.1, 0.1) * base_value
             day_data.append(base_value + variation)
@@ -1679,6 +1691,11 @@ def print_recommendations(data: Dict[str, float], pred_class: int, model: nn.Mod
     # Print lifestyle & environment section for V2 features
     print_lifestyle_section(data, context)
     
+    # Print job-specific advice if job_type is available
+    job_type = data.get("job_type", "")
+    if job_type:
+        print_job_specific_advice(job_type)
+    
     # Summary
     total_potential = sum(r["impact"] for r in recommendations if r["impact"] > 0)
     if total_potential > 10:
@@ -2073,7 +2090,7 @@ def get_specific_advice(feature: str, current: float, target: float, diff: float
             ],
         },
         # =====================================================================
-        # NEW V2 FEATURES - SOCIAL, LIFESTYLE, & ENVIRONMENT
+        # SOCIAL, LIFESTYLE, & ENVIRONMENT
         # =====================================================================
         "social_interactions": {
             "quick": [
@@ -2275,13 +2292,517 @@ def get_specific_advice(feature: str, current: float, target: float, diff: float
     
     # Higher severity → more likely to get intervention advice
     if severity_ratio > 0.5 and "intervention" in advice_list:
-        pool = advice_list.get("intervention", []) + advice_list.get("lifestyle", [])
+        pool = advice_list.get("intervention", []) + advice_list.get("quick", [])
     elif severity_ratio > 0.25 and "lifestyle" in advice_list:
         pool = advice_list.get("lifestyle", []) + advice_list.get("quick", [])
     else:
         pool = advice_list.get("quick", []) + advice_list.get("lifestyle", [])
     
     return random.choice(pool) if pool else f"Aim to {'reduce' if current > target else 'increase'} to {target:.1f}."
+
+
+# ============================================================================
+# JOB-SPECIFIC ADVICE TEMPLATES
+# ============================================================================
+# Tailored advice based on job type. Different professions have different
+# stressors, recovery needs, and intervention opportunities.
+
+JOB_ADVICE_TEMPLATES = {
+    # =========================================================================
+    # KNOWLEDGE WORKERS (Software, Research, Data, Engineering)
+    # =========================================================================
+    "knowledge_work": {
+        "title": "Knowledge Worker (Software/Research)",
+        "icon": "💻",
+        "key_risks": [
+            "Extended screen time causing eye strain and posture issues",
+            "Mental fatigue from complex problem-solving without breaks",
+            "Blurred work-life boundaries (always-on culture)",
+            "Sedentary behavior from desk work",
+        ],
+        "recovery_tips": [
+            "20-20-20 Rule: Every 20 minutes, look 20 feet away for 20 seconds",
+            "Pomodoro blocks: 90 min deep work → 15 min movement break",
+            "Standing desk or walking meetings for variation",
+            "No-code activities in evening: cooking, gardening, music",
+        ],
+        "boundaries": [
+            "Separate work laptop from personal devices completely",
+            "Hard stop at 6pm - close laptop, change clothes, transition ritual",
+            "No Slack/Teams on phone after hours (critical for developers)",
+            "Protect deep work time: block 9-12 with no meetings",
+        ],
+        "physical": [
+            "Eye exercises and blue light glasses are essential, not optional",
+            "Stretch wrists and neck every hour (carpal tunnel prevention)",
+            "Walk or exercise at lunch - sitting all day accelerates burnout",
+            "Outdoor time is medicine: 20 min nature reduces cortisol by 21%",
+        ],
+    },
+    
+    # =========================================================================
+    # CREATIVE WORKERS (Design, Writing, Art, Marketing)
+    # =========================================================================
+    "creative_work": {
+        "title": "Creative Professional (Design/Writing/Art)",
+        "icon": "🎨",
+        "key_risks": [
+            "Creative blocks leading to frustration and self-doubt",
+            "Irregular inspiration cycles clashing with deadline pressure",
+            "Perfectionism and endless revision cycles",
+            "Feedback/criticism emotional toll",
+        ],
+        "recovery_tips": [
+            "Input before output: consume art, nature, music to refuel creativity",
+            "Switch between projects to prevent tunnel vision",
+            "Walk away when stuck - insight often comes during rest",
+            "Creative hobbies outside work (different medium) prevent burnout",
+        ],
+        "boundaries": [
+            "Define 'done enough' before starting - perfectionism kills",
+            "Batch feedback sessions to limit emotional drain",
+            "Protect morning creative hours - admin tasks in afternoon",
+            "Regular 'free creation' time with no client constraints",
+        ],
+        "physical": [
+            "Movement sparks creativity - walk before brainstorming",
+            "Blue light filter after 8pm for visual creatives",
+            "Hand stretches and posture checks (illustrators, designers)",
+            "Sleep is when the brain consolidates creative insights",
+        ],
+    },
+    
+    # =========================================================================
+    # HEALTHCARE WORKERS (Medical, Nursing, Therapy)
+    # =========================================================================
+    "healthcare": {
+        "title": "Healthcare Professional",
+        "icon": "🏥",
+        "key_risks": [
+            "Compassion fatigue and emotional exhaustion",
+            "Physical demands (long shifts, standing, lifting)",
+            "High-stakes decisions with life/death consequences",
+            "Vicarious trauma from patient suffering",
+        ],
+        "recovery_tips": [
+            "Emotional decompression ritual after each shift (do not skip)",
+            "Peer support groups with colleagues who understand",
+            "Complete rest on off days - no medical tasks, no 'just checking in'",
+            "Physical recovery: massage, stretching, sleep prioritization",
+        ],
+        "boundaries": [
+            "Leave work at work - do not check messages on off days",
+            "You cannot pour from an empty cup: self-care is patient care",
+            "Saying 'no' to extra shifts is protecting your patients",
+            "Debrief traumatic cases with mental health support",
+        ],
+        "physical": [
+            "Comfortable footwear is non-negotiable",
+            "Hydrate during shifts even when busy",
+            "Core strength exercises prevent back injuries",
+            "Sleep quality is critical: blackout curtains for day sleepers",
+        ],
+    },
+    
+    # =========================================================================
+    # EDUCATION (Teaching, Professors, Trainers)
+    # =========================================================================
+    "education": {
+        "title": "Educator (Teaching/Training)",
+        "icon": "📚",
+        "key_risks": [
+            "Emotional labor of constant performance and engagement",
+            "Grading/admin work spilling into evenings and weekends",
+            "Student emotional needs exceeding professional capacity",
+            "Lack of autonomy in curriculum decisions",
+        ],
+        "recovery_tips": [
+            "Complete separation from school on weekends (no grading Sunday nights)",
+            "Adult social time outside of student interactions",
+            "Quiet solo activities to recharge from constant social demands",
+            "Creative outlets unrelated to teaching",
+        ],
+        "boundaries": [
+            "Set office hours and stick to them - you are not available 24/7",
+            "Batch grading into focused sessions, not constant drip",
+            "You cannot be therapist, parent, and teacher - refer to counselors",
+            "Protect summer/breaks for actual recovery, not just lesson prep",
+        ],
+        "physical": [
+            "Voice care: hydration, rest, vocal exercises for heavy speaking days",
+            "Standing/walking in class is exercise - but add stretching",
+            "Screen time outside class for grading is real - manage it",
+            "Energy management: schedule demanding classes for your peak hours",
+        ],
+    },
+    
+    # =========================================================================
+    # SERVICE INDUSTRY (Retail, Customer Service, Hospitality)
+    # =========================================================================
+    "service": {
+        "title": "Service Professional (Retail/Hospitality)",
+        "icon": "🛍️",
+        "key_risks": [
+            "Emotional labor of customer-facing performance",
+            "Unpredictable schedules disrupting circadian rhythm",
+            "Physical demands of standing, walking, lifting",
+            "Low autonomy and micromanagement stress",
+        ],
+        "recovery_tips": [
+            "Transition ritual after work: shower, change clothes, decompress",
+            "Social time with people you DON'T have to be 'nice' to",
+            "Complete silence/solitude to recharge from constant interaction",
+            "Hobbies where you are not serving anyone",
+        ],
+        "boundaries": [
+            "Do not internalize rude customers - their behavior is not about you",
+            "Advocate for schedule predictability when possible",
+            "Use break time for actual breaks, not prep work",
+            "Off-clock means off - do not answer work messages",
+        ],
+        "physical": [
+            "Supportive footwear is critical - invest in quality shoes",
+            "Compression socks for long standing shifts",
+            "Stretching before and after shifts for back/leg health",
+            "Meal timing around shifts - do not skip meals",
+        ],
+    },
+    
+    # =========================================================================
+    # MANUAL/PHYSICAL LABOR (Construction, Manufacturing, Trades)
+    # =========================================================================
+    "manual_labor": {
+        "title": "Physical/Manual Worker",
+        "icon": "🔧",
+        "key_risks": [
+            "Physical exhaustion and injury risk",
+            "Chronic pain from repetitive movements",
+            "Limited recovery time between demanding days",
+            "Weather/environmental stressors",
+        ],
+        "recovery_tips": [
+            "Active recovery: light stretching, walking on off days",
+            "Ice and heat therapy for muscle recovery",
+            "Protein-rich diet for muscle repair",
+            "Sleep 8+ hours - physical work demands physical recovery",
+        ],
+        "boundaries": [
+            "Do not push through pain - injuries compound",
+            "Hydrate aggressively in hot conditions (sweat = lost electrolytes)",
+            "Use all safety equipment even when inconvenient",
+            "Weekends are for recovery, not side jobs",
+        ],
+        "physical": [
+            "Stretching before work prevents injuries - it is part of the job",
+            "Core and lifting technique training saves your back long-term",
+            "Replace worn safety equipment immediately",
+            "Annual physical exams catch problems early",
+        ],
+    },
+    
+    # =========================================================================
+    # MANAGEMENT/EXECUTIVE
+    # =========================================================================
+    "management": {
+        "title": "Manager/Executive",
+        "icon": "📊",
+        "key_risks": [
+            "Emotional labor of supporting teams while hiding own stress",
+            "Decision fatigue from constant choices",
+            "Always-on availability expectations",
+            "Responsibility without complete control",
+        ],
+        "recovery_tips": [
+            "Executive coaching or peer support with other leaders",
+            "Decision-free zones: someone else picks restaurant, movie, etc.",
+            "Physical activity without competition or metrics (just move)",
+            "Disconnect from leadership identity: be 'just you' sometimes",
+        ],
+        "boundaries": [
+            "Model the work-life balance you want your team to have",
+            "Delegate more than you think you should",
+            "Block 'thinking time' on calendar - not just meetings",
+            "You are not responsible for everyone's happiness - just conditions",
+        ],
+        "physical": [
+            "Stress shows up in body: regular massage, exercise, stretching",
+            "Executive health is organizational health - prioritize it",
+            "Sleep is your #1 performance tool as a leader",
+            "Walking 1:1s save sitting time and improve conversation quality",
+        ],
+    },
+    
+    # =========================================================================
+    # FINANCE/ACCOUNTING
+    # =========================================================================
+    "finance": {
+        "title": "Finance/Accounting Professional",
+        "icon": "💰",
+        "key_risks": [
+            "High-stakes precision work with error consequences",
+            "Deadline pressure especially during reporting periods",
+            "Extended screen time for data analysis",
+            "Regulatory stress and compliance anxiety",
+        ],
+        "recovery_tips": [
+            "Complete disconnect during off-periods (busy seasons have ends)",
+            "Non-numerical hobbies: art, nature, music, sports",
+            "Double down on recovery after crunch periods",
+            "Celebrate completion milestones (don't just move to next deadline)",
+        ],
+        "boundaries": [
+            "Busy season is temporary - protect off-season recovery",
+            "Errors happen - have systems, not just personal vigilance",
+            "Delegate review to catch what you miss when fatigued",
+            "Weekend work during crunch is investment to repay with rest",
+        ],
+        "physical": [
+            "Eye strain from spreadsheets: 20-20-20 rule, blue light filter",
+            "Posture checks for extended desk work",
+            "Movement breaks during long analysis sessions",
+            "Sleep protects accuracy more than extra working hours",
+        ],
+    },
+    
+    # =========================================================================
+    # STUDENT (University, Graduate, High School)
+    # =========================================================================
+    "student": {
+        "title": "Student",
+        "icon": "🎓",
+        "key_risks": [
+            "Academic pressure and deadline anxiety (exams, papers, projects)",
+            "Irregular sleep patterns and all-nighters destroying health",
+            "Financial stress and part-time work competing with studies",
+            "Social comparison and imposter syndrome among peers",
+        ],
+        "recovery_tips": [
+            "Pomodoro technique: 25 min study → 5 min break. Your brain needs intervals",
+            "No all-nighters! Sleep consolidates memory - studying tired is counterproductive",
+            "Physical activity between study sessions boosts focus and retention",
+            "One non-academic hobby: sports, music, art - something with no grades",
+        ],
+        "boundaries": [
+            "Define 'done for today' - perfectionism kills productivity and joy",
+            "Study space ≠ relaxation space (don't study in bed!)",
+            "It's okay to not be the top student - good enough IS good enough",
+            "Limit social media during study blocks - use app blockers if needed",
+        ],
+        "physical": [
+            "Sleep 7-9 hours especially before exams - memory consolidation happens during sleep",
+            "Caffeine after 2pm ruins tonight's sleep (6-hour half-life)",
+            "Move between study sessions: walk, stretch, dance - anything works",
+            "Eat real food, not just energy drinks and snacks - brain needs fuel",
+        ],
+    },
+    
+    # =========================================================================
+    # OTHER/GENERAL (Fallback for unspecified job types)
+    # =========================================================================
+    "other": {
+        "title": "Professional",
+        "icon": "👤",
+        "key_risks": [
+            "Work-life boundary erosion",
+            "Unmanaged stress accumulation",
+            "Physical health neglected for work demands",
+            "Social isolation from work focus",
+        ],
+        "recovery_tips": [
+            "Identify your specific stressors and create targeted recovery rituals",
+            "Regular breaks throughout the day (even 5 minutes helps)",
+            "Activities that bring joy and have no productivity purpose",
+            "Connect with people outside your work context",
+        ],
+        "boundaries": [
+            "Define work hours and communicate them clearly",
+            "Physical separation between work and rest spaces if possible",
+            "Regular check-ins with yourself: 'How am I really doing?'",
+            "Permission to say 'no' is a skill worth developing",
+        ],
+        "physical": [
+            "Movement every day, even if brief",
+            "Sleep is foundational - protect 7-9 hours",
+            "Nutrition affects energy and mood - eat intentionally",
+            "Regular health checkups catch problems early",
+        ],
+    },
+}
+
+
+def get_job_specific_advice(job_type: str) -> Dict[str, Any]:
+    """
+    Get tailored advice based on job type.
+    
+    Args:
+        job_type: Standardized job type (e.g., "knowledge_work", "healthcare")
+        
+    Returns:
+        Dict with job-specific advice including key_risks, recovery_tips, 
+        boundaries, and physical recommendations.
+    """
+    # Normalize job type
+    job_lower = str(job_type).lower().strip()
+    
+    # Try direct match first
+    if job_lower in JOB_ADVICE_TEMPLATES:
+        return JOB_ADVICE_TEMPLATES[job_lower]
+    
+    # Map common variations to standard categories
+    # Order matters: more specific patterns first, then generic ones
+    # Note: C-suite titles need spaces to avoid matching within words (e.g., "cto" in "instructor")
+    job_mapping = [
+        # Finance/Accounting - Check BEFORE knowledge work (analyst overlap)
+        (["accountant", "accounting", "financial", "finance", "banker", "banking",
+          "auditor", "bookkeeper", "tax ", "investment", "actuary"], "finance"),
+        
+        # Management/Executive - Check early for "lead" patterns
+        # Using word boundary matching so "cto" won't match "instructor"
+        (["manager", "executive", "director", "ceo", "cto", "cfo", "coo", "vp ",
+          "vice president", "lead", "supervisor", "head of", "chief", "founder", 
+          "owner", "president", "principal"], "management"),
+        
+        # Healthcare - Medical/Nursing/Therapy
+        (["doctor", "nurse", "medical", "healthcare", "hospital", "therapist", 
+          "counselor", "physician", "surgeon", "dentist", "pharmacist", "paramedic",
+          "caregiver", "health"], "healthcare"),
+        
+        # Education - Teaching/Training
+        (["teacher", "professor", "educator", "instructor", "trainer", "tutor", 
+          "teaching", "academic", "faculty", "lecturer", "coach", "mentor"], "education"),
+        
+        # Creative Work - Design/Writing/Art/Marketing
+        (["designer", "artist", "writer", "author", "creative", "marketing", "content",
+          "graphic", "ux ", "ui ", "illustrator", "photographer", "video", "animator",
+          "copywriter", "editor", "journalist"], "creative_work"),
+        
+        # Service Industry - Retail/Hospitality/Customer Service  
+        (["retail", "hospitality", "customer service", "waiter", "waitress", "server",
+          "cashier", "barista", "bartender", "receptionist", "sales associate", 
+          "shop assistant", "store clerk", "service rep", "call center", "hotel",
+          "restaurant"], "service"),
+        
+        # Manual/Physical Labor - Construction/Trades/Manufacturing
+        (["construction", "manufacturing", "physical labor", "manual", "trades",
+          "mechanic", "plumber", "electrician", "carpenter", "welder", "factory",
+          "warehouse", "driver", "delivery", "mover", "landscap", "mason", 
+          "roofer", "hvac"], "manual_labor"),
+        
+        # Student - University, Graduate, High School (check BEFORE knowledge_work for "phd student")
+        (["student", "university", "college", "graduate", "undergrad", "phd student",
+          "masters", "bachelor", "studying", "school", "intern"], "student"),
+        
+        # Knowledge Work - Software/Tech/Research (check last - has broad terms like "analyst")
+        (["software", "developer", "programmer", "engineer", "coding", "data scientist",
+          "researcher", "analyst", "data", "it ", "tech", "scientist", "phd"], "knowledge_work"),
+    ]
+    
+    # Helper function to check word boundary match
+    import re
+    def word_match(keyword: str, text: str) -> bool:
+        """Check if keyword exists as a word or word boundary in text."""
+        # If keyword starts with space, it requires that space
+        if keyword.startswith(" "):
+            return keyword in text
+        # Otherwise, match as whole word or word prefix
+        pattern = r'\b' + re.escape(keyword)
+        return bool(re.search(pattern, text))
+    
+    # Check each pattern group
+    for keywords, category in job_mapping:
+        for keyword in keywords:
+            if word_match(keyword, job_lower):
+                return JOB_ADVICE_TEMPLATES[category]
+    
+    # Default to "other"
+    return JOB_ADVICE_TEMPLATES["other"]
+
+
+def format_job_advice_for_html(job_type: str) -> str:
+    """
+    Format job-specific advice as HTML for inclusion in reports.
+    
+    Args:
+        job_type: User's job type
+        
+    Returns:
+        HTML string with formatted job-specific advice section
+    """
+    advice = get_job_specific_advice(job_type)
+    
+    html = f"""
+    <div class="job-advice-section" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); 
+                border-radius: 12px; padding: 24px; margin: 20px 0; border-left: 4px solid #0d6efd;">
+        <h3 style="margin-top: 0; color: #0d6efd;">
+            {advice['icon']} Personalized Advice for {advice['title']}
+        </h3>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 16px;">
+            
+            <div class="advice-card" style="background: white; border-radius: 8px; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <h4 style="margin: 0 0 12px 0; color: #dc3545;">⚠️ Key Risks for Your Role</h4>
+                <ul style="margin: 0; padding-left: 20px; color: #495057;">
+                    {''.join(f'<li style="margin-bottom: 8px;">{risk}</li>' for risk in advice['key_risks'])}
+                </ul>
+            </div>
+            
+            <div class="advice-card" style="background: white; border-radius: 8px; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <h4 style="margin: 0 0 12px 0; color: #28a745;">🔋 Recovery Tips</h4>
+                <ul style="margin: 0; padding-left: 20px; color: #495057;">
+                    {''.join(f'<li style="margin-bottom: 8px;">{tip}</li>' for tip in advice['recovery_tips'])}
+                </ul>
+            </div>
+            
+            <div class="advice-card" style="background: white; border-radius: 8px; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <h4 style="margin: 0 0 12px 0; color: #fd7e14;">🚧 Healthy Boundaries</h4>
+                <ul style="margin: 0; padding-left: 20px; color: #495057;">
+                    {''.join(f'<li style="margin-bottom: 8px;">{boundary}</li>' for boundary in advice['boundaries'])}
+                </ul>
+            </div>
+            
+            <div class="advice-card" style="background: white; border-radius: 8px; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <h4 style="margin: 0 0 12px 0; color: #17a2b8;">🏃 Physical Wellness</h4>
+                <ul style="margin: 0; padding-left: 20px; color: #495057;">
+                    {''.join(f'<li style="margin-bottom: 8px;">{tip}</li>' for tip in advice['physical'])}
+                </ul>
+            </div>
+        </div>
+    </div>
+    """
+    
+    return html
+
+
+def print_job_specific_advice(job_type: str) -> None:
+    """
+    Print job-specific advice to console.
+    
+    Args:
+        job_type: User's job type
+    """
+    advice = get_job_specific_advice(job_type)
+    
+    print(f"\n{advice['icon']} ══════════════════════════════════════════════════════")
+    print(f"  PERSONALIZED ADVICE FOR {advice['title'].upper()}")
+    print("══════════════════════════════════════════════════════════")
+    
+    print("\n⚠️  KEY RISKS FOR YOUR ROLE:")
+    for risk in advice['key_risks']:
+        print(f"    • {risk}")
+    
+    print("\n🔋 RECOVERY STRATEGIES:")
+    for tip in advice['recovery_tips']:
+        print(f"    • {tip}")
+    
+    print("\n🚧 BOUNDARY RECOMMENDATIONS:")
+    for boundary in advice['boundaries']:
+        print(f"    • {boundary}")
+    
+    print("\n🏃 PHYSICAL WELLNESS:")
+    for tip in advice['physical']:
+        print(f"    • {tip}")
+    
+    print()
 
 
 # Global CVAE advisor (loaded once)
@@ -2881,6 +3402,12 @@ def generate_html_report(data: dict, pred_class: int, probs: list,
     if pred_class >= 1:  # MEDIUM or HIGH
         action_plan_html = generate_action_plan_html(data, context, pred_class)
     
+    # Generate job-specific advice HTML
+    job_advice_html = ""
+    job_type = data.get("job_type", "")
+    if job_type:
+        job_advice_html = format_job_advice_for_html(job_type)
+    
     # Generate CVAE suggestions if available
     cvae_html = ""
     try:
@@ -3105,6 +3632,8 @@ def generate_html_report(data: dict, pred_class: int, probs: list,
         </div>
         
         {critical_alerts_html}
+        
+        {job_advice_html}
         
         {warnings_html}
         

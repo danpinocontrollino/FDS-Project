@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Burnout Risk Assessment - peppe pio palle</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        .header { text-align: center; color: white; margin-bottom: 40px; }
+        .header h1 { font-size: 2.5rem; margin-bottom: 10px; }
+        .header p { opacity: 0.9; }
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .result-card { text-align: center; }
+        .risk-badge {
+            display: inline-block;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .risk-low { background: #d4edda; color: #155724; }
+        .risk-medium { background: #fff3cd; color: #856404; }
+        .risk-high { background: #f8d7da; color: #721c24; }
+        .confidence { font-size: 1.2rem; color: #666; margin-bottom: 20px; }
+        .emoji { font-size: 4rem; margin-bottom: 10px; }
+        .description { font-size: 1.1rem; color: #555; max-width: 500px; margin: 0 auto; }
+        .meter-container { margin: 30px 0; }
+        .meter-label { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 500; }
+        .meter { height: 25px; background: #e9ecef; border-radius: 15px; overflow: hidden; margin-bottom: 15px; }
+        .meter-fill { height: 100%; border-radius: 15px; }
+        .meter-low { background: linear-gradient(90deg, #28a745, #5cb85c); }
+        .meter-medium { background: linear-gradient(90deg, #ffc107, #ffdb58); }
+        .meter-high { background: linear-gradient(90deg, #dc3545, #ff6b6b); }
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; margin-top: 20px; }
+        .metric { text-align: center; padding: 20px; background: #f8f9fa; border-radius: 15px; }
+        .metric-value { font-size: 2rem; font-weight: bold; color: #333; }
+        .metric-label { color: #666; margin-top: 5px; }
+        .metric-status { font-size: 1.5rem; margin-bottom: 5px; }
+        .recommendations { list-style: none; }
+        .recommendations li { padding: 15px; margin: 10px 0; background: #f8f9fa; border-radius: 10px; border-left: 4px solid #667eea; }
+        .rec-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .impact-badge { font-size: 0.85rem; padding: 4px 10px; border-radius: 15px; font-weight: 500; }
+        .impact-good { background: #d4edda; color: #155724; }
+        .impact-neutral { background: #e9ecef; color: #6c757d; }
+        .rec-values { font-size: 0.95rem; color: #555; margin-bottom: 8px; }
+        .value-bad { color: #dc3545; font-weight: 600; }
+        .value-good { color: #28a745; font-weight: 600; }
+        .rec-advice { font-size: 0.95rem; color: #333; background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #e9ecef; }
+        .contradictions-section { background: #fff8e6; border: 2px solid #ffc107; border-radius: 15px; padding: 20px; margin: 20px 0; }
+        .contradictions-section h3 { color: #856404; margin-bottom: 10px; }
+        .contradictions-intro { color: #666; margin-bottom: 15px; }
+        .warning-item { padding: 12px 15px; margin: 10px 0; border-radius: 8px; line-height: 1.5; }
+        .warning-normal { background: #fff3cd; border-left: 4px solid #ffc107; color: #856404; }
+        .warning-critical { background: #f8d7da; border-left: 4px solid #dc3545; color: #721c24; }
+        h2 { color: #333; margin-bottom: 20px; font-size: 1.5rem; }
+        .footer { text-align: center; color: white; opacity: 0.8; margin-top: 20px; }
+        .disclaimer { background: #fff3cd; border: 1px solid #ffc107; border-radius: 10px; padding: 15px; margin-top: 20px; font-size: 0.9rem; color: #856404; }
+        .person-name { text-align: center; font-size: 1.2rem; color: #555; margin-bottom: 20px; padding: 10px; background: linear-gradient(135deg, #667eea15, #764ba215); border-radius: 10px; }
+        .person-name strong { color: #333; font-size: 1.4rem; }
+        .cvae-section { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; padding: 20px; margin-top: 20px; color: white; }
+        .cvae-section h3 { margin-bottom: 10px; color: white; }
+        .cvae-intro { opacity: 0.9; margin-bottom: 15px; font-size: 0.95rem; }
+        .cvae-suggestions { background: rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 15px; }
+        .cvae-item { padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.2); font-size: 0.95rem; }
+        .cvae-item:last-child { border-bottom: none; }
+        .cvae-arrow { margin-right: 5px; }
+        .cvae-label { font-weight: 500; }
+        .cvae-current { opacity: 0.7; }
+        .cvae-arrow-text { margin: 0 5px; }
+        .cvae-suggested { font-weight: 600; }
+        .cvae-diff { opacity: 0.8; font-size: 0.85rem; }
+        .lifestyle-grid { display: grid; gap: 15px; }
+        .lifestyle-item { display: flex; padding: 15px; background: #f8f9fa; border-radius: 10px; }
+        .lifestyle-item.critical { background: #f8d7da; border: 2px solid #dc3545; }
+        .lifestyle-icon { font-size: 2rem; margin-right: 15px; }
+        .lifestyle-content { flex: 1; }
+        .lifestyle-content strong { display: block; margin-bottom: 5px; }
+        .lifestyle-content p { font-size: 0.9rem; color: #555; margin-top: 5px; }
+        .alerts-card { background: white; border-radius: 20px; padding: 30px; margin-bottom: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        .alerts-grid { display: grid; gap: 15px; }
+        .alert-item { display: flex; padding: 15px; border-radius: 12px; }
+        .alert-item.critical { background: #f8d7da; border: 2px solid #dc3545; }
+        .alert-item.warning { background: #fff3cd; border: 2px solid #ffc107; }
+        .alert-item.info { background: #cce5ff; border: 2px solid #007bff; }
+        .alert-item.success { background: #d4edda; border: 2px solid #28a745; }
+        .alert-icon { font-size: 2rem; margin-right: 15px; }
+        .alert-content { flex: 1; }
+        .alert-content strong { display: block; margin-bottom: 8px; font-size: 1.1rem; }
+        .alert-content p { font-size: 0.95rem; line-height: 1.5; margin: 0; }
+        .action-plan { background: white; border-radius: 20px; padding: 30px; margin-bottom: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        .priority-focus { background: linear-gradient(135deg, #667eea15, #764ba215); border-radius: 12px; padding: 20px; margin-bottom: 25px; }
+        .priority-focus h3 { color: #667eea; margin-bottom: 15px; font-size: 1.1rem; }
+        .priority-items { display: flex; flex-wrap: wrap; gap: 10px; }
+        .priority-item { background: white; border: 2px solid #667eea; border-radius: 25px; padding: 8px 16px; font-size: 0.9rem; font-weight: 500; color: #667eea; }
+        .priority-item.critical { background: #dc3545; border-color: #dc3545; color: white; }
+        .weekly-schedule { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; }
+        .day-card { background: #f8f9fa; border-radius: 12px; padding: 15px; border-left: 4px solid #667eea; }
+        .day-card.rest-day { border-left-color: #28a745; background: #f0fff4; }
+        .day-header { font-weight: 600; color: #333; margin-bottom: 10px; font-size: 1rem; }
+        .day-tasks { list-style: none; padding: 0; margin: 0; }
+        .day-tasks li { padding: 8px 0; border-bottom: 1px solid #e9ecef; font-size: 0.9rem; color: #555; }
+        .day-tasks li:last-child { border-bottom: none; }
+        .task-time { font-weight: 500; color: #667eea; margin-right: 8px; }
+        .weekly-goals { background: #f8f9fa; border-radius: 12px; padding: 20px; margin-top: 20px; }
+        .weekly-goals h3 { color: #333; margin-bottom: 15px; font-size: 1.1rem; }
+        .goal-item { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #e9ecef; }
+        .goal-item:last-child { border-bottom: none; }
+        .goal-checkbox { width: 24px; height: 24px; border: 2px solid #667eea; border-radius: 6px; margin-right: 12px; flex-shrink: 0; }
+        .goal-text { flex: 1; font-size: 0.95rem; }
+        .goal-metric { font-size: 0.85rem; color: #666; background: #e9ecef; padding: 4px 10px; border-radius: 15px; }
+        @media (max-width: 600px) {
+            .header h1 { font-size: 1.8rem; }
+            .risk-badge { font-size: 1.2rem; padding: 10px 25px; }
+            .emoji { font-size: 3rem; }
+            .weekly-schedule { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 Burnout Risk Assessment</h1>
+            <p>Generated on December 01, 2025 at 23:59</p>
+        </div>
+        
+        <div class="person-name">Report for: <strong>peppe pio palle</strong></div>
+        
+        <div class="card result-card">
+            <div class="emoji">😊</div>
+            <h2>Your Burnout Risk Level</h2>
+            <div class="risk-badge risk-low">LOW RISK</div>
+            <div class="confidence">Confidence: 48%</div>
+            <p class="description">Your metrics look healthy! Keep up the good habits.</p>
+            
+            <div class="meter-container">
+                <div class="meter-label">
+                    <span>🟢 Low Risk</span>
+                    <span>48%</span>
+                </div>
+                <div class="meter">
+                    <div class="meter-fill meter-low" style="width: 48%"></div>
+                </div>
+                
+                <div class="meter-label">
+                    <span>🟡 Medium Risk</span>
+                    <span>37%</span>
+                </div>
+                <div class="meter">
+                    <div class="meter-fill meter-medium" style="width: 37%"></div>
+                </div>
+                
+                <div class="meter-label">
+                    <span>🔴 High Risk</span>
+                    <span>16%</span>
+                </div>
+                <div class="meter">
+                    <div class="meter-fill meter-high" style="width: 16%"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>📊 Your Key Metrics</h2>
+            <div class="metrics-grid">
+                
+                <div class="metric">
+                    <div class="metric-status">⚠️</div>
+                    <div class="metric-value">6/10</div>
+                    <div class="metric-label">Stress</div>
+                </div>
+                
+                <div class="metric">
+                    <div class="metric-status">⚠️</div>
+                    <div class="metric-value">6hrs</div>
+                    <div class="metric-label">Sleep</div>
+                </div>
+                
+                <div class="metric">
+                    <div class="metric-status">✅</div>
+                    <div class="metric-value">4hrs</div>
+                    <div class="metric-label">Work</div>
+                </div>
+                
+                <div class="metric">
+                    <div class="metric-status">❌</div>
+                    <div class="metric-value">0min</div>
+                    <div class="metric-label">Exercise</div>
+                </div>
+                
+                <div class="metric">
+                    <div class="metric-status">✅</div>
+                    <div class="metric-value">7/10</div>
+                    <div class="metric-label">Mood</div>
+                </div>
+                
+                <div class="metric">
+                    <div class="metric-status">⚠️</div>
+                    <div class="metric-value">6/10</div>
+                    <div class="metric-label">Energy</div>
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        
+        
+    <div class="job-advice-section" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); 
+                border-radius: 12px; padding: 24px; margin: 20px 0; border-left: 4px solid #0d6efd;">
+        <h3 style="margin-top: 0; color: #0d6efd;">
+            🎓 Personalized Advice for Student
+        </h3>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 16px;">
+            
+            <div class="advice-card" style="background: white; border-radius: 8px; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <h4 style="margin: 0 0 12px 0; color: #dc3545;">⚠️ Key Risks for Your Role</h4>
+                <ul style="margin: 0; padding-left: 20px; color: #495057;">
+                    <li style="margin-bottom: 8px;">Academic pressure and deadline anxiety (exams, papers, projects)</li><li style="margin-bottom: 8px;">Irregular sleep patterns and all-nighters destroying health</li><li style="margin-bottom: 8px;">Financial stress and part-time work competing with studies</li><li style="margin-bottom: 8px;">Social comparison and imposter syndrome among peers</li>
+                </ul>
+            </div>
+            
+            <div class="advice-card" style="background: white; border-radius: 8px; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <h4 style="margin: 0 0 12px 0; color: #28a745;">🔋 Recovery Tips</h4>
+                <ul style="margin: 0; padding-left: 20px; color: #495057;">
+                    <li style="margin-bottom: 8px;">Pomodoro technique: 25 min study → 5 min break. Your brain needs intervals</li><li style="margin-bottom: 8px;">No all-nighters! Sleep consolidates memory - studying tired is counterproductive</li><li style="margin-bottom: 8px;">Physical activity between study sessions boosts focus and retention</li><li style="margin-bottom: 8px;">One non-academic hobby: sports, music, art - something with no grades</li>
+                </ul>
+            </div>
+            
+            <div class="advice-card" style="background: white; border-radius: 8px; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <h4 style="margin: 0 0 12px 0; color: #fd7e14;">🚧 Healthy Boundaries</h4>
+                <ul style="margin: 0; padding-left: 20px; color: #495057;">
+                    <li style="margin-bottom: 8px;">Define 'done for today' - perfectionism kills productivity and joy</li><li style="margin-bottom: 8px;">Study space ≠ relaxation space (don't study in bed!)</li><li style="margin-bottom: 8px;">It's okay to not be the top student - good enough IS good enough</li><li style="margin-bottom: 8px;">Limit social media during study blocks - use app blockers if needed</li>
+                </ul>
+            </div>
+            
+            <div class="advice-card" style="background: white; border-radius: 8px; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <h4 style="margin: 0 0 12px 0; color: #17a2b8;">🏃 Physical Wellness</h4>
+                <ul style="margin: 0; padding-left: 20px; color: #495057;">
+                    <li style="margin-bottom: 8px;">Sleep 7-9 hours especially before exams - memory consolidation happens during sleep</li><li style="margin-bottom: 8px;">Caffeine after 2pm ruins tonight's sleep (6-hour half-life)</li><li style="margin-bottom: 8px;">Move between study sessions: walk, stretch, dance - anything works</li><li style="margin-bottom: 8px;">Eat real food, not just energy drinks and snacks - brain needs fuel</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+        
+        
+        
+        
+        <div class="card">
+            <h2>🌱 Lifestyle & Environment</h2>
+            <div class="lifestyle-grid">
+        
+        <div class="lifestyle-item">
+            <span class="lifestyle-icon">🍽️</span>
+            <div class="lifestyle-content">
+                <strong>Diet Quality: 3/10</strong> 
+                <p>💡 Add protein to lunch, reduce refined carbs.</p>
+            </div>
+        </div>
+        
+
+        <div class="lifestyle-item">
+            <span class="lifestyle-icon">🌳</span>
+            <div class="lifestyle-content">
+                <strong>Outdoor Time: 15 min</strong>
+                <p>💡 20 min in nature lowers cortisol more than indoor exercise.</p>
+            </div>
+        </div>
+        
+            </div>
+        </div>
+        
+        
+        <div class="card">
+            <h2>💡 Personalized Recommendations</h2>
+            <ul class="recommendations">
+                
+        <li class="recommendation-item">
+            <div class="rec-header">
+                <strong>Steps Count</strong>
+                <span class="impact-badge impact-good">↓8000% risk</span>
+            </div>
+            <div class="rec-values">
+                Current: <span class="value-bad">4000</span> → 
+                Target: <span class="value-good">8000</span>
+            </div>
+            <div class="rec-advice">💡 Aim for 8,000-10,000 steps. Above 7,500, mortality risk drops significantly.</div>
+        </li>
+        
+        <li class="recommendation-item">
+            <div class="rec-header">
+                <strong>Caffeine Mg</strong>
+                <span class="impact-badge impact-good">↓600% risk</span>
+            </div>
+            <div class="rec-values">
+                Current: <span class="value-bad">380</span> → 
+                Target: <span class="value-good">80</span>
+            </div>
+            <div class="rec-advice">💡 High caffeine often masks sleep debt. Fix sleep first, caffeine need drops naturally.</div>
+        </li>
+        
+        <li class="recommendation-item">
+            <div class="rec-header">
+                <strong>Exercise Minutes</strong>
+                <span class="impact-badge impact-good">↓90% risk</span>
+            </div>
+            <div class="rec-values">
+                Current: <span class="value-bad">0</span> → 
+                Target: <span class="value-good">45</span>
+            </div>
+            <div class="rec-advice">💡 Add 45 min/day = 315 extra minutes/week. Compounds to real change.</div>
+        </li>
+        
+        <li class="recommendation-item">
+            <div class="rec-header">
+                <strong>Outdoor Time Minutes</strong>
+                <span class="impact-badge impact-good">↓60% risk</span>
+            </div>
+            <div class="rec-values">
+                Current: <span class="value-bad">15</span> → 
+                Target: <span class="value-good">45</span>
+            </div>
+            <div class="rec-advice">💡 20 min in nature lowers cortisol more than indoor exercise.</div>
+        </li>
+        
+        <li class="recommendation-item">
+            <div class="rec-header">
+                <strong>Commute Minutes</strong>
+                <span class="impact-badge impact-good">↓40% risk</span>
+            </div>
+            <div class="rec-values">
+                Current: <span class="value-bad">40</span> → 
+                Target: <span class="value-good">20</span>
+            </div>
+            <div class="rec-advice">💡 Ask about hybrid/remote options. Even 2 WFH days saves significant commute stress.</div>
+        </li>
+        
+            </ul>
+            
+        </div>
+        
+        
+        
+        <div class="card">
+            <div class="disclaimer">
+                ⚠️ <strong>Disclaimer:</strong> This is a demo prediction model for educational purposes.
+                For real mental health concerns, please consult a healthcare professional.
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Generated by Burnout Prediction System v2.0</p>
+        </div>
+    </div>
+</body>
+</html>
