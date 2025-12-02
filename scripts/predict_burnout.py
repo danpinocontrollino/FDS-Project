@@ -3411,21 +3411,74 @@ def generate_html_report(data: dict, pred_class: int, probs: list,
     # Generate CVAE suggestions if available
     cvae_html = ""
     try:
-        cvae_model = load_cvae_model()
-        if cvae_model:
-            suggestions = get_cvae_suggestions(cvae_model, data)
+        cvae, stats = get_cvae_advisor()
+        if cvae is not None and pred_class > 0:
+            # Use CVAE's feature columns
+            cvae_feature_cols = stats.get("feature_cols", feature_cols) if stats else feature_cols
+            
+            # Create sequence from data
+            sequence = create_weekly_sequence(data, cvae_feature_cols)
+            x = torch.tensor(sequence, dtype=torch.float32).unsqueeze(0)
+            current_label = torch.tensor([pred_class])
+            
+            # Normalize if stats available
+            if stats and stats.get("mean") is not None and stats.get("std") is not None:
+                mean = torch.tensor(stats["mean"], dtype=torch.float32)
+                std = torch.tensor(stats["std"], dtype=torch.float32)
+                x_norm = (x - mean) / (std + 1e-8)
+            else:
+                x_norm = x
+            
+            # Generate suggestions
+            suggested = cvae.suggest_changes(x_norm, current_label, target_label=0)
+            
+            # Denormalize
+            if stats and stats.get("mean") is not None and stats.get("std") is not None:
+                suggested = suggested * (std + 1e-8) + mean
+            
+            # Average over the week
+            suggested_avg = suggested.squeeze(0).mean(dim=0).numpy()
+            
+            # Define healthy directions
+            HEALTHY_DIRECTION = {
+                "stress_level": False, "sleep_hours": True, "sleep_quality": True,
+                "work_hours": False, "exercise_minutes": True, "mood_score": True,
+                "energy_level": True, "focus_score": True, "caffeine_mg": False,
+                "screen_time_hours": False, "meetings_count": False, "alcohol_units": False,
+                "steps_count": True, "tasks_completed": True, "work_pressure": False,
+                "commute_minutes": False, "emails_received": False,
+            }
+            
+            # Collect beneficial suggestions
+            suggestions = []
+            for i, feat in enumerate(cvae_feature_cols):
+                current_val = data.get(feat, DEFAULTS.get(feat, 5))
+                suggested_val = suggested_avg[i] if i < len(suggested_avg) else current_val
+                diff = suggested_val - current_val
+                
+                if abs(diff) < 0.5:
+                    continue
+                
+                higher_is_better = HEALTHY_DIRECTION.get(feat, True)
+                is_beneficial = (diff > 0 and higher_is_better) or (diff < 0 and not higher_is_better)
+                
+                if is_beneficial:
+                    suggestions.append((feat, current_val, suggested_val, diff))
+            
+            suggestions.sort(key=lambda x: abs(x[3]), reverse=True)
+            
             if suggestions:
                 cvae_items = ""
-                for feature, current, suggested, diff in suggestions[:5]:
+                for feature, current_val, suggested_val, diff in suggestions[:5]:
                     arrow = "↗️" if diff > 0 else "↘️"
                     display_name = feature.replace("_", " ").title()
                     cvae_items += f"""
                     <div class="cvae-item">
                         <span class="cvae-arrow">{arrow}</span>
                         <span class="cvae-label">{display_name}:</span>
-                        <span class="cvae-current">{current:.1f}</span>
+                        <span class="cvae-current">{current_val:.1f}</span>
                         <span class="cvae-arrow-text">→</span>
-                        <span class="cvae-suggested">{suggested:.1f}</span>
+                        <span class="cvae-suggested">{suggested_val:.1f}</span>
                         <span class="cvae-diff">({diff:+.1f})</span>
                     </div>
                     """
@@ -3438,7 +3491,7 @@ def generate_html_report(data: dict, pred_class: int, probs: list,
                     </div>
                 </div>
                 """
-    except:
+    except Exception:
         pass  # CVAE not available
     
     # Build the full HTML
