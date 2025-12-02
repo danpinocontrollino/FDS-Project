@@ -937,9 +937,31 @@ def parse_google_form_csv(csv_path: str) -> Tuple[pd.DataFrame, bool]:
             if text in s:
                 return num
         
+        # Handle time duration categorical values (e.g., "2+ hours", "15-30 min")
+        # This is critical for outdoor_time_minutes parsing from Google Forms!
+        import re
+        if "hour" in s:
+            # Extract number before "hour" and convert to minutes
+            hour_match = re.search(r'(\d+)\+?\s*hour', s)
+            if hour_match:
+                hours = float(hour_match.group(1))
+                return hours * 60  # Convert to minutes (e.g., "2+ hours" -> 120)
+        
+        # Handle minute ranges (e.g., "15-30 min", "30-60 min")
+        min_range_match = re.search(r'(\d+)\s*-\s*(\d+)\s*min', s)
+        if min_range_match:
+            # Use midpoint of range
+            low = float(min_range_match.group(1))
+            high = float(min_range_match.group(2))
+            return (low + high) / 2  # e.g., "15-30 min" -> 22.5
+        
+        # Handle single minute values (e.g., "30 min", "< 15 min")
+        single_min_match = re.search(r'[<>]?\s*(\d+)\s*min', s)
+        if single_min_match:
+            return float(single_min_match.group(1))
+        
         # Handle European number format (15.000 or 15,000 = 15000)
         # First, try to parse the whole string as a number
-        import re
         
         # Remove common units and text
         s_cleaned = re.sub(r'[a-zA-Z%°]+', '', s).strip()
@@ -972,6 +994,38 @@ def parse_google_form_csv(csv_path: str) -> Tuple[pd.DataFrame, bool]:
         if feature in mapped_df.columns:
             default = DEFAULTS.get(feature, 5)
             mapped_df[feature] = mapped_df[feature].apply(lambda x: clean_numeric(x, default))
+    
+    # Special handling for steps_count: European format "15.000" means 15000, not 15.0
+    # This is ONLY for steps because steps are always whole numbers in thousands
+    if "steps_count" in mapped_df.columns:
+        def fix_steps_european(value):
+            """Convert European thousands format for steps (15.000 -> 15000)."""
+            if pd.isna(value):
+                return DEFAULTS.get("steps_count", 5000)
+            if isinstance(value, (int, float)):
+                # If it's a suspiciously low number like 15.0, it might be European format
+                # Real step counts are typically 1000+ per day
+                if 1 <= value <= 30:
+                    # Likely European format: 15.000 was parsed as 15.0
+                    return value * 1000
+                return value
+            # String handling
+            s = str(value).strip()
+            # Handle "15.000" or "15,000" as 15000
+            import re
+            european_match = re.match(r'^(\d{1,2})[.,](\d{3})$', s)
+            if european_match:
+                return float(european_match.group(1) + european_match.group(2))
+            # Try parsing normally
+            try:
+                val = float(re.sub(r'[^\d.]', '', s))
+                if 1 <= val <= 30:
+                    return val * 1000
+                return val
+            except:
+                return DEFAULTS.get("steps_count", 5000)
+        
+        mapped_df["steps_count"] = mapped_df["steps_count"].apply(fix_steps_european)
     
     # Clean V2 features (not in FEATURE_COLS but needed for context-aware logic)
     v2_features = [
@@ -3411,21 +3465,74 @@ def generate_html_report(data: dict, pred_class: int, probs: list,
     # Generate CVAE suggestions if available
     cvae_html = ""
     try:
-        cvae_model = load_cvae_model()
-        if cvae_model:
-            suggestions = get_cvae_suggestions(cvae_model, data)
+        cvae, stats = get_cvae_advisor()
+        if cvae is not None and pred_class > 0:
+            # Use CVAE's feature columns
+            cvae_feature_cols = stats.get("feature_cols", feature_cols) if stats else feature_cols
+            
+            # Create sequence from data
+            sequence = create_weekly_sequence(data, cvae_feature_cols)
+            x = torch.tensor(sequence, dtype=torch.float32).unsqueeze(0)
+            current_label = torch.tensor([pred_class])
+            
+            # Normalize if stats available
+            if stats and stats.get("mean") is not None and stats.get("std") is not None:
+                mean = torch.tensor(stats["mean"], dtype=torch.float32)
+                std = torch.tensor(stats["std"], dtype=torch.float32)
+                x_norm = (x - mean) / (std + 1e-8)
+            else:
+                x_norm = x
+            
+            # Generate suggestions
+            suggested = cvae.suggest_changes(x_norm, current_label, target_label=0)
+            
+            # Denormalize
+            if stats and stats.get("mean") is not None and stats.get("std") is not None:
+                suggested = suggested * (std + 1e-8) + mean
+            
+            # Average over the week
+            suggested_avg = suggested.squeeze(0).mean(dim=0).numpy()
+            
+            # Define healthy directions
+            HEALTHY_DIRECTION = {
+                "stress_level": False, "sleep_hours": True, "sleep_quality": True,
+                "work_hours": False, "exercise_minutes": True, "mood_score": True,
+                "energy_level": True, "focus_score": True, "caffeine_mg": False,
+                "screen_time_hours": False, "meetings_count": False, "alcohol_units": False,
+                "steps_count": True, "tasks_completed": True, "work_pressure": False,
+                "commute_minutes": False, "emails_received": False,
+            }
+            
+            # Collect beneficial suggestions
+            suggestions = []
+            for i, feat in enumerate(cvae_feature_cols):
+                current_val = data.get(feat, DEFAULTS.get(feat, 5))
+                suggested_val = suggested_avg[i] if i < len(suggested_avg) else current_val
+                diff = suggested_val - current_val
+                
+                if abs(diff) < 0.5:
+                    continue
+                
+                higher_is_better = HEALTHY_DIRECTION.get(feat, True)
+                is_beneficial = (diff > 0 and higher_is_better) or (diff < 0 and not higher_is_better)
+                
+                if is_beneficial:
+                    suggestions.append((feat, current_val, suggested_val, diff))
+            
+            suggestions.sort(key=lambda x: abs(x[3]), reverse=True)
+            
             if suggestions:
                 cvae_items = ""
-                for feature, current, suggested, diff in suggestions[:5]:
+                for feature, current_val, suggested_val, diff in suggestions[:5]:
                     arrow = "↗️" if diff > 0 else "↘️"
                     display_name = feature.replace("_", " ").title()
                     cvae_items += f"""
                     <div class="cvae-item">
                         <span class="cvae-arrow">{arrow}</span>
                         <span class="cvae-label">{display_name}:</span>
-                        <span class="cvae-current">{current:.1f}</span>
+                        <span class="cvae-current">{current_val:.1f}</span>
                         <span class="cvae-arrow-text">→</span>
-                        <span class="cvae-suggested">{suggested:.1f}</span>
+                        <span class="cvae-suggested">{suggested_val:.1f}</span>
                         <span class="cvae-diff">({diff:+.1f})</span>
                     </div>
                     """
@@ -3438,7 +3545,7 @@ def generate_html_report(data: dict, pred_class: int, probs: list,
                     </div>
                 </div>
                 """
-    except:
+    except Exception:
         pass  # CVAE not available
     
     # Build the full HTML

@@ -66,7 +66,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, classification_report
 
 # ============================================================================
 # CONFIGURATION
@@ -78,29 +78,30 @@ MODEL_DIR = Path("models/saved")
 
 # Daily behavioral features (same as LSTM/GRU/CNN for fair comparison)
 FEATURE_COLS = [
-    # Sleep metrics
-    "sleep_hours",
-    "sleep_quality",
+    # Highest correlation features
+    "stress_level",          # Self-reported stress (1-10) - corr: 0.345
+    "commute_minutes",       # Daily commute time - corr: 0.340
+    "exercise_minutes",      # Physical activity - corr: 0.222
+    "work_hours",            # Hours worked that day - corr: 0.201
+    "mood_score",            # Emotional state (1-10) - corr: 0.175
+    "sleep_quality",         # Subjective sleep quality (1-10) - corr: 0.142
+    "emails_received",       # Email volume (workload proxy) - corr: 0.123
+    "caffeine_mg",           # Stimulant consumption - corr: 0.116
+    "energy_level",          # Fatigue indicator (1-10) - corr: 0.112
+    "sleep_hours",           # Total sleep duration - corr: 0.094
+    "focus_score",           # Cognitive performance (1-10) - corr: 0.090
     
-    # Work metrics
-    "work_hours",
-    "meetings_count",
-    "tasks_completed",
+    # Secondary features
+    "meetings_count",        # Number of meetings (interruption proxy)
+    "tasks_completed",       # Productivity metric
+    "steps_count",           # Daily movement
+    "alcohol_units",         # Depressant consumption
+    "screen_time_hours",     # Digital exposure
     
-    # Physical health
-    "exercise_minutes",
-    "steps_count",
-    
-    # Consumption behaviors
-    "caffeine_mg",
-    "alcohol_units",
-    "screen_time_hours",
-    
-    # Psychological indicators
-    "stress_level",
-    "mood_score",
-    "energy_level",
-    "focus_score",
+    # Social & lifestyle (NEW - high value for burnout)
+    "social_interactions",   # Social connection indicator
+    "outdoor_time_minutes",  # Recovery/nature exposure
+    "diet_quality",          # Nutrition quality score
     
     # Work environment (categorical → numeric)
     "work_pressure",
@@ -509,8 +510,8 @@ def train(args: argparse.Namespace) -> None:
     total_params = sum(p.numel() for p in model.parameters())
     print(f"Model parameters: {total_params:,}")
 
-    # Loss function
-    criterion = nn.CrossEntropyLoss()
+    # Loss function with label smoothing (reduces overconfidence)
+    criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
     
     # AdamW optimizer (better than Adam for transformers)
     # Weight decay = L2 regularization, properly decoupled in AdamW
@@ -589,14 +590,32 @@ def train(args: argparse.Namespace) -> None:
     # ========== FINAL METRICS ==========
     accuracy = accuracy_score(y_val, preds)
     f1 = f1_score(y_val, preds, average="macro")
+    cm = confusion_matrix(y_val, preds)
     
-    print("\n" + "=" * 50)
-    print("Training complete!")
-    print(f"Best val_loss: {best_val:.4f}")
-    print(f"Final accuracy: {accuracy:.4f}")
-    print(f"Final F1 (macro): {f1:.4f}")
-    print(f"Model saved to: {model_path}")
-    print("=" * 50)
+    print("\n" + "=" * 60)
+    print("TRAINING COMPLETE")
+    print("=" * 60)
+    print(f"Best Validation Loss: {best_val:.4f}")
+    print(f"Final Accuracy: {accuracy*100:.2f}%")
+    print(f"Final F1 (macro): {f1*100:.2f}%")
+    print(f"\nConfusion Matrix:")
+    print(f"        Pred→  LOW    MED   HIGH")
+    for i, row in enumerate(cm):
+        label = ['LOW ', 'MED ', 'HIGH'][i]
+        print(f"  {label}:  {row}")
+    print(f"\nPer-class report:")
+    print(classification_report(y_val, preds, target_names=['LOW', 'MEDIUM', 'HIGH']))
+    
+    # Update saved model with final metrics
+    checkpoint = torch.load(model_path, weights_only=False)
+    checkpoint['metrics'] = {
+        'val_loss': best_val,
+        'val_acc': accuracy,
+        'val_f1': f1,
+        'confusion_matrix': cm.tolist(),
+    }
+    torch.save(checkpoint, model_path)
+    print(f"\nModel saved to: {model_path}")
 
 
 # ============================================================================
