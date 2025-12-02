@@ -63,7 +63,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, classification_report
 
 # ============================================================================
 # CONFIGURATION
@@ -77,7 +77,7 @@ MODEL_DIR = Path("models/saved")
 # These capture the key dimensions of work-life balance:
 # Ordered by correlation with burnout_level (highest first)
 FEATURE_COLS = [
-    # Highest correlation features (added)
+    # Highest correlation features
     "stress_level",          # Self-reported stress (1-10) - corr: 0.345
     "commute_minutes",       # Daily commute time - corr: 0.340
     "exercise_minutes",      # Physical activity - corr: 0.222
@@ -96,6 +96,11 @@ FEATURE_COLS = [
     "steps_count",           # Daily movement
     "alcohol_units",         # Depressant consumption
     "screen_time_hours",     # Digital exposure
+    
+    # Social & lifestyle (NEW - high value for burnout)
+    "social_interactions",   # Social connection indicator
+    "outdoor_time_minutes",  # Recovery/nature exposure
+    "diet_quality",          # Nutrition quality score
     
     # Work environment (categorical -> numeric)
     "work_pressure",         # Converted: low=0, medium=1, high=2
@@ -116,8 +121,8 @@ def parse_args() -> argparse.Namespace:
     - --sample-users: Fraction of users for CPU optimization
     """
     parser = argparse.ArgumentParser(description="Train burnout sequence models")
-    parser.add_argument("--model", choices=["lstm", "gru", "cnn"], default="lstm",
-                        help="Model architecture: lstm, gru, or cnn")
+    parser.add_argument("--model", choices=["lstm", "gru", "cnn", "lstm_attn"], default="lstm",
+                        help="Model architecture: lstm, gru, cnn, or lstm_attn (with attention)")
     parser.add_argument("--window", type=int, default=7,
                         help="Sequence window size in days (default: 7)")
     parser.add_argument("--epochs", type=int, default=20, 
@@ -289,7 +294,7 @@ def build_model(model_type: str, input_dim: int, seq_len: int, num_classes: int)
     Build the specified sequence model architecture.
     
     Args:
-        model_type: "lstm", "gru", or "cnn"
+        model_type: "lstm", "gru", "cnn", "lstm_attn" (with attention)
         input_dim: Number of features per timestep
         seq_len: Sequence length (window size)
         num_classes: Number of output classes
@@ -298,7 +303,60 @@ def build_model(model_type: str, input_dim: int, seq_len: int, num_classes: int)
         PyTorch model
     """
     
-    # ========== LSTM / GRU ==========
+    # ========== LSTM / GRU WITH ATTENTION ==========
+    if model_type == "lstm_attn":
+        
+        class AttentionLayer(nn.Module):
+            """Self-attention layer for sequence weighting."""
+            def __init__(self, hidden_dim: int):
+                super().__init__()
+                self.attention = nn.Sequential(
+                    nn.Linear(hidden_dim, hidden_dim // 2),
+                    nn.Tanh(),
+                    nn.Linear(hidden_dim // 2, 1),
+                )
+            
+            def forward(self, lstm_output: torch.Tensor) -> torch.Tensor:
+                # lstm_output: (batch, seq_len, hidden)
+                attn_weights = self.attention(lstm_output)  # (batch, seq_len, 1)
+                attn_weights = torch.softmax(attn_weights, dim=1)  # Normalize over sequence
+                # Weighted sum of all hidden states
+                context = torch.sum(lstm_output * attn_weights, dim=1)  # (batch, hidden)
+                return context, attn_weights
+        
+        class LSTMWithAttention(nn.Module):
+            """
+            LSTM with Self-Attention for sequence classification.
+            
+            Instead of just using the last hidden state, attention learns
+            which days in the sequence are most important for predicting burnout.
+            """
+            def __init__(self) -> None:
+                super().__init__()
+                self.lstm = nn.LSTM(
+                    input_size=input_dim,
+                    hidden_size=128,
+                    num_layers=2,
+                    batch_first=True,
+                    dropout=0.2,
+                    bidirectional=True,  # Look forward AND backward in time
+                )
+                self.attention = AttentionLayer(256)  # 128*2 for bidirectional
+                self.head = nn.Sequential(
+                    nn.LayerNorm(256),
+                    nn.ReLU(),
+                    nn.Dropout(0.3),
+                    nn.Linear(256, num_classes),
+                )
+                
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                out, _ = self.lstm(x)  # (batch, seq_len, 256)
+                context, _ = self.attention(out)  # (batch, 256)
+                return self.head(context)
+        
+        return LSTMWithAttention()
+    
+    # ========== LSTM / GRU (standard) ==========
     if model_type in {"lstm", "gru"}:
         rnn_cls = nn.LSTM if model_type == "lstm" else nn.GRU
         
@@ -387,7 +445,7 @@ def build_model(model_type: str, input_dim: int, seq_len: int, num_classes: int)
     
     raise ValueError(
         f"Unknown model type: {model_type}. "
-        "Use 'lstm', 'gru', or 'cnn'. For transformer, use train_transformer.py"
+        "Use 'lstm', 'gru', 'cnn', or 'lstm_attn'. For transformer, use train_transformer.py"
     )
 
 
@@ -434,13 +492,13 @@ def train(args: argparse.Namespace) -> None:
     # Build model
     model = build_model(args.model, seq_X.shape[2], seq_X.shape[1], num_classes).to(DEVICE)
 
-    # Loss and optimizer
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    # Loss with label smoothing (reduces overconfidence, improves generalization)
+    criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
     
     # Learning rate scheduler - reduce LR when validation loss plateaus
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', factor=0.5, patience=3, verbose=True
+        optimizer, mode='min', factor=0.5, patience=3
     )
     
     # Tracking
@@ -506,10 +564,32 @@ def train(args: argparse.Namespace) -> None:
     # ========== FINAL METRICS ==========
     accuracy = accuracy_score(y_val, preds)
     f1 = f1_score(y_val, preds, average="macro")
+    cm = confusion_matrix(y_val, preds)
     
-    print("Finished training.")
-    print({"val_loss": best_val, "accuracy": accuracy, "f1_macro": f1})
-    print("Saved best model to", model_path)
+    print("\n" + "=" * 60)
+    print("TRAINING COMPLETE")
+    print("=" * 60)
+    print(f"Best Validation Loss: {best_val:.4f}")
+    print(f"Final Accuracy: {accuracy*100:.2f}%")
+    print(f"Final F1 (macro): {f1*100:.2f}%")
+    print(f"\nConfusion Matrix:")
+    print(f"        Pred→  LOW    MED   HIGH")
+    for i, row in enumerate(cm):
+        label = ['LOW ', 'MED ', 'HIGH'][i]
+        print(f"  {label}:  {row}")
+    print(f"\nPer-class report:")
+    print(classification_report(y_val, preds, target_names=['LOW', 'MEDIUM', 'HIGH']))
+    
+    # Update saved model with final metrics
+    checkpoint = torch.load(model_path, weights_only=False)
+    checkpoint['metrics'] = {
+        'val_loss': best_val,
+        'val_acc': accuracy,
+        'val_f1': f1,
+        'confusion_matrix': cm.tolist(),
+    }
+    torch.save(checkpoint, model_path)
+    print(f"\nSaved model with metrics to {model_path}")
 
 
 # ============================================================================
