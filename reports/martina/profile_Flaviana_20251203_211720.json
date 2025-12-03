@@ -1,7 +1,7 @@
 {
   "user_id": "Flaviana",
-  "timestamp": "2025-12-03T21:14:59.579053",
-  "job_category": "other",
+  "timestamp": "2025-12-03T21:17:20.970659",
+  "job_category": "creative",
   "data_quality_score": 0.888235294117647,
   "missing_features": [
     "emails_received"
@@ -75,21 +75,6 @@
     "Good social connections: 6.1 interactions/day"
   ],
   "contradictions": [],
-  "recommendations": [
-    {
-      "category": "sleep",
-      "priority": "high",
-      "advice": "Improve sleep: maintain consistent schedule, create bedtime routine, avoid screens 1h before bed, keep bedroom cool and dark, limit caffeine after 2pm",
-      "rationale": "Sleep is foundation of mental and physical health. Most adults need 7-9h for optimal functioning.",
-      "job_specific": null
-    },
-    {
-      "category": "physical_health",
-      "priority": "medium",
-      "advice": "Increase activity: aim for 30min moderate exercise daily (brisk walk counts), take movement breaks every hour, use stairs, park farther away",
-      "rationale": "Regular exercise reduces stress, improves mood, and enhances cognitive function. Small changes compound over time.",
-      "job_specific": null
-    }
-  ],
+  "recommendations": [],
   "history_analysis": null
 }

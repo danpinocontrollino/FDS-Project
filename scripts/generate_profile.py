@@ -96,7 +96,7 @@ JOB_KEYWORDS = {
     "knowledge_worker": ["software", "developer", "engineer", "data", "scientist", "analyst", "programmer", "tech", "research", "architect"],
     "healthcare": ["doctor", "nurse", "physician", "therapist", "medical", "healthcare", "clinical", "hospital", "patient"],
     "education": ["teacher", "professor", "educator", "instructor", "academic", "tutor", "faculty", "lecturer"],
-    "creative": ["designer", "artist", "creative", "writer", "content", "marketing creative", "ux", "ui", "graphic"],
+    "creative": ["designer", "artist", "creative", "writer", "content", "marketing creative", "ux", "ui", "graphic", "film", "producer", "director", "cinematographer", "editor", "media"],
     "management": ["manager", "director", "executive", "lead", "supervisor", "ceo", "cto", "head of", "vp"],
     "service": ["customer service", "support", "hospitality", "retail", "waiter", "server", "receptionist"],
     "manual_labor": ["construction", "warehouse", "delivery", "driver", "mechanic", "technician", "maintenance", "labor"],
