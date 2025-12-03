@@ -1,0 +1,95 @@
+{
+  "user_id": "Flaviana",
+  "timestamp": "2025-12-03T21:14:59.579053",
+  "job_category": "other",
+  "data_quality_score": 0.888235294117647,
+  "missing_features": [
+    "emails_received"
+  ],
+  "predictions": {
+    "stress_level": {
+      "value": 3.94,
+      "at_risk": false,
+      "at_risk_probability": 0.051,
+      "confidence": 0.898,
+      "threshold": 6
+    },
+    "mood_score": {
+      "value": 6.61,
+      "at_risk": false,
+      "at_risk_probability": 0.058,
+      "confidence": 0.884,
+      "threshold": 4
+    },
+    "energy_level": {
+      "value": 5.83,
+      "at_risk": false,
+      "at_risk_probability": 0.174,
+      "confidence": 0.653,
+      "threshold": 4
+    },
+    "focus_score": {
+      "value": 5.67,
+      "at_risk": false,
+      "at_risk_probability": 0.24,
+      "confidence": 0.519,
+      "threshold": 4
+    },
+    "perceived_stress_scale": {
+      "value": 17.91,
+      "at_risk": false,
+      "at_risk_probability": 0.047,
+      "confidence": 0.907,
+      "threshold": 20
+    },
+    "anxiety_score": {
+      "value": 5.18,
+      "at_risk": false,
+      "at_risk_probability": 0.263,
+      "confidence": 0.473,
+      "threshold": 6
+    },
+    "depression_score": {
+      "value": 10.7,
+      "at_risk": false,
+      "at_risk_probability": 0.003,
+      "confidence": 0.994,
+      "threshold": 15
+    },
+    "job_satisfaction": {
+      "value": 7.34,
+      "at_risk": false,
+      "at_risk_probability": 0.0,
+      "confidence": 1.0,
+      "threshold": 4
+    }
+  },
+  "risk_factors": [
+    "Insufficient sleep: 5.7h/day (< 6h)",
+    "Sedentary lifestyle: 0min/day exercise"
+  ],
+  "positive_factors": [
+    "Healthy depression score: 10.7",
+    "Low anxiety: 5.2",
+    "High job satisfaction: 7.3/9",
+    "Good social connections: 6.1 interactions/day"
+  ],
+  "contradictions": [],
+  "recommendations": [
+    {
+      "category": "sleep",
+      "priority": "high",
+      "advice": "Improve sleep: maintain consistent schedule, create bedtime routine, avoid screens 1h before bed, keep bedroom cool and dark, limit caffeine after 2pm",
+      "rationale": "Sleep is foundation of mental and physical health. Most adults need 7-9h for optimal functioning.",
+      "job_specific": null
+    },
+    {
+      "category": "physical_health",
+      "priority": "medium",
+      "advice": "Increase activity: aim for 30min moderate exercise daily (brisk walk counts), take movement breaks every hour, use stairs, park farther away",
+      "rationale": "Regular exercise reduces stress, improves mood, and enhances cognitive function. Small changes compound over time.",
+      "job_specific": null
+    }
+  ],
+  "history_analysis": null
+}

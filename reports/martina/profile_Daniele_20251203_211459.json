@@ -1,0 +1,97 @@
+{
+  "user_id": "Daniele",
+  "timestamp": "2025-12-03T21:14:59.569721",
+  "job_category": "knowledge_worker",
+  "data_quality_score": 0.9058823529411765,
+  "missing_features": [
+    "emails_received"
+  ],
+  "predictions": {
+    "stress_level": {
+      "value": 4.53,
+      "at_risk": false,
+      "at_risk_probability": 0.241,
+      "confidence": 0.518,
+      "threshold": 6
+    },
+    "mood_score": {
+      "value": 6.44,
+      "at_risk": false,
+      "at_risk_probability": 0.075,
+      "confidence": 0.851,
+      "threshold": 4
+    },
+    "energy_level": {
+      "value": 5.7,
+      "at_risk": false,
+      "at_risk_probability": 0.199,
+      "confidence": 0.601,
+      "threshold": 4
+    },
+    "focus_score": {
+      "value": 5.4,
+      "at_risk": false,
+      "at_risk_probability": 0.291,
+      "confidence": 0.417,
+      "threshold": 4
+    },
+    "perceived_stress_scale": {
+      "value": 19.09,
+      "at_risk": false,
+      "at_risk_probability": 0.548,
+      "confidence": 0.096,
+      "threshold": 20
+    },
+    "anxiety_score": {
+      "value": 5.61,
+      "at_risk": false,
+      "at_risk_probability": 0.714,
+      "confidence": 0.428,
+      "threshold": 6
+    },
+    "depression_score": {
+      "value": 10.84,
+      "at_risk": false,
+      "at_risk_probability": 0.006,
+      "confidence": 0.987,
+      "threshold": 15
+    },
+    "job_satisfaction": {
+      "value": 6.99,
+      "at_risk": false,
+      "at_risk_probability": 0.0,
+      "confidence": 1.0,
+      "threshold": 4
+    }
+  },
+  "risk_factors": [
+    "Sedentary lifestyle: 10min/day exercise",
+    "High caffeine: 402mg/day (> 400mg)"
+  ],
+  "positive_factors": [
+    "Healthy depression score: 10.8",
+    "Low anxiety: 5.6",
+    "Good social connections: 5.8 interactions/day",
+    "Adequate outdoor time: 31min/day",
+    "Healthy diet: 7.1/10"
+  ],
+  "contradictions": [
+    {
+      "type": "caffeine_sleep_quality",
+      "description": "Very high caffeine intake (402mg/day) but reports good sleep quality (7.1/10). This is physiologically unusual.",
+      "severity": "medium",
+      "explanation": "Caffeine has 5-6hr half-life. >400mg typically disrupts sleep architecture even if subjectively 'good'. May indicate tolerance, measurement error, or atypical metabolism.",
+      "recommendation": "Consider objective sleep tracking (fitness tracker) to validate subjective quality. Reduce caffeine after 2pm."
+    }
+  ],
+  "recommendations": [
+    {
+      "category": "substance",
+      "priority": "medium",
+      "advice": "Reduce caffeine dependence: cut off coffee after 2pm, switch afternoon coffee to green tea (lower caffeine), drink water between coffees, aim for <300mg/day",
+      "rationale": "Excessive caffeine creates dependence cycle, disrupts sleep, and increases jitteriness during high-pressure debugging or presentations.",
+      "job_specific": "Don't use caffeine to mask poor sleep. Front-load caffeine in morning. Consider L-theanine supplement with coffee for smoother focus."
+    }
+  ],
+  "history_analysis": null
+}
