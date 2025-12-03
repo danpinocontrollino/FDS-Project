@@ -2457,6 +2457,17 @@ def generate_html_report(profile: UserProfile, output_dir: Path) -> Path:
             <div class="section">
                 <h2 class="section-title">📊 Mental Health Predictions</h2>
                 
+                <div style="background: #e7f3ff; border-left: 4px solid #2196F3; padding: 15px; margin-bottom: 25px; border-radius: 5px;">
+                    <strong>📋 Score Interpretation:</strong>
+                    <ul style="margin: 10px 0 0 20px; line-height: 1.8;">
+                        <li><strong>Stress/Mood/Energy/Focus:</strong> Scale 1-10 (higher mood/energy/focus is better, lower stress is better)</li>
+                        <li><strong>PSS (Perceived Stress Scale):</strong> 0-40 scale (≥20 is elevated, ≥27 is high stress)</li>
+                        <li><strong>Anxiety Score:</strong> 0-21 scale (≥6 is mild, ≥10 is moderate, ≥15 is severe)</li>
+                        <li><strong>Depression Score:</strong> Custom 0-22 scale trained on population data (≥15 is top 5% = at-risk)</li>
+                        <li><strong>Job Satisfaction:</strong> 1-9 scale (≤4 is low satisfaction)</li>
+                    </ul>
+                </div>
+                
                 <h3 style="font-size: 1.3em; margin: 30px 0 15px 0; color: #495057;">Daily Predictions (Next Day)</h3>
                 <div class="predictions-grid">
 """
