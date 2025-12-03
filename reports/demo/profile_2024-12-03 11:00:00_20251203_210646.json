@@ -1,80 +1,80 @@
 {
   "user_id": "2024-12-03 11:00:00",
-  "timestamp": "2025-12-03T21:03:39.418180",
+  "timestamp": "2025-12-03T21:06:46.268659",
   "job_category": "education",
-  "data_quality_score": 0.8823529411764706,
+  "data_quality_score": 0.9411764705882353,
   "missing_features": [
-    "emails_received",
-    "outdoor_time_minutes"
+    "emails_received"
   ],
   "predictions": {
     "stress_level": {
-      "value": 4.49,
+      "value": 4.38,
       "at_risk": false,
-      "at_risk_probability": 0.278,
-      "confidence": 0.445,
+      "at_risk_probability": 0.249,
+      "confidence": 0.503,
       "threshold": 6
     },
     "mood_score": {
-      "value": 6.12,
+      "value": 6.19,
       "at_risk": false,
-      "at_risk_probability": 0.115,
-      "confidence": 0.769,
+      "at_risk_probability": 0.106,
+      "confidence": 0.789,
       "threshold": 4
     },
     "energy_level": {
-      "value": 5.71,
+      "value": 5.76,
       "at_risk": false,
-      "at_risk_probability": 0.187,
-      "confidence": 0.626,
+      "at_risk_probability": 0.177,
+      "confidence": 0.647,
       "threshold": 4
     },
     "focus_score": {
-      "value": 6.0,
+      "value": 6.05,
       "at_risk": false,
-      "at_risk_probability": 0.171,
-      "confidence": 0.658,
+      "at_risk_probability": 0.164,
+      "confidence": 0.672,
       "threshold": 4
     },
     "perceived_stress_scale": {
-      "value": 20.66,
+      "value": 20.75,
       "at_risk": true,
-      "at_risk_probability": 0.889,
-      "confidence": 0.779,
+      "at_risk_probability": 0.9,
+      "confidence": 0.799,
       "threshold": 20
     },
     "anxiety_score": {
-      "value": 5.97,
+      "value": 5.99,
       "at_risk": false,
-      "at_risk_probability": 0.897,
-      "confidence": 0.795,
+      "at_risk_probability": 0.908,
+      "confidence": 0.815,
       "threshold": 6
     },
     "depression_score": {
-      "value": 10.92,
+      "value": 10.98,
       "at_risk": false,
-      "at_risk_probability": 0.004,
-      "confidence": 0.991,
+      "at_risk_probability": 0.005,
+      "confidence": 0.99,
       "threshold": 15
     },
     "job_satisfaction": {
-      "value": 3.68,
+      "value": 3.72,
       "at_risk": true,
-      "at_risk_probability": 0.996,
-      "confidence": 0.991,
+      "at_risk_probability": 0.994,
+      "confidence": 0.989,
       "threshold": 4
     }
   },
   "risk_factors": [
-    "At-risk perceived stress scale: 20.66",
-    "At-risk job satisfaction: 3.68"
+    "At-risk perceived stress scale: 20.75",
+    "At-risk job satisfaction: 3.72"
   ],
   "positive_factors": [
-    "Healthy depression score: 10.9",
+    "Healthy depression score: 11.0",
     "Low anxiety: 6.0",
     "Optimal sleep: 7.2h/day",
     "Regular exercise: 34min/day",
     "Good social connections: 4.6 interactions/day",
+    "Adequate outdoor time: 41min/day",
     "Healthy diet: 7.6/10"
   ],
   "contradictions": [],

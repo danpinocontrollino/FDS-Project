@@ -288,22 +288,53 @@ def parse_google_form_csv(csv_path: Path, window: int = 7) -> Dict[str, pd.DataF
     # Expected pattern: "Day X: Feature Name" or "Feature Name (Day X)"
     column_mapping = {}
     
+    # Feature name variations for better matching (handle abbreviations)
+    feature_variations = {
+        'outdoor_time_minutes': ['outdoor time minutes', 'outdoor minutes', 'outdoor time', 'outdoor'],
+        'emails_received': ['emails received', 'emails', 'email count'],
+        'screen_time_hours': ['screen time hours', 'screen time', 'screen hours'],
+        'exercise_minutes': ['exercise minutes', 'exercise', 'workout minutes'],
+        'sleep_hours': ['sleep hours', 'hours of sleep', 'sleep'],
+        'sleep_quality': ['sleep quality', 'quality of sleep'],
+        'work_hours': ['work hours', 'hours worked', 'working hours'],
+        'meetings_count': ['meetings count', 'meetings', 'number of meetings'],
+        'tasks_completed': ['tasks completed', 'tasks', 'completed tasks'],
+        'commute_minutes': ['commute minutes', 'commute time', 'commute'],
+        'steps_count': ['steps count', 'steps', 'step count'],
+        'caffeine_mg': ['caffeine mg', 'caffeine', 'caffeine intake'],
+        'alcohol_units': ['alcohol units', 'alcohol', 'drinks'],
+        'social_interactions': ['social interactions', 'social', 'interactions'],
+        'diet_quality': ['diet quality', 'diet', 'nutrition quality'],
+        'work_pressure': ['work pressure', 'pressure', 'stress level'],
+        'weather_mood_impact': ['weather mood impact', 'weather mood', 'weather impact', 'weather'],
+    }
+    
     for day in range(1, window + 1):
         for feature in FEATURE_COLS:
-            # Try various naming patterns
-            patterns = [
-                f"Day {day}: {feature.replace('_', ' ').title()}",
-                f"Day {day} - {feature.replace('_', ' ').title()}",
-                f"{feature.replace('_', ' ').title()} (Day {day})",
-                f"D{day}: {feature.replace('_', ' ').title()}",
-            ]
+            # Get variations for this feature
+            variations = feature_variations.get(feature, [feature.replace('_', ' ')])
             
-            for pattern in patterns:
-                # Case-insensitive fuzzy match
-                for col in df.columns:
-                    if pattern.lower() in col.lower() or col.lower() in pattern.lower():
-                        column_mapping[col] = (feature, day)
+            # Try various naming patterns with each variation
+            for variation in variations:
+                patterns = [
+                    f"Day {day}: {variation.title()}",
+                    f"Day {day} - {variation.title()}",
+                    f"{variation.title()} (Day {day})",
+                    f"D{day}: {variation.title()}",
+                ]
+                
+                matched = False
+                for pattern in patterns:
+                    # Case-insensitive fuzzy match
+                    for col in df.columns:
+                        if pattern.lower() in col.lower() or col.lower() in pattern.lower():
+                            column_mapping[col] = (feature, day)
+                            matched = True
+                            break
+                    if matched:
                         break
+                if matched:
+                    break
     
     print(f"✓ Mapped {len(column_mapping)} columns to features")
     
