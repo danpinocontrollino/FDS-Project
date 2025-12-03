@@ -1,0 +1,88 @@
+{
+  "user_id": "2024-12-03 09:00:00",
+  "timestamp": "2025-12-03T19:49:19.899780",
+  "job_category": "knowledge_worker",
+  "data_quality_score": 0.8823529411764706,
+  "missing_features": [
+    "emails_received",
+    "outdoor_time_minutes"
+  ],
+  "predictions": {
+    "stress_level": {
+      "value": NaN,
+      "at_risk": false,
+      "at_risk_probability": NaN,
+      "confidence": NaN,
+      "threshold": 6
+    },
+    "mood_score": {
+      "value": NaN,
+      "at_risk": false,
+      "at_risk_probability": NaN,
+      "confidence": NaN,
+      "threshold": 4
+    },
+    "energy_level": {
+      "value": NaN,
+      "at_risk": false,
+      "at_risk_probability": NaN,
+      "confidence": NaN,
+      "threshold": 4
+    },
+    "focus_score": {
+      "value": NaN,
+      "at_risk": false,
+      "at_risk_probability": NaN,
+      "confidence": NaN,
+      "threshold": 4
+    },
+    "perceived_stress_scale": {
+      "value": NaN,
+      "at_risk": false,
+      "at_risk_probability": NaN,
+      "confidence": NaN,
+      "threshold": 20
+    },
+    "anxiety_score": {
+      "value": NaN,
+      "at_risk": false,
+      "at_risk_probability": NaN,
+      "confidence": NaN,
+      "threshold": 6
+    },
+    "depression_score": {
+      "value": NaN,
+      "at_risk": false,
+      "at_risk_probability": NaN,
+      "confidence": NaN,
+      "threshold": 15
+    },
+    "job_satisfaction": {
+      "value": NaN,
+      "at_risk": false,
+      "at_risk_probability": NaN,
+      "confidence": NaN,
+      "threshold": 4
+    }
+  },
+  "risk_factors": [
+    "Overwork: 10.5h/day (> 10h)",
+    "High caffeine: 474mg/day (> 400mg)",
+    "Excessive screen time: 12.9h/day"
+  ],
+  "positive_factors": [
+    "Healthy depression score: nan",
+    "Low anxiety: nan"
+  ],
+  "contradictions": [],
+  "recommendations": [
+    {
+      "category": "substance",
+      "priority": "medium",
+      "advice": "Reduce caffeine dependence: cut off coffee after 2pm, switch afternoon coffee to green tea (lower caffeine), drink water between coffees, aim for <300mg/day",
+      "rationale": "Excessive caffeine creates dependence cycle, disrupts sleep, and increases jitteriness during high-pressure debugging or presentations.",
+      "job_specific": "Don't use caffeine to mask poor sleep. Front-load caffeine in morning. Consider L-theanine supplement with coffee for smoother focus."
+    }
+  ],
+  "history_analysis": null
+}

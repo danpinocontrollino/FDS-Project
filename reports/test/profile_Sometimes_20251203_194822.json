@@ -1,0 +1,86 @@
+{
+  "user_id": "Sometimes",
+  "timestamp": "2025-12-03T19:48:22.155199",
+  "job_category": "knowledge_worker",
+  "data_quality_score": 0.28823529411764703,
+  "missing_features": [
+    "meetings_count",
+    "tasks_completed",
+    "emails_received",
+    "commute_minutes",
+    "exercise_minutes",
+    "caffeine_mg",
+    "screen_time_hours",
+    "social_interactions",
+    "outdoor_time_minutes",
+    "weather_mood_impact"
+  ],
+  "predictions": {
+    "stress_level": {
+      "value": NaN,
+      "at_risk": false,
+      "at_risk_probability": NaN,
+      "confidence": NaN,
+      "threshold": 6
+    },
+    "mood_score": {
+      "value": NaN,
+      "at_risk": false,
+      "at_risk_probability": NaN,
+      "confidence": NaN,
+      "threshold": 4
+    },
+    "energy_level": {
+      "value": NaN,
+      "at_risk": false,
+      "at_risk_probability": NaN,
+      "confidence": NaN,
+      "threshold": 4
+    },
+    "focus_score": {
+      "value": NaN,
+      "at_risk": false,
+      "at_risk_probability": NaN,
+      "confidence": NaN,
+      "threshold": 4
+    },
+    "perceived_stress_scale": {
+      "value": NaN,
+      "at_risk": false,
+      "at_risk_probability": NaN,
+      "confidence": NaN,
+      "threshold": 20
+    },
+    "anxiety_score": {
+      "value": NaN,
+      "at_risk": false,
+      "at_risk_probability": NaN,
+      "confidence": NaN,
+      "threshold": 6
+    },
+    "depression_score": {
+      "value": NaN,
+      "at_risk": false,
+      "at_risk_probability": NaN,
+      "confidence": NaN,
+      "threshold": 15
+    },
+    "job_satisfaction": {
+      "value": NaN,
+      "at_risk": false,
+      "at_risk_probability": NaN,
+      "confidence": NaN,
+      "threshold": 4
+    }
+  },
+  "risk_factors": [],
+  "positive_factors": [
+    "Healthy depression score: nan",
+    "Low anxiety: nan",
+    "Optimal sleep: 7.0h/day",
+    "Healthy diet: 7.0/10"
+  ],
+  "contradictions": [],
+  "recommendations": [],
+  "history_analysis": null
+}
