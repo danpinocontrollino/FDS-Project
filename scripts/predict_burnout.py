@@ -840,7 +840,6 @@ def parse_google_form_csv(csv_path: str) -> Tuple[pd.DataFrame, bool]:
         "which day": "_day",  # Changed from "day" to avoid matching "today"
         "what day": "_day",
         
-        # === NEW V2 FEATURES ===
         # Social - IMPORTANT: more specific patterns must come first!
         # The matching is done with "key in column_name" so order matters
         "number of meaningful social": "social_interactions",  # Must come before "quality of social"
