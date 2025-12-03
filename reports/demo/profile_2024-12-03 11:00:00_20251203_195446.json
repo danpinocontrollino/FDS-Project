@@ -1,0 +1,91 @@
+{
+  "user_id": "2024-12-03 11:00:00",
+  "timestamp": "2025-12-03T19:54:46.944622",
+  "job_category": "education",
+  "data_quality_score": 0.8823529411764706,
+  "missing_features": [
+    "emails_received",
+    "outdoor_time_minutes"
+  ],
+  "predictions": {
+    "stress_level": {
+      "value": 4.49,
+      "at_risk": false,
+      "at_risk_probability": 0.278,
+      "confidence": 0.445,
+      "threshold": 6
+    },
+    "mood_score": {
+      "value": 6.12,
+      "at_risk": false,
+      "at_risk_probability": 0.115,
+      "confidence": 0.769,
+      "threshold": 4
+    },
+    "energy_level": {
+      "value": 5.71,
+      "at_risk": false,
+      "at_risk_probability": 0.187,
+      "confidence": 0.626,
+      "threshold": 4
+    },
+    "focus_score": {
+      "value": 6.0,
+      "at_risk": false,
+      "at_risk_probability": 0.171,
+      "confidence": 0.658,
+      "threshold": 4
+    },
+    "perceived_stress_scale": {
+      "value": 20.66,
+      "at_risk": true,
+      "at_risk_probability": 0.889,
+      "confidence": 0.779,
+      "threshold": 20
+    },
+    "anxiety_score": {
+      "value": 5.97,
+      "at_risk": false,
+      "at_risk_probability": 0.897,
+      "confidence": 0.795,
+      "threshold": 6
+    },
+    "depression_score": {
+      "value": 10.92,
+      "at_risk": false,
+      "at_risk_probability": 0.004,
+      "confidence": 0.991,
+      "threshold": 15
+    },
+    "job_satisfaction": {
+      "value": 3.68,
+      "at_risk": true,
+      "at_risk_probability": 0.996,
+      "confidence": 0.991,
+      "threshold": 4
+    }
+  },
+  "risk_factors": [
+    "At-risk perceived stress scale: 20.66",
+    "At-risk job satisfaction: 3.68"
+  ],
+  "positive_factors": [
+    "Healthy depression score: 10.9",
+    "Low anxiety: 6.0",
+    "Optimal sleep: 7.2h/day",
+    "Regular exercise: 34min/day",
+    "Good social connections: 4.6 interactions/day",
+    "Healthy diet: 7.6/10"
+  ],
+  "contradictions": [],
+  "recommendations": [
+    {
+      "category": "career",
+      "priority": "high",
+      "advice": "Reconnect with purpose: reflect on why you chose teaching, seek out positive student interactions, join professional learning community, consider grade/subject change if needed",
+      "rationale": "Teaching satisfaction erodes from lack of autonomy, unsupportive admin, or feeling ineffective. Rekindling purpose prevents dropout.",
+      "job_specific": "Keep 'smile file' of positive student notes/emails. If systemic issues (admin, resources), consider school change. Teaching elsewhere \u2260 failure."
+    }
+  ],
+  "history_analysis": null
+}

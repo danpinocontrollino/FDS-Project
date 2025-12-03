@@ -401,8 +401,16 @@ def predict_user(
     """
     device = next(model.parameters()).device
     
-    # Normalize
+    # Normalize (fill NaN with scaler mean)
     X = user_data[FEATURE_COLS].values.astype(np.float32)
+    
+    # Fill any NaN values with the scaler mean (trained distribution center)
+    nan_mask = np.isnan(X)
+    if nan_mask.any():
+        for i in range(X.shape[1]):
+            if np.isnan(X[:, i]).any():
+                X[np.isnan(X[:, i]), i] = scaler_mean[i]
+    
     X_scaled = (X - scaler_mean) / scaler_std
     X_tensor = torch.tensor(X_scaled, dtype=torch.float32).unsqueeze(0).to(device)
     
