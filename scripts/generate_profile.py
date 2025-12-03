@@ -2474,6 +2474,14 @@ def generate_html_report(profile: UserProfile, output_dir: Path) -> Path:
     
     # Behavioral Patterns Chart
     avg_behavior = profile.behavioral_data.mean()
+    
+    # Helper function to format values for JavaScript (handles NaN)
+    def js_value(val):
+        """Convert Python value to JavaScript-safe value (null for NaN)."""
+        if pd.isna(val):
+            return "null"
+        return f"{val:.1f}"
+    
     html += """
             <!-- Behavioral Patterns -->
             <div class="section">
@@ -2682,14 +2690,14 @@ def generate_html_report(profile: UserProfile, output_dir: Path) -> Path:
                 datasets: [{{
                     label: '7-Day Average',
                     data: [
-                        {avg_behavior['sleep_hours']:.1f},
-                        {avg_behavior['sleep_quality']:.1f},
-                        {avg_behavior['work_hours']:.1f},
-                        {avg_behavior['exercise_minutes'] / 10:.1f},  // Scale down for visibility
-                        {avg_behavior['social_interactions']:.1f},
-                        {avg_behavior['outdoor_time_minutes'] / 10:.1f},  // Scale down
-                        {avg_behavior['diet_quality']:.1f},
-                        {avg_behavior['work_pressure']:.1f}
+                        {js_value(avg_behavior['sleep_hours'])},
+                        {js_value(avg_behavior['sleep_quality'])},
+                        {js_value(avg_behavior['work_hours'])},
+                        {js_value(avg_behavior['exercise_minutes'] / 10)},  // Scale down for visibility
+                        {js_value(avg_behavior['social_interactions'])},
+                        {js_value(avg_behavior['outdoor_time_minutes'] / 10)},  // Scale down
+                        {js_value(avg_behavior['diet_quality'])},
+                        {js_value(avg_behavior['work_pressure'])}
                     ],
                     fill: true,
                     backgroundColor: 'rgba(102, 126, 234, 0.2)',
