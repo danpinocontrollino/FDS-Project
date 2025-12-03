@@ -78,6 +78,9 @@ DAILY_TARGETS = ["stress_level", "mood_score", "energy_level", "focus_score"]
 WEEKLY_TARGETS = ["perceived_stress_scale", "anxiety_score", "depression_score", "job_satisfaction"]
 ALL_TARGETS = DAILY_TARGETS + WEEKLY_TARGETS
 
+# Inverted targets (higher = better)
+INVERTED_TARGETS = {"mood_score", "energy_level", "focus_score", "job_satisfaction"}
+
 # Job categories for personalized advice
 JOB_CATEGORIES = [
     "knowledge_worker",      # Software, data science, research
@@ -1372,7 +1375,8 @@ def analyze_mental_health_trends(
             "summary": "first_assessment",
             "alerts": [],
             "insights": ["This is your first assessment. Future assessments will track trends."],
-            "assessment_count": 0,
+            "assessment_count": 1,
+            "tracking_days": 0,
         }
     
     # Filter history by lookback window
@@ -1388,7 +1392,8 @@ def analyze_mental_health_trends(
             "summary": "no_recent_history",
             "alerts": [],
             "insights": [f"No assessments found in last {lookback_days} days. This is effectively a new baseline."],
-            "assessment_count": 0,
+            "assessment_count": 1,
+            "tracking_days": 0,
         }
     
     # Analyze each target's trend

@@ -1,0 +1,121 @@
+{
+  "user_id": "Flaviana_week2",
+  "timestamp": "2025-12-03T21:20:10.682757",
+  "job_category": "creative",
+  "data_quality_score": 0.888235294117647,
+  "missing_features": [
+    "emails_received"
+  ],
+  "predictions": {
+    "stress_level": {
+      "value": 5.92,
+      "at_risk": false,
+      "at_risk_probability": 0.703,
+      "confidence": 0.407,
+      "threshold": 6
+    },
+    "mood_score": {
+      "value": 5.56,
+      "at_risk": false,
+      "at_risk_probability": 0.228,
+      "confidence": 0.543,
+      "threshold": 4
+    },
+    "energy_level": {
+      "value": 5.44,
+      "at_risk": false,
+      "at_risk_probability": 0.257,
+      "confidence": 0.485,
+      "threshold": 4
+    },
+    "focus_score": {
+      "value": 5.65,
+      "at_risk": false,
+      "at_risk_probability": 0.234,
+      "confidence": 0.532,
+      "threshold": 4
+    },
+    "perceived_stress_scale": {
+      "value": 20.99,
+      "at_risk": true,
+      "at_risk_probability": 0.918,
+      "confidence": 0.837,
+      "threshold": 20
+    },
+    "anxiety_score": {
+      "value": 6.1,
+      "at_risk": true,
+      "at_risk_probability": 0.948,
+      "confidence": 0.895,
+      "threshold": 6
+    },
+    "depression_score": {
+      "value": 11.74,
+      "at_risk": false,
+      "at_risk_probability": 0.017,
+      "confidence": 0.965,
+      "threshold": 15
+    },
+    "job_satisfaction": {
+      "value": 5.38,
+      "at_risk": false,
+      "at_risk_probability": 0.003,
+      "confidence": 0.995,
+      "threshold": 4
+    }
+  },
+  "risk_factors": [
+    "At-risk perceived stress scale: 20.99",
+    "At-risk anxiety score: 6.1",
+    "Insufficient sleep: 4.5h/day (< 6h)",
+    "Overwork: 10.2h/day (> 10h)",
+    "Sedentary lifestyle: 0min/day exercise",
+    "High caffeine: 419mg/day (> 400mg)"
+  ],
+  "positive_factors": [
+    "Healthy depression score: 11.7",
+    "Good social connections: 6.1 interactions/day"
+  ],
+  "contradictions": [
+    {
+      "type": "mental_health_poor_foundation",
+      "description": "At-risk mental health but poor foundational self-care (sleep/exercise/diet). Interventions less effective without basics.",
+      "severity": "high",
+      "explanation": "Therapy and medication work better with sleep/exercise/nutrition foundation. Can't out-therapy a terrible lifestyle.",
+      "recommendation": "While seeking professional help, prioritize: (1) 7-8h sleep, (2) 30min daily movement, (3) regular meals. These amplify treatment."
+    }
+  ],
+  "recommendations": [
+    {
+      "category": "routine",
+      "priority": "medium",
+      "advice": "Create sustainable routine: set regular work hours (creativity needs structure), protect morning creative time, schedule client meetings in afternoon, batch similar tasks",
+      "rationale": "Freelance/agency creatives often have chaotic schedules. While flexibility is nice, routine enhances creative output and prevents burnout.",
+      "job_specific": "Track when you're most creative (morning/evening). Design ideal week template. Learn to estimate project time realistically (add 50%)."
+    },
+    {
+      "category": "client_management",
+      "priority": "medium",
+      "advice": "Set client boundaries: establish revision limits (e.g., 2 rounds), require consolidated feedback, educate clients on creative process, charge for scope creep",
+      "rationale": "Anxiety in creative work often stems from unclear expectations, endless revisions, or clients who don't respect expertise.",
+      "job_specific": "Use contracts with clear deliverables. Present 2-3 options max (not infinite revisions). Walk away from toxic clients - not worth mental health."
+    },
+    {
+      "category": "tracking",
+      "priority": "low",
+      "advice": "Schedule your next mental health check-in 2-4 weeks from now to establish trend data. Consistent tracking reveals patterns that single assessments miss.",
+      "rationale": "Mental health fluctuates. Tracking trends helps differentiate temporary stress from chronic issues, and validates that interventions are working.",
+      "job_specific": null
+    }
+  ],
+  "history_analysis": {
+    "trends": {},
+    "summary": "first_assessment",
+    "alerts": [],
+    "insights": [
+      "This is your first assessment. Future assessments will track trends."
+    ],
+    "assessment_count": 1,
+    "tracking_days": 0
+  }
+}
