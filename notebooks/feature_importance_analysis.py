@@ -95,11 +95,18 @@ print("LOADING DATA")
 print("="*80)
 
 # Load your dataset
-# Option 1: From CSV
-df = pd.read_csv('/kaggle/input/your-dataset/daily_all.csv')
+# Option 1: From raw CSV (needs preprocessing)
+# df = pd.read_csv('/kaggle/input/your-dataset/daily_logs.csv')
 
-# Option 2: From parquet
-# df = pd.read_parquet('/kaggle/input/your-dataset/daily_with_burnout.parquet')
+# Option 2: From preprocessed parquet (recommended)
+df = pd.read_parquet('/kaggle/input/your-dataset/daily_with_burnout.parquet')
+
+# Option 3: Preprocess from scratch
+# Uncomment to run preprocessing:
+# import sys
+# sys.path.append('/kaggle/working/FDS-Project/scripts')
+# from preprocess import preprocess_data
+# df = preprocess_data('/kaggle/input/your-dataset/daily_logs.csv')
 
 print(f"✓ Loaded {len(df):,} samples")
 print(f"✓ Columns: {df.columns.tolist()[:10]}...")
