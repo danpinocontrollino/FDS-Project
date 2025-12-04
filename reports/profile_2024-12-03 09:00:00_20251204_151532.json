@@ -1,0 +1,207 @@
+{
+  "user_id": "2024-12-03 09:00:00",
+  "timestamp": "2025-12-04T15:15:32.807797",
+  "job_category": "knowledge_worker",
+  "data_quality_score": 0.9411764705882353,
+  "missing_features": [
+    "emails_received"
+  ],
+  "predictions": {
+    "stress_level": {
+      "value": 6.02,
+      "at_risk": true,
+      "at_risk_probability": 0.733,
+      "confidence": 0.466,
+      "threshold": 6
+    },
+    "mood_score": {
+      "value": 5.39,
+      "at_risk": false,
+      "at_risk_probability": 0.269,
+      "confidence": 0.462,
+      "threshold": 4
+    },
+    "energy_level": {
+      "value": 5.36,
+      "at_risk": false,
+      "at_risk_probability": 0.282,
+      "confidence": 0.436,
+      "threshold": 4
+    },
+    "focus_score": {
+      "value": 5.39,
+      "at_risk": false,
+      "at_risk_probability": 0.294,
+      "confidence": 0.412,
+      "threshold": 4
+    },
+    "perceived_stress_scale": {
+      "value": 22.42,
+      "at_risk": true,
+      "at_risk_probability": 0.992,
+      "confidence": 0.983,
+      "threshold": 20
+    },
+    "anxiety_score": {
+      "value": 6.49,
+      "at_risk": true,
+      "at_risk_probability": 0.994,
+      "confidence": 0.988,
+      "threshold": 6
+    },
+    "depression_score": {
+      "value": 11.99,
+      "at_risk": false,
+      "at_risk_probability": 0.038,
+      "confidence": 0.924,
+      "threshold": 15
+    },
+    "job_satisfaction": {
+      "value": 5.81,
+      "at_risk": false,
+      "at_risk_probability": 0.001,
+      "confidence": 0.998,
+      "threshold": 4
+    }
+  },
+  "risk_factors": [
+    "At-risk stress level: 6.02",
+    "At-risk perceived stress scale: 22.42",
+    "At-risk anxiety score: 6.49",
+    "Overwork: 10.5h/day (> 10h)",
+    "High caffeine: 474mg/day (> 400mg)",
+    "Excessive screen time: 12.9h/day"
+  ],
+  "positive_factors": [
+    "Healthy depression score: 12.0"
+  ],
+  "contradictions": [
+    {
+      "type": "mental_health_poor_foundation",
+      "description": "At-risk mental health but poor foundational self-care (sleep/exercise/diet). Interventions less effective without basics.",
+      "severity": "high",
+      "explanation": "Therapy and medication work better with sleep/exercise/nutrition foundation. Can't out-therapy a terrible lifestyle.",
+      "recommendation": "While seeking professional help, prioritize: (1) 7-8h sleep, (2) 30min daily movement, (3) regular meals. These amplify treatment."
+    }
+  ],
+  "recommendations": [
+    {
+      "category": "work_life_balance",
+      "priority": "high",
+      "advice": "Implement strict work boundaries: use Pomodoro technique (25min focus + 5min break), set hard stop time at 6pm, disable work notifications after hours",
+      "rationale": "Knowledge work requires sustained cognitive focus. Without breaks, mental fatigue compounds stress and reduces code quality/decision-making.",
+      "job_specific": "Schedule 'deep work' blocks in morning when cognitive capacity is highest. Use afternoon for meetings and lighter tasks."
+    },
+    {
+      "category": "sleep",
+      "priority": "high",
+      "advice": "Improve sleep hygiene: stop coding 1h before bed, dim lights after 9pm, keep bedroom cool (65-68\u00b0F), maintain consistent sleep schedule (even weekends)",
+      "rationale": "Sleep deprivation amplifies anxiety and impairs logical reasoning. Tech workers often have delayed circadian rhythms from late-night coding.",
+      "job_specific": "No debugging in bed. Use f.lux/Night Shift on all devices. If mind races about code, keep 'brain dump' notepad by bed."
+    },
+    {
+      "category": "substance",
+      "priority": "medium",
+      "advice": "Reduce caffeine dependence: cut off coffee after 2pm, switch afternoon coffee to green tea (lower caffeine), drink water between coffees, aim for <300mg/day",
+      "rationale": "Excessive caffeine creates dependence cycle, disrupts sleep, and increases jitteriness during high-pressure debugging or presentations.",
+      "job_specific": "Don't use caffeine to mask poor sleep. Front-load caffeine in morning. Consider L-theanine supplement with coffee for smoother focus."
+    },
+    {
+      "category": "tracking",
+      "priority": "low",
+      "advice": "Schedule your next mental health check-in 2-4 weeks from now to establish trend data. Consistent tracking reveals patterns that single assessments miss.",
+      "rationale": "Mental health fluctuates. Tracking trends helps differentiate temporary stress from chronic issues, and validates that interventions are working.",
+      "job_specific": null
+    }
+  ],
+  "behavioral_interventions": [
+    {
+      "category": "Work Hours",
+      "current": "10.5h/day",
+      "target": "8-9h/day max",
+      "change_needed": "-2.0h per day",
+      "evidence": "\ud83d\udcca Data insight: Workload reduction intervention (35 cases) - participants who reduced from 10h to 8-9h showed 27% lower perceived stress",
+      "specific_actions": [
+        "Set hard stop time: leave 2.0h earlier, block it as 'meeting' in calendar",
+        "Use Pomodoro technique: 25min focused work + 5min break (prevents overtime creep)",
+        "Negotiate priorities with manager: 'I want great work, need to focus on top 3 items'"
+      ],
+      "priority": "HIGH"
+    },
+    {
+      "category": "Stress Management Techniques",
+      "current": "At-risk stress/anxiety levels",
+      "target": "Below clinical thresholds",
+      "change_needed": "Implement evidence-based stress reduction",
+      "evidence": "\ud83d\udcca Data insight: Therapy intervention participants showed stress reduction in 4-6 sessions. Meditation programs (48 completers) reduced stress over 2-4 weeks",
+      "specific_actions": [
+        "Start 10-min daily meditation (Headspace, Calm, Insight Timer) - reduces cortisol by 23% in 8 weeks",
+        "Box breathing during stress spikes: 4s inhale \u2192 4s hold \u2192 4s exhale \u2192 4s hold (5 rounds)",
+        "Consider EAP (Employee Assistance Program) or therapist - stress management is a learned skill"
+      ],
+      "priority": "HIGH"
+    },
+    {
+      "category": "Sleep Hours",
+      "current": "6.0h/night",
+      "target": "7-9h/night",
+      "change_needed": "+1.5h per night",
+      "evidence": "\ud83d\udcca Data insight: Users who increased sleep from <7h to 7-8h saw 31% reduction in stress scores within 2 weeks",
+      "specific_actions": [
+        "Set a bedtime alarm for 1.5h earlier than usual",
+        "Create a wind-down routine: dim lights 1h before bed, no screens 30min before",
+        "Keep consistent sleep schedule (even weekends) - irregular sleep disrupts circadian rhythm"
+      ],
+      "priority": "MEDIUM"
+    },
+    {
+      "category": "Sleep Quality",
+      "current": "4.7/10",
+      "target": "7-9/10",
+      "change_needed": "+2.3 points",
+      "evidence": "\ud83d\udcca Data insight: Meditation intervention participants improved sleep quality by average 2.3 points over 6-8 weeks",
+      "specific_actions": [
+        "Try 4-7-8 breathing before bed: inhale 4s, hold 7s, exhale 8s (repeat 4x)",
+        "No caffeine after 2pm (6-hour half-life fragments REM sleep)",
+        "Keep bedroom cool (65-68\u00b0F) and dark - temperature drop signals sleep onset"
+      ],
+      "priority": "MEDIUM"
+    },
+    {
+      "category": "Caffeine",
+      "current": "474mg/day",
+      "target": "200-400mg/day",
+      "change_needed": "-174mg (about 1.8 cups coffee)",
+      "evidence": "\ud83d\udcca Data insight: High caffeine users (>400mg) who reduced to 300mg reported improved sleep quality and reduced jitteriness",
+      "specific_actions": [
+        "Cut off coffee after 2pm (6-hour half-life disrupts sleep architecture)",
+        "Switch afternoon coffee to green tea (lower caffeine, L-theanine smooths energy)",
+        "Don't use caffeine to mask poor sleep - fixes symptom not cause"
+      ],
+      "priority": "MEDIUM"
+    },
+    {
+      "category": "Social Connection",
+      "current": "2.3 interactions/day",
+      "target": "4-6 quality interactions/day",
+      "change_needed": "+1.7 social touches daily",
+      "evidence": "\ud83d\udcca Data insight: Individuals with 4+ daily social interactions had 19% lower depression scores vs isolated group",
+      "specific_actions": [
+        "Quality over quantity: one 15-min meaningful conversation > 10 shallow chats",
+        "Schedule weekly social: friend dinner, hobby group, or team lunch (prevents isolation drift)",
+        "Remote work: video calls for collaboration (not just slack) - face time builds connection"
+      ],
+      "priority": "MEDIUM"
+    }
+  ],
+  "history_analysis": {
+    "trends": {},
+    "summary": "first_assessment",
+    "alerts": [],
+    "insights": [
+      "This is your first assessment. Future assessments will track trends."
+    ],
+    "assessment_count": 1,
+    "tracking_days": 0
+  }
+}

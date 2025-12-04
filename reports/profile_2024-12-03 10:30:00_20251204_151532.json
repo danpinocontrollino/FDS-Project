@@ -1,0 +1,175 @@
+{
+  "user_id": "2024-12-03 10:30:00",
+  "timestamp": "2025-12-04T15:15:32.817408",
+  "job_category": "healthcare",
+  "data_quality_score": 0.9411764705882353,
+  "missing_features": [
+    "emails_received"
+  ],
+  "predictions": {
+    "stress_level": {
+      "value": 4.54,
+      "at_risk": false,
+      "at_risk_probability": 0.297,
+      "confidence": 0.407,
+      "threshold": 6
+    },
+    "mood_score": {
+      "value": 6.06,
+      "at_risk": false,
+      "at_risk_probability": 0.123,
+      "confidence": 0.754,
+      "threshold": 4
+    },
+    "energy_level": {
+      "value": 5.68,
+      "at_risk": false,
+      "at_risk_probability": 0.191,
+      "confidence": 0.617,
+      "threshold": 4
+    },
+    "focus_score": {
+      "value": 5.98,
+      "at_risk": false,
+      "at_risk_probability": 0.173,
+      "confidence": 0.654,
+      "threshold": 4
+    },
+    "perceived_stress_scale": {
+      "value": 21.23,
+      "at_risk": true,
+      "at_risk_probability": 0.94,
+      "confidence": 0.881,
+      "threshold": 20
+    },
+    "anxiety_score": {
+      "value": 6.15,
+      "at_risk": true,
+      "at_risk_probability": 0.953,
+      "confidence": 0.907,
+      "threshold": 6
+    },
+    "depression_score": {
+      "value": 11.22,
+      "at_risk": false,
+      "at_risk_probability": 0.01,
+      "confidence": 0.98,
+      "threshold": 15
+    },
+    "job_satisfaction": {
+      "value": 3.65,
+      "at_risk": true,
+      "at_risk_probability": 0.997,
+      "confidence": 0.994,
+      "threshold": 4
+    }
+  },
+  "risk_factors": [
+    "At-risk perceived stress scale: 21.23",
+    "At-risk anxiety score: 6.15",
+    "At-risk job satisfaction: 3.65"
+  ],
+  "positive_factors": [
+    "Healthy depression score: 11.2",
+    "Regular exercise: 39min/day",
+    "Good social connections: 5.7 interactions/day",
+    "Adequate outdoor time: 45min/day",
+    "Healthy diet: 7.4/10"
+  ],
+  "contradictions": [
+    {
+      "type": "mental_health_poor_foundation",
+      "description": "At-risk mental health but poor foundational self-care (sleep/exercise/diet). Interventions less effective without basics.",
+      "severity": "high",
+      "explanation": "Therapy and medication work better with sleep/exercise/nutrition foundation. Can't out-therapy a terrible lifestyle.",
+      "recommendation": "While seeking professional help, prioritize: (1) 7-8h sleep, (2) 30min daily movement, (3) regular meals. These amplify treatment."
+    }
+  ],
+  "recommendations": [
+    {
+      "category": "stress",
+      "priority": "high",
+      "advice": "Manage compassion fatigue: establish post-shift decompression routine (15min), seek peer support groups, practice emotional boundary-setting, consider professional counseling",
+      "rationale": "Healthcare workers face vicarious trauma and life-or-death decisions. Without emotional processing, stress accumulates into burnout.",
+      "job_specific": "Use 'emotional hand-washing' ritual after difficult patients (deep breaths, visualize washing away the emotional weight). Debrief with colleagues."
+    },
+    {
+      "category": "sleep",
+      "priority": "high",
+      "advice": "Optimize shift work sleep: blackout curtains + eye mask for day sleep, maintain same bedtime on days off, strategic naps (20min before night shifts), melatonin for circadian reset",
+      "rationale": "Shift work disrupts circadian rhythm, impairing clinical judgment and increasing medical errors. Sleep debt accumulates dangerously.",
+      "job_specific": "Request consistent shift patterns where possible. Use bright light therapy after night shifts. Prioritize sleep over social obligations on work days."
+    },
+    {
+      "category": "tracking",
+      "priority": "low",
+      "advice": "Schedule your next mental health check-in 2-4 weeks from now to establish trend data. Consistent tracking reveals patterns that single assessments miss.",
+      "rationale": "Mental health fluctuates. Tracking trends helps differentiate temporary stress from chronic issues, and validates that interventions are working.",
+      "job_specific": null
+    }
+  ],
+  "behavioral_interventions": [
+    {
+      "category": "Stress Management Techniques",
+      "current": "At-risk stress/anxiety levels",
+      "target": "Below clinical thresholds",
+      "change_needed": "Implement evidence-based stress reduction",
+      "evidence": "\ud83d\udcca Data insight: Therapy intervention participants showed stress reduction in 4-6 sessions. Meditation programs (48 completers) reduced stress over 2-4 weeks",
+      "specific_actions": [
+        "Start 10-min daily meditation (Headspace, Calm, Insight Timer) - reduces cortisol by 23% in 8 weeks",
+        "Box breathing during stress spikes: 4s inhale \u2192 4s hold \u2192 4s exhale \u2192 4s hold (5 rounds)",
+        "Consider EAP (Employee Assistance Program) or therapist - stress management is a learned skill"
+      ],
+      "priority": "HIGH"
+    },
+    {
+      "category": "Sleep Hours",
+      "current": "6.8h/night",
+      "target": "7-9h/night",
+      "change_needed": "+0.7h per night",
+      "evidence": "\ud83d\udcca Data insight: Users who increased sleep from <7h to 7-8h saw 31% reduction in stress scores within 2 weeks",
+      "specific_actions": [
+        "Set a bedtime alarm for 0.7h earlier than usual",
+        "Create a wind-down routine: dim lights 1h before bed, no screens 30min before",
+        "Keep consistent sleep schedule (even weekends) - irregular sleep disrupts circadian rhythm"
+      ],
+      "priority": "MEDIUM"
+    },
+    {
+      "category": "Sleep Quality",
+      "current": "6.4/10",
+      "target": "7-9/10",
+      "change_needed": "+0.6 points",
+      "evidence": "\ud83d\udcca Data insight: Meditation intervention participants improved sleep quality by average 2.3 points over 6-8 weeks",
+      "specific_actions": [
+        "Try 4-7-8 breathing before bed: inhale 4s, hold 7s, exhale 8s (repeat 4x)",
+        "No caffeine after 2pm (6-hour half-life fragments REM sleep)",
+        "Keep bedroom cool (65-68\u00b0F) and dark - temperature drop signals sleep onset"
+      ],
+      "priority": "MEDIUM"
+    },
+    {
+      "category": "Work Hours",
+      "current": "9.6h/day",
+      "target": "8-9h/day max",
+      "change_needed": "-1.1h per day",
+      "evidence": "\ud83d\udcca Data insight: Workload reduction intervention (35 cases) - participants who reduced from 10h to 8-9h showed 27% lower perceived stress",
+      "specific_actions": [
+        "Set hard stop time: leave 1.1h earlier, block it as 'meeting' in calendar",
+        "Use Pomodoro technique: 25min focused work + 5min break (prevents overtime creep)",
+        "Negotiate priorities with manager: 'I want great work, need to focus on top 3 items'"
+      ],
+      "priority": "MEDIUM"
+    }
+  ],
+  "history_analysis": {
+    "trends": {},
+    "summary": "first_assessment",
+    "alerts": [],
+    "insights": [
+      "This is your first assessment. Future assessments will track trends."
+    ],
+    "assessment_count": 1,
+    "tracking_days": 0
+  }
+}
