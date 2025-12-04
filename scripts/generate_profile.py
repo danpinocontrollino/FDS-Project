@@ -2492,6 +2492,79 @@ def generate_html_report(profile: UserProfile, output_dir: Path) -> Path:
                 box-shadow: none;
             }}
         }}
+        
+        /* ============================================
+           PRINT / PDF EXPORT STYLES
+           ============================================ */
+        @media print {{
+            body {{
+                background: white !important;
+                padding: 0;
+            }}
+            
+            .container {{
+                box-shadow: none !important;
+                border-radius: 0;
+                max-width: 100%;
+            }}
+            
+            .header {{
+                background: #667eea !important;
+                color: white !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }}
+            
+            .section {{
+                page-break-inside: avoid;
+                margin-bottom: 20px;
+            }}
+            
+            .recommendation-card,
+            .contradiction-item,
+            .trend-item {{
+                page-break-inside: avoid;
+            }}
+            
+            /* Ensure colors print correctly */
+            .prediction-card.at-risk {{
+                border-color: #dc3545 !important;
+                background: #fff5f5 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }}
+            
+            .prediction-card.healthy {{
+                border-color: #28a745 !important;
+                background: #f0fff4 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }}
+            
+            /* Chart containers */
+            canvas {{
+                max-width: 100%;
+                page-break-inside: avoid;
+            }}
+            
+            /* Adjust spacing for print */
+            .section-title {{
+                margin-top: 15px;
+                margin-bottom: 10px;
+            }}
+            
+            /* Ensure backgrounds print */
+            * {{
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }}
+        }}
+        
+        /* PDF-specific optimizations */
+        @page {{
+            size: A4;
+            margin: 1.5cm;
+        }}
     </style>
 </head>
 <body>
