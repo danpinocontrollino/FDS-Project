@@ -1,0 +1,111 @@
+{
+  "user_id": "peppe_pio_palle",
+  "timestamp": "2025-12-03T22:01:58.539984",
+  "job_category": "other",
+  "data_quality_score": 0.8705882352941177,
+  "missing_features": [
+    "emails_received"
+  ],
+  "predictions": {
+    "stress_level": {
+      "value": 5.57,
+      "at_risk": false,
+      "at_risk_probability": 0.613,
+      "confidence": 0.226,
+      "threshold": 6
+    },
+    "mood_score": {
+      "value": 5.75,
+      "at_risk": false,
+      "at_risk_probability": 0.166,
+      "confidence": 0.667,
+      "threshold": 4
+    },
+    "energy_level": {
+      "value": 5.67,
+      "at_risk": false,
+      "at_risk_probability": 0.188,
+      "confidence": 0.624,
+      "threshold": 4
+    },
+    "focus_score": {
+      "value": 5.84,
+      "at_risk": false,
+      "at_risk_probability": 0.194,
+      "confidence": 0.611,
+      "threshold": 4
+    },
+    "perceived_stress_scale": {
+      "value": 20.45,
+      "at_risk": true,
+      "at_risk_probability": 0.929,
+      "confidence": 0.858,
+      "threshold": 20
+    },
+    "anxiety_score": {
+      "value": 5.8,
+      "at_risk": false,
+      "at_risk_probability": 0.915,
+      "confidence": 0.83,
+      "threshold": 6
+    },
+    "depression_score": {
+      "value": 11.38,
+      "at_risk": false,
+      "at_risk_probability": 0.03,
+      "confidence": 0.94,
+      "threshold": 15
+    },
+    "job_satisfaction": {
+      "value": 3.43,
+      "at_risk": true,
+      "at_risk_probability": 1.0,
+      "confidence": 1.0,
+      "threshold": 4
+    }
+  },
+  "risk_factors": [
+    "At-risk perceived stress scale: 20.45",
+    "At-risk job satisfaction: 3.43",
+    "Insufficient sleep: 5.9h/day (< 6h)",
+    "Sedentary lifestyle: 0min/day exercise"
+  ],
+  "positive_factors": [
+    "Healthy depression score: 11.4",
+    "Low anxiety: 5.8",
+    "Good social connections: 3.0 interactions/day"
+  ],
+  "contradictions": [
+    {
+      "type": "underwork_dissatisfaction",
+      "description": "Minimal work hours (4.0h/day) but low job satisfaction. May indicate underemployment or disengagement.",
+      "severity": "low",
+      "explanation": "Part-time hours with dissatisfaction suggests role mismatch, underutilization, or financial stress from insufficient work.",
+      "recommendation": "Clarify if this is desired part-time or forced underemployment. If latter, explore full-time opportunities or additional income streams."
+    }
+  ],
+  "recommendations": [
+    {
+      "category": "sleep",
+      "priority": "high",
+      "advice": "Improve sleep: maintain consistent schedule, create bedtime routine, avoid screens 1h before bed, keep bedroom cool and dark, limit caffeine after 2pm",
+      "rationale": "Sleep is foundation of mental and physical health. Most adults need 7-9h for optimal functioning.",
+      "job_specific": null
+    },
+    {
+      "category": "career",
+      "priority": "high",
+      "advice": "Address job dissatisfaction: identify specific dissatisfaction sources, discuss with manager, explore growth opportunities, consider career counseling",
+      "rationale": "Job dissatisfaction affects all life domains. Early intervention can prevent burnout or misguided career changes.",
+      "job_specific": null
+    },
+    {
+      "category": "physical_health",
+      "priority": "medium",
+      "advice": "Increase activity: aim for 30min moderate exercise daily (brisk walk counts), take movement breaks every hour, use stairs, park farther away",
+      "rationale": "Regular exercise reduces stress, improves mood, and enhances cognitive function. Small changes compound over time.",
+      "job_specific": null
+    }
+  ],
+  "history_analysis": null
+}

@@ -1,0 +1,165 @@
+{
+  "user_id": "peppe_pio_palle",
+  "timestamp": "2025-12-03T22:12:04.044474",
+  "job_category": "other",
+  "data_quality_score": 0.8705882352941177,
+  "missing_features": [
+    "emails_received"
+  ],
+  "predictions": {
+    "stress_level": {
+      "value": 5.57,
+      "at_risk": false,
+      "at_risk_probability": 0.613,
+      "confidence": 0.226,
+      "threshold": 6
+    },
+    "mood_score": {
+      "value": 5.75,
+      "at_risk": false,
+      "at_risk_probability": 0.166,
+      "confidence": 0.667,
+      "threshold": 4
+    },
+    "energy_level": {
+      "value": 5.67,
+      "at_risk": false,
+      "at_risk_probability": 0.188,
+      "confidence": 0.624,
+      "threshold": 4
+    },
+    "focus_score": {
+      "value": 5.84,
+      "at_risk": false,
+      "at_risk_probability": 0.194,
+      "confidence": 0.611,
+      "threshold": 4
+    },
+    "perceived_stress_scale": {
+      "value": 20.45,
+      "at_risk": true,
+      "at_risk_probability": 0.929,
+      "confidence": 0.858,
+      "threshold": 20
+    },
+    "anxiety_score": {
+      "value": 5.8,
+      "at_risk": false,
+      "at_risk_probability": 0.915,
+      "confidence": 0.83,
+      "threshold": 6
+    },
+    "depression_score": {
+      "value": 11.38,
+      "at_risk": false,
+      "at_risk_probability": 0.03,
+      "confidence": 0.94,
+      "threshold": 15
+    },
+    "job_satisfaction": {
+      "value": 3.43,
+      "at_risk": true,
+      "at_risk_probability": 1.0,
+      "confidence": 1.0,
+      "threshold": 4
+    }
+  },
+  "risk_factors": [
+    "At-risk perceived stress scale: 20.45",
+    "At-risk job satisfaction: 3.43",
+    "Insufficient sleep: 5.9h/day (< 6h)",
+    "Sedentary lifestyle: 0min/day exercise"
+  ],
+  "positive_factors": [
+    "Healthy depression score: 11.4",
+    "Low anxiety: 5.8",
+    "Good social connections: 3.0 interactions/day"
+  ],
+  "contradictions": [
+    {
+      "type": "underwork_dissatisfaction",
+      "description": "Minimal work hours (4.0h/day) but low job satisfaction. May indicate underemployment or disengagement.",
+      "severity": "low",
+      "explanation": "Part-time hours with dissatisfaction suggests role mismatch, underutilization, or financial stress from insufficient work.",
+      "recommendation": "Clarify if this is desired part-time or forced underemployment. If latter, explore full-time opportunities or additional income streams."
+    }
+  ],
+  "recommendations": [
+    {
+      "category": "sleep",
+      "priority": "high",
+      "advice": "Improve sleep: maintain consistent schedule, create bedtime routine, avoid screens 1h before bed, keep bedroom cool and dark, limit caffeine after 2pm",
+      "rationale": "Sleep is foundation of mental and physical health. Most adults need 7-9h for optimal functioning.",
+      "job_specific": null
+    },
+    {
+      "category": "career",
+      "priority": "high",
+      "advice": "Address job dissatisfaction: identify specific dissatisfaction sources, discuss with manager, explore growth opportunities, consider career counseling",
+      "rationale": "Job dissatisfaction affects all life domains. Early intervention can prevent burnout or misguided career changes.",
+      "job_specific": null
+    },
+    {
+      "category": "physical_health",
+      "priority": "medium",
+      "advice": "Increase activity: aim for 30min moderate exercise daily (brisk walk counts), take movement breaks every hour, use stairs, park farther away",
+      "rationale": "Regular exercise reduces stress, improves mood, and enhances cognitive function. Small changes compound over time.",
+      "job_specific": null
+    }
+  ],
+  "behavioral_interventions": [
+    {
+      "category": "Sleep Hours",
+      "current": "5.9h/night",
+      "target": "7-9h/night",
+      "change_needed": "+1.6h per night",
+      "evidence": "\ud83d\udcca Data insight: Users who increased sleep from <7h to 7-8h saw 31% reduction in stress scores within 2 weeks",
+      "specific_actions": [
+        "Set a bedtime alarm for 1.6h earlier than usual",
+        "Create a wind-down routine: dim lights 1h before bed, no screens 30min before",
+        "Keep consistent sleep schedule (even weekends) - irregular sleep disrupts circadian rhythm"
+      ],
+      "priority": "HIGH"
+    },
+    {
+      "category": "Stress Management Techniques",
+      "current": "At-risk stress/anxiety levels",
+      "target": "Below clinical thresholds",
+      "change_needed": "Implement evidence-based stress reduction",
+      "evidence": "\ud83d\udcca Data insight: Therapy intervention participants showed stress reduction in 4-6 sessions. Meditation programs (48 completers) reduced stress over 2-4 weeks",
+      "specific_actions": [
+        "Start 10-min daily meditation (Headspace, Calm, Insight Timer) - reduces cortisol by 23% in 8 weeks",
+        "Box breathing during stress spikes: 4s inhale \u2192 4s hold \u2192 4s exhale \u2192 4s hold (5 rounds)",
+        "Consider EAP (Employee Assistance Program) or therapist - stress management is a learned skill"
+      ],
+      "priority": "HIGH"
+    },
+    {
+      "category": "Sleep Quality",
+      "current": "5.0/10",
+      "target": "7-9/10",
+      "change_needed": "+2.0 points",
+      "evidence": "\ud83d\udcca Data insight: Meditation intervention participants improved sleep quality by average 2.3 points over 6-8 weeks",
+      "specific_actions": [
+        "Try 4-7-8 breathing before bed: inhale 4s, hold 7s, exhale 8s (repeat 4x)",
+        "No caffeine after 2pm (6-hour half-life fragments REM sleep)",
+        "Keep bedroom cool (65-68\u00b0F) and dark - temperature drop signals sleep onset"
+      ],
+      "priority": "MEDIUM"
+    },
+    {
+      "category": "Physical Activity",
+      "current": "0min/day",
+      "target": "30+ min/day",
+      "change_needed": "+30min daily movement",
+      "evidence": "\ud83d\udcca Data insight: Exercise plan intervention - participants averaging 30+min daily had 23% lower anxiety scores vs sedentary group",
+      "specific_actions": [
+        "Start small: add 30min walking during lunch break",
+        "Movement snacks: 5-min walks every 2 hours (breaks cortisol accumulation)",
+        "Commute hack: park farther away, take stairs, get off bus 1 stop early"
+      ],
+      "priority": "MEDIUM"
+    }
+  ],
+  "history_analysis": null
+}
