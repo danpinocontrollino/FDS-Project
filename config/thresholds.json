@@ -1,0 +1,116 @@
+{
+  "at_risk_thresholds": {
+    "perceived_stress_scale": {
+      "threshold": 20,
+      "description": "PSS score ≥20 indicates high stress (clinical concern)",
+      "inverted": false
+    },
+    "anxiety_score": {
+      "threshold": 6,
+      "description": "GAD-7 score ≥6 indicates moderate anxiety",
+      "inverted": false
+    },
+    "depression_score": {
+      "threshold": 15,
+      "description": "Custom scale ≥15 represents top 5% (at-risk)",
+      "inverted": false
+    },
+    "job_satisfaction": {
+      "threshold": 5,
+      "description": "Job satisfaction <5 indicates dissatisfaction",
+      "inverted": true
+    },
+    "stress_level": {
+      "threshold": 7,
+      "description": "Daily stress ≥7 indicates high stress",
+      "inverted": false
+    },
+    "mood_score": {
+      "threshold": 4,
+      "description": "Mood <4 indicates low mood (1-10 scale)",
+      "inverted": true
+    },
+    "energy_level": {
+      "threshold": 4,
+      "description": "Energy <4 indicates low energy (1-10 scale)",
+      "inverted": true
+    },
+    "focus_score": {
+      "threshold": 4,
+      "description": "Focus <4 indicates poor concentration (1-10 scale)",
+      "inverted": true
+    }
+  },
+  "inverted_targets": [
+    "mood_score",
+    "energy_level",
+    "focus_score",
+    "job_satisfaction"
+  ],
+  "behavioral_thresholds": {
+    "sleep_hours": {
+      "insufficient": 6,
+      "optimal_min": 7,
+      "optimal_max": 9,
+      "description": "Adults need 7-9 hours for optimal health"
+    },
+    "sleep_quality": {
+      "poor": 5,
+      "good_min": 7,
+      "good_max": 9,
+      "description": "Sleep quality rated 1-10"
+    },
+    "exercise_minutes": {
+      "sedentary": 20,
+      "minimal": 30,
+      "recommended": 60,
+      "description": "WHO recommends 150+ min/week (21+ min/day)"
+    },
+    "work_hours": {
+      "underemployed": 4,
+      "healthy_max": 8,
+      "overwork": 9,
+      "description": "Sustainable work-life balance is ≤8-9h/day"
+    },
+    "caffeine_mg": {
+      "low": 100,
+      "moderate_min": 200,
+      "moderate_max": 400,
+      "high": 400,
+      "description": "Safe daily limit is 400mg for adults"
+    },
+    "social_interactions": {
+      "isolated": 2,
+      "healthy_min": 4,
+      "healthy_max": 6,
+      "description": "Meaningful daily social connections"
+    },
+    "outdoor_time_minutes": {
+      "insufficient": 20,
+      "recommended": 30,
+      "optimal": 60,
+      "description": "Natural light and outdoor time for mood"
+    },
+    "screen_time_hours": {
+      "low": 4,
+      "moderate": 8,
+      "excessive": 12,
+      "description": "Excessive screen time linked to eye strain and stress"
+    }
+  },
+  "risk_factor_patterns": {
+    "sleep_deficit": "Insufficient sleep: {sleep}h/day (< 6h)",
+    "sedentary": "Sedentary lifestyle: {exercise}min/day exercise",
+    "high_caffeine": "High caffeine: {caffeine}mg/day (> 400mg)",
+    "overwork": "Excessive work hours: {work}h/day (> 9h)",
+    "social_isolation": "Social isolation: {social} interactions/day (< 3)",
+    "poor_diet": "Poor diet quality: {diet}/10 rating (< 5)"
+  },
+  "positive_factor_patterns": {
+    "good_sleep": "Adequate sleep: {sleep}h/day",
+    "regular_exercise": "Regular exercise: {exercise}min/day",
+    "strong_social": "Good social connections: {social} interactions/day",
+    "outdoor_time": "Adequate outdoor time: {outdoor}min/day",
+    "healthy_diet": "Healthy diet: {diet}/10"
+  }
+}

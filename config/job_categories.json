@@ -1,0 +1,131 @@
+{
+  "categories": [
+    "knowledge_worker",
+    "healthcare",
+    "education",
+    "creative",
+    "management",
+    "service",
+    "manual_labor",
+    "sales_marketing",
+    "other"
+  ],
+  "keywords": {
+    "knowledge_worker": [
+      "software",
+      "developer",
+      "engineer",
+      "data",
+      "scientist",
+      "analyst",
+      "programmer",
+      "tech",
+      "research",
+      "architect",
+      "coder",
+      "full stack",
+      "backend",
+      "frontend"
+    ],
+    "healthcare": [
+      "doctor",
+      "nurse",
+      "physician",
+      "therapist",
+      "medical",
+      "healthcare",
+      "clinical",
+      "hospital",
+      "patient",
+      "surgeon",
+      "practitioner"
+    ],
+    "education": [
+      "teacher",
+      "professor",
+      "educator",
+      "instructor",
+      "academic",
+      "tutor",
+      "faculty",
+      "lecturer",
+      "principal",
+      "dean"
+    ],
+    "creative": [
+      "designer",
+      "artist",
+      "creative",
+      "writer",
+      "content",
+      "marketing creative",
+      "ux",
+      "ui",
+      "graphic",
+      "film",
+      "producer",
+      "director",
+      "cinematographer",
+      "editor",
+      "media",
+      "photographer",
+      "animator"
+    ],
+    "management": [
+      "manager",
+      "director",
+      "executive",
+      "lead",
+      "supervisor",
+      "ceo",
+      "cto",
+      "head of",
+      "vp",
+      "chief",
+      "coordinator"
+    ],
+    "service": [
+      "customer service",
+      "support",
+      "hospitality",
+      "retail",
+      "waiter",
+      "server",
+      "receptionist",
+      "cashier",
+      "sales associate"
+    ],
+    "manual_labor": [
+      "construction",
+      "warehouse",
+      "delivery",
+      "driver",
+      "mechanic",
+      "technician",
+      "maintenance",
+      "labor",
+      "electrician",
+      "plumber"
+    ],
+    "sales_marketing": [
+      "sales",
+      "marketing",
+      "business development",
+      "account",
+      "representative",
+      "consultant",
+      "business analyst",
+      "sales engineer"
+    ]
+  },
+  "descriptions": {
+    "knowledge_worker": "Software engineers, data scientists, researchers - focus on cognitive work and context switching",
+    "healthcare": "Doctors, nurses, therapists - compassion fatigue and shift work challenges",
+    "education": "Teachers, professors - emotional regulation and student interaction stress",
+    "creative": "Designers, artists, film producers - creative blocks and irregular schedules",
+    "management": "Managers, executives - decision fatigue and team dynamics",
+    "service": "Customer service, hospitality - emotional exhaustion and difficult customers",
+    "manual_labor": "Construction, warehouse workers - physical recovery and injury prevention",
+    "sales_marketing": "Sales, marketing - rejection resilience and performance pressure"
+  }
+}

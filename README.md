@@ -4,7 +4,37 @@ This repository contains the code for our **Foundations of Data Science** final 
 
 We use the **Work-Life Balance Synthetic Daily Wellness Dataset** (Kaggle) to predict
 daily mental wellness indicators of workers from their work–life patterns and
-recent history, using deep learning models (MLP and LSTM/GRU).
+recent history, using deep learning models (LSTM and Transformer).
+
+**🎯 Key Achievement:** 98.5% accuracy on job satisfaction prediction (vs 89.3% baseline)
+
+---
+
+## 🚀 Quick Start
+
+### Interactive Demo (Recommended)
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run interactive Streamlit demo
+streamlit run demo_app.py
+```
+
+### Generate Profile from CSV
+```bash
+python scripts/generate_profile.py \
+  --csv data/martina_7day.csv \
+  --all-users \
+  --html \
+  --output-dir reports/profiles
+```
+
+### View Example Reports
+Open any file in `reports/examples/`:
+- `teacher_profile.html` - Education sector example
+- `software_engineer_profile.html` - Knowledge worker example  
+- `creative_professional_profile.html` - Film producer example
 
 ---
 
