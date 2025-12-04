@@ -254,9 +254,154 @@ class MentalHealthPredictor(nn.Module):
 # CSV PARSING
 # ============================================================================
 
+def parse_daily_entries_csv(csv_path: Path, window: int = 7) -> Dict[str, pd.DataFrame]:
+    """
+    Parse CSV where each row is ONE day of data for a person.
+    Groups by Email to track the same person over multiple days.
+    
+    Expected format:
+      - Timestamp, Email, Job Title, Sleep Hours, Sleep Quality, Work Hours, ...
+      - Multiple rows with same Email = multiple days for that person
+    
+    Returns:
+        Dict mapping user_email → DataFrame with last N days × 17 features
+    """
+    df = pd.read_csv(csv_path)
+    
+    print(f"📂 Loaded CSV: {len(df)} daily entries, {len(df.columns)} columns")
+    
+    # Detect email/user column
+    email_col = None
+    for col in df.columns:
+        if 'email' in col.lower() or 'user' in col.lower():
+            email_col = col
+            break
+    
+    if email_col is None:
+        raise ValueError("No Email/User column found. CSV must have an Email column to track users.")
+    
+    # Detect timestamp column
+    timestamp_col = None
+    for col in df.columns:
+        if 'timestamp' in col.lower() or 'date' in col.lower():
+            timestamp_col = col
+            break
+    
+    if timestamp_col:
+        df[timestamp_col] = pd.to_datetime(df[timestamp_col])
+        df = df.sort_values(timestamp_col)  # Sort by date
+    
+    # Detect job column
+    job_col = None
+    for col in df.columns:
+        if 'job' in col.lower() or 'occupation' in col.lower() or 'role' in col.lower():
+            job_col = col
+            break
+    
+    # Build feature mapping (direct column names, no "Day X" prefix)
+    feature_variations = {
+        'sleep_hours': ['sleep hours', 'hours of sleep', 'sleep'],
+        'sleep_quality': ['sleep quality', 'quality of sleep'],
+        'work_hours': ['work hours', 'hours worked', 'working hours'],
+        'meetings_count': ['meetings count', 'meetings', 'number of meetings'],
+        'tasks_completed': ['tasks completed', 'tasks', 'completed tasks'],
+        'emails_received': ['emails received', 'emails', 'email count'],
+        'commute_minutes': ['commute minutes', 'commute time', 'commute'],
+        'exercise_minutes': ['exercise minutes', 'exercise', 'workout minutes'],
+        'steps_count': ['steps count', 'steps', 'step count'],
+        'caffeine_mg': ['caffeine mg', 'caffeine', 'caffeine intake'],
+        'alcohol_units': ['alcohol units', 'alcohol', 'drinks'],
+        'screen_time_hours': ['screen time hours', 'screen time', 'screen hours'],
+        'social_interactions': ['social interactions', 'social', 'interactions'],
+        'outdoor_time_minutes': ['outdoor time minutes', 'outdoor minutes', 'outdoor time', 'outdoor'],
+        'diet_quality': ['diet quality', 'diet', 'nutrition quality'],
+        'work_pressure': ['work pressure', 'pressure', 'stress level'],
+        'weather_mood_impact': ['weather mood impact', 'weather mood', 'weather impact', 'weather'],
+    }
+    
+    # Map CSV columns to features
+    column_mapping = {}
+    for feature in FEATURE_COLS:
+        variations = feature_variations.get(feature, [feature.replace('_', ' ')])
+        for col in df.columns:
+            col_lower = col.lower().strip()
+            for variation in variations:
+                if variation in col_lower or col_lower in variation:
+                    column_mapping[col] = feature
+                    break
+            if col in column_mapping:
+                break
+    
+    print(f"✓ Mapped {len(column_mapping)} columns to features")
+    
+    # Group by email and collect daily entries
+    user_data = {}
+    grouped = df.groupby(email_col)
+    
+    for email, group in grouped:
+        email = str(email).strip()
+        
+        # Get job from most recent entry
+        job = None
+        if job_col and pd.notna(group[job_col].iloc[-1]):
+            job = str(group[job_col].iloc[-1]).lower()
+        
+        # Take last 'window' days (most recent)
+        recent_days = group.tail(window)
+        
+        # Build sequence DataFrame
+        sequence = pd.DataFrame(index=range(len(recent_days)), columns=FEATURE_COLS, dtype=float)
+        
+        for idx, (_, row) in enumerate(recent_days.iterrows()):
+            for csv_col, feature in column_mapping.items():
+                value = row[csv_col]
+                if pd.notna(value):
+                    try:
+                        sequence.loc[idx, feature] = float(value)
+                    except (ValueError, TypeError):
+                        # Handle categorical
+                        if feature == "work_pressure":
+                            pressure_map = {"low": 0, "medium": 1, "high": 2}
+                            sequence.loc[idx, feature] = pressure_map.get(str(value).lower(), 1)
+        
+        # Impute missing values
+        for feature in FEATURE_COLS:
+            if sequence[feature].isna().all():
+                defaults = {
+                    "sleep_hours": 7.0,
+                    "sleep_quality": 5.0,
+                    "work_hours": 8.0,
+                    "work_pressure": 1.0,
+                    "diet_quality": 5.0,
+                }
+                sequence[feature] = defaults.get(feature, 5.0)
+            else:
+                sequence[feature].fillna(sequence[feature].mean(), inplace=True)
+        
+        # Pad with mean if less than window days
+        if len(sequence) < window:
+            padding = pd.DataFrame(
+                [[sequence[col].mean() for col in FEATURE_COLS] for _ in range(window - len(sequence))],
+                columns=FEATURE_COLS
+            )
+            sequence = pd.concat([padding, sequence], ignore_index=True)
+        
+        user_data[email] = {
+            "data": sequence,
+            "job": job,
+            "timestamp": recent_days[timestamp_col].iloc[-1] if timestamp_col else datetime.now(),
+            "num_days": len(group),  # Total days tracked
+        }
+    
+    print(f"✓ Parsed {len(user_data)} users ({sum(u['num_days'] for u in user_data.values())} total days)")
+    return user_data
+
+
 def parse_google_form_csv(csv_path: Path, window: int = 7) -> Dict[str, pd.DataFrame]:
     """
     Parse Google Form CSV with flexible column mapping.
+    
+    DEPRECATED: Use parse_daily_entries_csv for daily tracking.
     
     Handles various naming conventions from Google Forms:
       - "Sleep hours (Day 1)" → sleep_hours
@@ -1362,6 +1507,7 @@ def analyze_mental_health_trends(
     current_predictions: Dict[str, Dict[str, Any]],
     history: List[Dict[str, Any]],
     lookback_days: int = 90,
+    current_data_date: Optional[datetime] = None,
 ) -> Dict[str, Any]:
     """
     Analyze mental health trends from historical assessments.
@@ -1382,11 +1528,12 @@ def analyze_mental_health_trends(
             "tracking_days": 0,
         }
     
-    # Filter history by lookback window
-    cutoff = datetime.now() - timedelta(days=lookback_days)
+    # Filter history by lookback window (use actual data date, not current system date)
+    reference_date = current_data_date or datetime.now()
+    cutoff = reference_date - timedelta(days=lookback_days)
     recent_history = [
         h for h in history
-        if datetime.fromisoformat(h["timestamp"]) >= cutoff
+        if datetime.fromisoformat(h.get("data_date") or h["timestamp"]) >= cutoff
     ]
     
     if not recent_history:
@@ -1573,9 +1720,17 @@ def analyze_mental_health_trends(
     if len(stable_healthy) >= 3:
         insights.append(f"Maintaining healthy levels across {len(stable_healthy)} indicators over {trends[stable_healthy[0]]['assessment_count']} assessments. Consistency is key!")
     
-    # Days since first assessment
-    first_assessment_date = datetime.fromisoformat(history[0]["timestamp"])
-    days_tracking = (datetime.now() - first_assessment_date).days
+    # Days since first assessment (use actual data dates, not assessment dates)
+    first_data_date = history[0].get("data_date") or history[0]["timestamp"]
+    if isinstance(first_data_date, str):
+        first_data_date = datetime.fromisoformat(first_data_date)
+    
+    # Get current data date from most recent assessment
+    current_data_date = recent_history[-1].get("data_date") or recent_history[-1]["timestamp"]
+    if isinstance(current_data_date, str):
+        current_data_date = datetime.fromisoformat(current_data_date)
+    
+    days_tracking = (current_data_date - first_data_date).days
     insights.append(f"Tracking mental health for {days_tracking} days across {len(history) + 1} assessments")
     
     return {
@@ -1842,6 +1997,7 @@ def generate_profile(
     checkpoint: Dict[str, Any],
     output_dir: Path = OUTPUT_DIR,
     enable_history: bool = True,
+    data_timestamp: Optional[datetime] = None,
 ) -> UserProfile:
     """Generate complete user profile with predictions and analysis."""
     
@@ -1878,7 +2034,9 @@ def generate_profile(
     history_analysis = None
     if enable_history:
         history = load_user_history(user_id, output_dir)
-        history_analysis = analyze_mental_health_trends(predictions, history)
+        history_analysis = analyze_mental_health_trends(
+            predictions, history, current_data_date=data_timestamp
+        )
         
         # Add trend-based recommendations
         trend_recommendations = generate_trend_recommendations(history_analysis)
@@ -1891,7 +2049,7 @@ def generate_profile(
     # Build profile
     profile = UserProfile(
         user_id=user_id,
-        timestamp=datetime.now(),
+        timestamp=data_timestamp or datetime.now(),
         job_category=job_category,
         behavioral_data=user_data,
         predictions=predictions,
@@ -2053,6 +2211,7 @@ def save_profile_json(profile: UserProfile, output_dir: Path) -> Path:
     profile_dict = {
         "user_id": profile.user_id,
         "timestamp": profile.timestamp.isoformat(),
+        "data_date": profile.timestamp.isoformat(),  # Store actual data collection date
         "job_category": profile.job_category,
         "data_quality_score": profile.data_quality_score,
         "missing_features": profile.missing_features,
@@ -3112,8 +3271,16 @@ def main():
     # Load model
     model, checkpoint = load_model(args.model_path)
     
-    # Parse CSV
-    user_data = parse_google_form_csv(args.csv, window=args.window)
+    # Detect CSV format and parse accordingly
+    df_peek = pd.read_csv(args.csv, nrows=1)
+    has_day_columns = any('day 1' in col.lower() for col in df_peek.columns)
+    
+    if has_day_columns:
+        print("📋 Detected format: Google Form (7 days per row)")
+        user_data = parse_google_form_csv(args.csv, window=args.window)
+    else:
+        print("📋 Detected format: Daily entries (1 day per row)")
+        user_data = parse_daily_entries_csv(args.csv, window=args.window)
     
     # Determine which users to process
     if args.user_id:
@@ -3141,6 +3308,7 @@ def main():
             checkpoint=checkpoint,
             output_dir=args.output_dir,
             enable_history=not args.no_history,
+            data_timestamp=data_dict.get("timestamp"),
         )
         
         # Output
