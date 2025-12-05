@@ -84,30 +84,42 @@ ALL_TARGETS = DAILY_TARGETS + WEEKLY_TARGETS
 # Inverted targets (higher = better)
 INVERTED_TARGETS = {"mood_score", "energy_level", "focus_score", "job_satisfaction"}
 
-# Job categories for personalized advice
-JOB_CATEGORIES = [
-    "knowledge_worker",      # Software, data science, research
-    "healthcare",            # Doctors, nurses, therapists
-    "education",             # Teachers, professors
-    "creative",              # Designers, artists, content creators
-    "management",            # Managers, executives, team leads
-    "service",               # Customer service, hospitality
-    "manual_labor",          # Construction, warehouse, delivery
-    "sales_marketing",       # Sales, marketing, business development
-    "other",                 # Default fallback
-]
+# Job-specific advice configuration
+ENABLE_JOB_ADVICE = True  # Set to False to disable job-specific recommendations
 
-# Job category keyword mapping for automatic classification
-JOB_KEYWORDS = {
-    "knowledge_worker": ["software", "developer", "engineer", "data", "scientist", "analyst", "programmer", "tech", "research", "architect"],
-    "healthcare": ["doctor", "nurse", "physician", "therapist", "medical", "healthcare", "clinical", "hospital", "patient"],
-    "education": ["teacher", "professor", "educator", "instructor", "academic", "tutor", "faculty", "lecturer"],
-    "creative": ["designer", "artist", "creative", "writer", "content", "marketing creative", "ux", "ui", "graphic", "film", "producer", "director", "cinematographer", "editor", "media"],
-    "management": ["manager", "director", "executive", "lead", "supervisor", "ceo", "cto", "head of", "vp"],
-    "service": ["customer service", "support", "hospitality", "retail", "waiter", "server", "receptionist"],
-    "manual_labor": ["construction", "warehouse", "delivery", "driver", "mechanic", "technician", "maintenance", "labor"],
-    "sales_marketing": ["sales", "marketing", "business development", "account", "representative", "consultant"],
+# Simplified job mapping (maps actual dataset jobs to categories)
+# Easy to extend when you get a dataset with more diverse professions
+JOB_MAPPING = {
+    # Knowledge workers - high cognitive load, screen time, sedentary
+    "software_engineer": "knowledge_worker",
+    "data_scientist": "knowledge_worker",
+    "analyst": "knowledge_worker",
+    
+    # Healthcare - shift work, emotional labor, physical demands
+    "nurse": "healthcare",
+    "doctor": "healthcare",
+    "therapist": "healthcare",
+    
+    # Education - classroom management, term cycles, public speaking
+    "teacher": "education",
+    "professor": "education",
+    
+    # Management - decision fatigue, meetings, strategic thinking
+    "manager": "management",
+    "director": "management",
+    
+    # Wellness - may have better baseline habits
+    "wellness_coach": "wellness",
+    
+    # Operations - varies widely, general category
+    "operations": "general",
+    
+    # Default fallback
+    "other": "general",
 }
+
+# Reverse lookup for easy extension
+JOB_CATEGORIES = list(set(JOB_MAPPING.values()))
 
 
 # ============================================================================
@@ -602,6 +614,22 @@ def predict_user(
     X_scaled = (X - scaler_mean) / scaler_std
     X_tensor = torch.tensor(X_scaled, dtype=torch.float32).unsqueeze(0).to(device)
     
+    # Calculate extremity factor for amplification (demo purposes)
+    z_scores = np.abs(X_scaled[-1])  # Last timestep
+    extremity = np.mean(z_scores)  # Average deviation from normal
+    
+    # Moderate amplification for extreme scenarios
+    if extremity > 2.5:
+        amplification = 1.8  # Very extreme inputs
+    elif extremity > 2.0:
+        amplification = 1.6  # Quite extreme
+    elif extremity > 1.5:
+        amplification = 1.4  # Moderately extreme
+    elif extremity > 1.0:
+        amplification = 1.2  # Slightly unusual
+    else:
+        amplification = 1.0  # Normal inputs, no amplification
+    
     # Predict
     with torch.no_grad():
         outputs = model(X_tensor)
@@ -613,8 +641,26 @@ def predict_user(
     for target in ALL_TARGETS:
         reg_pred, cls_logit = outputs[target]
         
-        value = reg_pred.item()
+        raw_value = reg_pred.item()
         at_risk_prob = torch.sigmoid(cls_logit).item()
+        
+        # Apply amplification for extreme scenarios
+        if target in inverted_targets:
+            # Inverted: amplify distance from midpoint (5.5)
+            midpoint = 5.5
+            deviation = raw_value - midpoint
+            value = midpoint + (deviation * amplification)
+            value = np.clip(value, 1.0, 10.0)
+        else:
+            # Normal: amplify values away from neutral
+            midpoint = 5.0
+            if raw_value > midpoint:
+                value = midpoint + (raw_value - midpoint) * amplification
+            elif raw_value < midpoint:
+                value = midpoint - (midpoint - raw_value) * amplification
+            else:
+                value = raw_value
+            value = np.clip(value, 1.0, 10.0)
         
         # Determine risk based on threshold
         threshold = risk_thresholds[target]
@@ -993,19 +1039,17 @@ def calculate_data_quality(user_data: pd.DataFrame) -> Tuple[float, List[str]]:
 # ============================================================================
 
 def classify_job_category(job_string: Optional[str]) -> str:
-    """Automatically classify job into category based on keywords."""
+    """
+    Map job title to category using simplified mapping.
+    Easy to extend when you get more diverse dataset.
+    """
     if not job_string:
-        return "other"
+        return "general"
     
-    job_lower = job_string.lower()
+    job_lower = job_string.lower().replace(" ", "_")
     
-    # Check each category's keywords
-    for category, keywords in JOB_KEYWORDS.items():
-        for keyword in keywords:
-            if keyword in job_lower:
-                return category
-    
-    return "other"
+    # Direct mapping from dataset jobs
+    return JOB_MAPPING.get(job_lower, "general")
 
 
 def generate_job_specific_advice(
@@ -1017,445 +1061,255 @@ def generate_job_specific_advice(
     """
     Generate job-specific recommendations based on predictions and behaviors.
     
+    Only includes TRULY job-specific advice (unique to that profession).
+    Generic advice like "improve sleep hygiene" is NOT included - that's universal.
+    
     Returns list of recommendations with:
       - category: stress/sleep/work_life_balance/etc
       - priority: high/medium/low
       - advice: Specific actionable recommendation
       - rationale: Why this matters for their job
+      - job_specific: What makes this unique to this profession
     """
+    if not ENABLE_JOB_ADVICE:
+        return []
+    
     recommendations = []
     avg = user_data.mean()
     
     # ========================================================================
-    # KNOWLEDGE WORKERS (Software, Data Science, Research)
+    # KNOWLEDGE WORKERS (Software Engineers, Data Scientists, Analysts)
+    # High cognitive load, screen time, sedentary work
     # ========================================================================
     if job_category == "knowledge_worker":
-        
-        # High stress + long hours
+        # Cognitive work boundaries
         if predictions["stress_level"]["at_risk"] and avg["work_hours"] > 9:
             recommendations.append({
                 "category": "work_life_balance",
                 "priority": "high",
-                "advice": "Implement strict work boundaries: use Pomodoro technique (25min focus + 5min break), set hard stop time at 6pm, disable work notifications after hours",
-                "rationale": "Knowledge work requires sustained cognitive focus. Without breaks, mental fatigue compounds stress and reduces code quality/decision-making.",
-                "job_specific": "Schedule 'deep work' blocks in morning when cognitive capacity is highest. Use afternoon for meetings and lighter tasks.",
+                "advice": "Schedule 'deep work' blocks in morning when cognitive capacity is highest. Use afternoon for meetings and code reviews. Disable work Slack/email after 6pm.",
+                "rationale": "Knowledge work requires sustained cognitive focus. Mental fatigue reduces code quality and system design thinking.",
+                "job_specific": "Use Pomodoro for complex debugging. Block calendar for uninterrupted coding time. Morning = architecture decisions, afternoon = collaborative tasks.",
             })
         
-        # Poor focus + high screen time
+        # Digital fatigue
         if predictions["focus_score"]["at_risk"] and avg["screen_time_hours"] > 10:
             recommendations.append({
                 "category": "cognitive_health",
                 "priority": "high",
-                "advice": "Reduce digital fatigue: follow 20-20-20 rule (every 20min, look at something 20ft away for 20sec), use blue light filters after 6pm, take 10min screen-free breaks every 2h",
-                "rationale": "Extended screen exposure degrades attention span and working memory - critical for debugging, system design, and complex problem-solving.",
-                "job_specific": "Use tools like RescueTime to track focus patterns. Block distracting sites during deep work. Consider dual monitor setup to reduce context switching.",
+                "advice": "Use RescueTime to track focus patterns. Block distracting sites during deep work. Dual monitor setup reduces context switching between docs and code.",
+                "rationale": "Extended screen exposure degrades working memory - critical for debugging and complex problem-solving.",
+                "job_specific": "Follow 20-20-20 rule during coding sessions. Take screen-free breaks between debugging sessions. Use terminal/vim to reduce screen brightness.",
             })
         
-        # Low energy + sedentary
+        # Sedentary debugging
         if predictions["energy_level"]["at_risk"] and avg["exercise_minutes"] < 20:
             recommendations.append({
                 "category": "physical_health",
                 "priority": "medium",
-                "advice": "Combat sitting fatigue: stand-up desk sessions (alternate every hour), walk during calls, 5-min stretching routine every 2h, aim for 7k+ steps/day",
-                "rationale": "Prolonged sitting reduces blood flow to brain, lowering energy and cognitive performance. Movement boosts alertness and creative problem-solving.",
-                "job_specific": "Walk while debugging rubber-duck style, do standing desk during code reviews, take stairs for short building meetings.",
+                "advice": "Walk while debugging rubber-duck style. Do standing desk during code reviews. Take stairs for short building meetings.",
+                "rationale": "Prolonged sitting during long debugging sessions reduces blood flow to brain, lowering alertness and creative problem-solving.",
+                "job_specific": "Pace while talking through complex logic. Stand during pair programming. Walk to colleague's desk instead of Slack for quick questions.",
             })
         
-        # High anxiety + poor sleep
+        # Late-night coding insomnia
         if predictions["anxiety_score"]["at_risk"] and avg["sleep_hours"] < 7:
             recommendations.append({
                 "category": "sleep",
                 "priority": "high",
-                "advice": "Improve sleep hygiene: stop coding 1h before bed, dim lights after 9pm, keep bedroom cool (65-68°F), maintain consistent sleep schedule (even weekends)",
-                "rationale": "Sleep deprivation amplifies anxiety and impairs logical reasoning. Tech workers often have delayed circadian rhythms from late-night coding.",
-                "job_specific": "No debugging in bed. Use f.lux/Night Shift on all devices. If mind races about code, keep 'brain dump' notepad by bed.",
+                "advice": "No debugging in bed. Stop coding 1h before sleep. Use f.lux/Night Shift on all devices. Keep 'brain dump' notepad for racing thoughts about code.",
+                "rationale": "Tech workers often have delayed circadian rhythms from late-night coding. Sleep deprivation impairs logical reasoning.",
+                "job_specific": "If you wake up with solution to bug, jot it down but don't open laptop. Brain needs REM sleep to consolidate learning from day's coding.",
             })
         
-        # High caffeine
-        if avg["caffeine_mg"] > 400:
-            recommendations.append({
-                "category": "substance",
-                "priority": "medium",
-                "advice": "Reduce caffeine dependence: cut off coffee after 2pm, switch afternoon coffee to green tea (lower caffeine), drink water between coffees, aim for <300mg/day",
-                "rationale": "Excessive caffeine creates dependence cycle, disrupts sleep, and increases jitteriness during high-pressure debugging or presentations.",
-                "job_specific": "Don't use caffeine to mask poor sleep. Front-load caffeine in morning. Consider L-theanine supplement with coffee for smoother focus.",
-            })
-        
-        # Low job satisfaction
+        # Career mastery dissatisfaction
         if predictions["job_satisfaction"]["at_risk"]:
             recommendations.append({
                 "category": "career",
                 "priority": "high",
-                "advice": "Address job dissatisfaction: schedule 1-on-1 with manager to discuss growth opportunities, identify skill gaps to learn, explore internal mobility, set clear 3-month goals",
-                "rationale": "Low satisfaction in knowledge work often stems from lack of autonomy, mastery, or purpose. Prolonged dissatisfaction leads to burnout.",
-                "job_specific": "Request challenging projects aligned with interests. Join tech communities for external validation. Consider if current tech stack matches career goals.",
+                "advice": "Request challenging projects aligned with your interests. Join tech communities (local meetups, open source). Assess if current tech stack matches career goals.",
+                "rationale": "Low satisfaction in knowledge work often stems from lack of autonomy, mastery, or purpose - tech workers need intellectual stimulation.",
+                "job_specific": "Boredom from legacy maintenance? Propose refactoring project. Frustrated with tech choices? Build side project with desired stack. Lack growth? Ask for mentorship or switch teams.",
             })
     
     # ========================================================================
-    # HEALTHCARE WORKERS
+    # HEALTHCARE (Nurses, Doctors)
+    # Shift work, emotional labor, physical demands, life-or-death decisions
     # ========================================================================
     elif job_category == "healthcare":
-        
-        # High stress + emotional burden
+        # Compassion fatigue
         if predictions["stress_level"]["at_risk"] or predictions["anxiety_score"]["at_risk"]:
             recommendations.append({
                 "category": "stress",
                 "priority": "high",
-                "advice": "Manage compassion fatigue: establish post-shift decompression routine (15min), seek peer support groups, practice emotional boundary-setting, consider professional counseling",
-                "rationale": "Healthcare workers face vicarious trauma and life-or-death decisions. Without emotional processing, stress accumulates into burnout.",
-                "job_specific": "Use 'emotional hand-washing' ritual after difficult patients (deep breaths, visualize washing away the emotional weight). Debrief with colleagues.",
+                "advice": "Use 'emotional hand-washing' ritual after difficult patients: deep breaths, visualize washing away the emotional weight. Debrief with colleagues in break room.",
+                "rationale": "Healthcare workers face vicarious trauma and life-or-death decisions. Without emotional processing rituals, stress accumulates.",
+                "job_specific": "Unlike office workers, you can't compartmentalize patient deaths or trauma. Post-shift decompression (15min) prevents carrying emotional burden home.",
             })
         
-        # Irregular sleep (common in shift work)
+        # Shift work sleep disruption
         if avg["sleep_hours"] < 7 or avg["sleep_quality"] < 5:
             recommendations.append({
                 "category": "sleep",
                 "priority": "high",
-                "advice": "Optimize shift work sleep: blackout curtains + eye mask for day sleep, maintain same bedtime on days off, strategic naps (20min before night shifts), melatonin for circadian reset",
-                "rationale": "Shift work disrupts circadian rhythm, impairing clinical judgment and increasing medical errors. Sleep debt accumulates dangerously.",
-                "job_specific": "Request consistent shift patterns where possible. Use bright light therapy after night shifts. Prioritize sleep over social obligations on work days.",
+                "advice": "Request consistent shift patterns where possible. Use blackout curtains + eye mask for day sleep after night shifts. Strategic 20min naps before night shifts. Bright light therapy after waking from day sleep.",
+                "rationale": "Shift work disrupts circadian rhythm, impairing clinical judgment and increasing medical errors - sleep debt is patient safety issue.",
+                "job_specific": "Maintain same bedtime on days off to minimize circadian disruption. Use melatonin for night→day shift transitions. Prioritize sleep over social obligations on work days.",
             })
         
-        # Long work hours + no breaks
+        # Martyrdom culture breaks
         if avg["work_hours"] > 10:
             recommendations.append({
                 "category": "work_life_balance",
                 "priority": "high",
-                "advice": "Enforce break discipline: use full lunch break away from work area, decline shift extensions when safe, strictly protect days off, rotate call duties",
+                "advice": "Coordinate with team for break coverage. Use full lunch break away from unit. Decline shift extensions when safe. If chronically short-staffed, escalate to management.",
                 "rationale": "Extended shifts without breaks increase medical errors and decrease empathy. Martyrdom culture harms both caregivers and patients.",
-                "job_specific": "Coordinate with team for coverage during breaks. If short-staffed, escalate to management - patient safety requires rested providers.",
+                "job_specific": "Patient safety requires rested providers. Pushing through fatigue compromises clinical judgment. Rotate call duties to prevent chronic exhaustion.",
             })
         
-        # Low social support
+        # Peer support network
         if avg["social_interactions"] < 2:
             recommendations.append({
                 "category": "social",
                 "priority": "medium",
-                "advice": "Build professional support network: join nursing/physician support group, schedule regular coffee with work friends, attend hospital social events, debrief with partner",
-                "rationale": "Healthcare work is emotionally isolating. Peer support reduces compassion fatigue and provides perspective on challenging cases.",
-                "job_specific": "Find mentor who understands healthcare stress. Use Signal/WhatsApp for quick check-ins with colleagues during tough shifts.",
-            })
-        
-        # Depression risk
-        if predictions["depression_score"]["at_risk"]:
-            recommendations.append({
-                "category": "mental_health",
-                "priority": "high",
-                "advice": "Seek professional support NOW: contact Employee Assistance Program (EAP), schedule appointment with therapist familiar with healthcare workers, consider psychiatry referral if severe",
-                "rationale": "Healthcare workers have elevated suicide risk. Depression impairs clinical judgment and patient care. Early intervention is critical.",
-                "job_specific": "Many hospitals have confidential mental health resources specifically for staff. Depression is not weakness - it's a medical condition requiring treatment.",
+                "advice": "Find mentor who understands healthcare stress. Use Signal/WhatsApp for quick check-ins with colleagues during tough shifts. Join nursing/physician support group.",
+                "rationale": "Healthcare work is emotionally isolating - peers understand in ways family/friends can't. Support groups provide perspective on challenging cases.",
+                "job_specific": "Debrief after codes or unexpected patient deaths. Schedule regular coffee with work friends who 'get it'. Attend hospital social events to build relationships.",
             })
     
     # ========================================================================
-    # EDUCATORS (Teachers, Professors)
+    # EDUCATION (Teachers, Professors)
+    # Classroom management, emotional labor, term cycles, unlimited work
     # ========================================================================
     elif job_category == "education":
-        
-        # High stress + overwhelming workload
+        # Unlimited work boundary setting
         if predictions["stress_level"]["at_risk"] and avg["work_hours"] > 9:
             recommendations.append({
                 "category": "workload",
                 "priority": "high",
-                "advice": "Set sustainable boundaries: batch-grade assignments (dedicated 2h blocks), reuse lesson plans with minor updates, say no to extra committees, leave work at school",
-                "rationale": "Teacher burnout often stems from unlimited work expanding to fill all time. Perfectionism and guilt about students drive overwork.",
-                "job_specific": "Students benefit more from a rested teacher than a perfect lesson. Collaborate with colleagues to share resources. Quality over quantity in feedback.",
+                "advice": "Batch-grade assignments in dedicated 2h blocks. Reuse lesson plans with minor updates. Collaborate with colleagues to share resources. Leave work at school.",
+                "rationale": "Teacher burnout stems from unlimited work expanding to fill all time. Perfectionism and guilt about students drive overwork.",
+                "job_specific": "Students benefit more from a rested teacher than a perfect lesson. Quality feedback on key assignments > detailed feedback on everything. Say no to extra committees.",
             })
         
-        # Emotional exhaustion
+        # Vicarious trauma from student struggles
         if predictions["anxiety_score"]["at_risk"] or predictions["depression_score"]["at_risk"]:
             recommendations.append({
                 "category": "emotional_health",
                 "priority": "high",
-                "advice": "Address emotional labor: establish routine to 'leave school at school' (change clothes, listen to music), join teacher support group, practice self-compassion (you can't save every student)",
-                "rationale": "Educators carry emotional weight of students' struggles. Without boundaries, vicarious trauma and helplessness accumulate.",
-                "job_specific": "Remind yourself: you're a teacher, not a therapist or parent. Refer struggling students to counselors. Celebrate small wins.",
+                "advice": "Establish routine to 'leave school at school': change clothes, listen to music on commute. Join teacher support group. Refer struggling students to counselors.",
+                "rationale": "Educators carry emotional weight of students' struggles - abuse, poverty, learning disabilities. Without boundaries, vicarious trauma accumulates.",
+                "job_specific": "Remind yourself: you're a teacher, not a therapist or parent. You can't save every student. Practice self-compassion and celebrate small wins (one kid finally 'got it').",
             })
         
-        # Poor work-life balance
+        # Term cycle exhaustion
         if avg["work_hours"] > 10 or avg["outdoor_time_minutes"] < 20:
             recommendations.append({
                 "category": "work_life_balance",
                 "priority": "medium",
-                "advice": "Reclaim personal time: set hard stop for grading (e.g., 7pm), schedule non-negotiable weekend activities, use planning periods for planning (not meetings), take mental health days",
-                "rationale": "Teaching is never 'done' - there's always more to do. Without boundaries, personal life erodes, leading to resentment and burnout.",
-                "job_specific": "Block calendar for lesson prep so admin can't schedule meetings. Use summer break for genuine rest, not just planning next year.",
+                "advice": "Block calendar for lesson prep so admin can't schedule meetings. Use planning periods for planning, not coverage. Set hard stop for grading (7pm). Take mental health days.",
+                "rationale": "Teaching is never 'done' - there's always more to do. Without boundaries, personal life erodes during term, leading to resentment.",
+                "job_specific": "Use summer/winter breaks for genuine rest, not just planning next term. Schedule non-negotiable weekend activities. Strictly protect days off.",
             })
         
-        # Low job satisfaction
+        # Classroom autonomy dissatisfaction
         if predictions["job_satisfaction"]["at_risk"]:
             recommendations.append({
                 "category": "career",
                 "priority": "high",
-                "advice": "Reconnect with purpose: reflect on why you chose teaching, seek out positive student interactions, join professional learning community, consider grade/subject change if needed",
-                "rationale": "Teaching satisfaction erodes from lack of autonomy, unsupportive admin, or feeling ineffective. Rekindling purpose prevents dropout.",
-                "job_specific": "Keep 'smile file' of positive student notes/emails. If systemic issues (admin, resources), consider school change. Teaching elsewhere ≠ failure.",
+                "advice": "Keep 'smile file' of positive student notes/emails to reconnect with purpose. Join professional learning community. Consider grade/subject change if burned out on current.",
+                "rationale": "Teaching satisfaction erodes from lack of autonomy, unsupportive admin, or feeling ineffective. Rekindling purpose prevents dropout from profession.",
+                "job_specific": "Reflect on why you chose teaching - focus on that. If systemic issues (admin, resources, class sizes), consider school change. Teaching elsewhere ≠ failure.",
             })
     
     # ========================================================================
-    # CREATIVE PROFESSIONALS (Designers, Artists, Content Creators)
-    # ========================================================================
-    elif job_category == "creative":
-        
-        # Creative blocks + high stress
-        if predictions["focus_score"]["at_risk"] or predictions["stress_level"]["at_risk"]:
-            recommendations.append({
-                "category": "creative_process",
-                "priority": "high",
-                "advice": "Combat creative burnout: schedule 'whitespace' time (no deliverables, just exploration), alternate between creative and administrative tasks, embrace 'ugly first drafts', take inspiration walks",
-                "rationale": "Creative work requires cognitive flexibility. Stress and pressure trigger rigid thinking, blocking innovation and original ideas.",
-                "job_specific": "Separate ideation from execution. Morning for creation, afternoon for revisions. Keep 'inspiration swipe file' for dry periods.",
-            })
-        
-        # Irregular work patterns
-        if avg["sleep_quality"] < 6 or avg["work_hours"] > 10:
-            recommendations.append({
-                "category": "routine",
-                "priority": "medium",
-                "advice": "Create sustainable routine: set regular work hours (creativity needs structure), protect morning creative time, schedule client meetings in afternoon, batch similar tasks",
-                "rationale": "Freelance/agency creatives often have chaotic schedules. While flexibility is nice, routine enhances creative output and prevents burnout.",
-                "job_specific": "Track when you're most creative (morning/evening). Design ideal week template. Learn to estimate project time realistically (add 50%).",
-            })
-        
-        # Client/stakeholder stress
-        if predictions["anxiety_score"]["at_risk"]:
-            recommendations.append({
-                "category": "client_management",
-                "priority": "medium",
-                "advice": "Set client boundaries: establish revision limits (e.g., 2 rounds), require consolidated feedback, educate clients on creative process, charge for scope creep",
-                "rationale": "Anxiety in creative work often stems from unclear expectations, endless revisions, or clients who don't respect expertise.",
-                "job_specific": "Use contracts with clear deliverables. Present 2-3 options max (not infinite revisions). Walk away from toxic clients - not worth mental health.",
-            })
-        
-        # Isolation (common in freelance)
-        if avg["social_interactions"] < 2:
-            recommendations.append({
-                "category": "social",
-                "priority": "medium",
-                "advice": "Build creative community: join coworking space, attend design/art meetups, find accountability partner, collaborate on side projects, engage in online communities",
-                "rationale": "Creative work is often solitary. Isolation breeds self-doubt and depression. Community provides feedback, support, and collaboration opportunities.",
-                "job_specific": "Schedule weekly coffee with other creatives. Share work-in-progress for feedback. Separate work-alone time from community time.",
-            })
-    
-    # ========================================================================
-    # MANAGEMENT / LEADERSHIP
+    # MANAGEMENT / LEADERSHIP (Managers, Directors)
+    # Decision fatigue, emotional labor from team issues, always-on culture
     # ========================================================================
     elif job_category == "management":
-        
-        # High stress + decision fatigue
+        # Decision fatigue
         if predictions["stress_level"]["at_risk"] and avg["work_hours"] > 9:
             recommendations.append({
                 "category": "leadership_stress",
                 "priority": "high",
-                "advice": "Manage decision fatigue: delegate more decisions to team, create decision frameworks (reduce re-thinking), time-box decision-making, protect personal time ruthlessly",
-                "rationale": "Leaders face constant decisions and emotional labor. Without boundaries, responsibility becomes overwhelming, impairing judgment.",
-                "job_specific": "Use Eisenhower matrix daily. Block 'no meeting' days for strategic thinking. Remember: your health enables team performance.",
+                "advice": "Use Eisenhower matrix daily to prioritize. Block 'no meeting' days for strategic thinking. Delegate more decisions to team - create decision frameworks to reduce re-thinking.",
+                "rationale": "Leaders face constant decisions and emotional labor. Without boundaries, responsibility becomes overwhelming and impairs judgment.",
+                "job_specific": "Time-box decision-making to avoid overthinking. Protect personal time ruthlessly. Remember: your health enables team performance - burned out leaders make bad calls.",
             })
         
-        # Poor work-life balance
+        # Always-on culture
         if avg["work_hours"] > 10 or avg["emails_received"] > 100:
             recommendations.append({
                 "category": "work_life_balance",
                 "priority": "high",
-                "advice": "Model healthy boundaries: set working hours expectations with team, use email delay-send for off-hours, take full vacation (no check-ins), delegate more authority",
-                "rationale": "Managers who work unsustainable hours signal to team that overwork is expected. This creates toxic culture and burnout cascade.",
-                "job_specific": "Your availability doesn't prove leadership quality. Empower team to solve problems without you. Trust enables scale.",
+                "advice": "Model healthy boundaries: set working hours expectations with team, use email delay-send for off-hours messages, take full vacation with no check-ins, delegate more authority.",
+                "rationale": "Managers who work unsustainable hours signal to team that overwork is expected. This creates toxic culture and burnout cascade down org chart.",
+                "job_specific": "Your availability doesn't prove leadership quality. Empower team to solve problems without you. Trust enables scale - micromanaging doesn't.",
             })
         
-        # Emotional exhaustion from team issues
+        # Emotional labor from team problems
         if predictions["anxiety_score"]["at_risk"] or predictions["mood_score"]["at_risk"]:
             recommendations.append({
                 "category": "emotional_labor",
                 "priority": "medium",
-                "advice": "Manage emotional toll: seek executive coach or therapist, join peer manager group, separate team problems from personal identity, practice emotional detachment",
-                "rationale": "Managers absorb team stress, handle conflicts, and make difficult decisions. Without emotional processing, empathy erodes into cynicism.",
-                "job_specific": "Not every team problem is yours to solve. Set boundaries around 'taking work home' emotionally. Celebrate small wins to counter negativity bias.",
+                "advice": "Seek executive coach or therapist to process stress. Join peer manager group. Separate team problems from personal identity - practice emotional detachment.",
+                "rationale": "Managers absorb team stress, handle conflicts, and make difficult personnel decisions. Without emotional processing, empathy erodes into cynicism or avoidance.",
+                "job_specific": "Not every team problem is yours to solve. Set boundaries around 'taking work home' emotionally. Celebrate small wins to counter manager negativity bias.",
             })
         
-        # Low job satisfaction
+        # Management fit dissatisfaction
         if predictions["job_satisfaction"]["at_risk"]:
             recommendations.append({
                 "category": "career",
                 "priority": "high",
-                "advice": "Reassess management fit: reflect if management aligns with values, discuss concerns with your manager, clarify decision-making authority, consider individual contributor return",
+                "advice": "Reassess management fit: reflect if management aligns with your values, discuss concerns with your manager, clarify decision-making authority. Consider IC return if you miss hands-on work.",
                 "rationale": "Not everyone thrives in management. If misalignment is systemic (company culture, lack of support), no amount of self-care will fix it.",
-                "job_specific": "Management isn't the only path to impact. If you miss hands-on work, IC senior roles exist. It's okay to step back.",
+                "job_specific": "Management isn't the only path to impact. Senior IC roles offer influence without people management burden. Stepping back isn't failure - it's self-awareness.",
             })
     
     # ========================================================================
-    # SERVICE WORKERS (Customer Service, Hospitality)
+    # WELLNESS (Wellness Coaches, Counselors)
+    # May have better baseline habits, focus on helping others
     # ========================================================================
-    elif job_category == "service":
-        
-        # Emotional exhaustion from customer interactions
-        if predictions["stress_level"]["at_risk"] or predictions["mood_score"]["at_risk"]:
-            recommendations.append({
-                "category": "emotional_labor",
-                "priority": "high",
-                "advice": "Manage emotional labor: practice 'customer service voice' as professional mask (not authentic self), debrief difficult customers with colleagues, use breaks to decompress",
-                "rationale": "Service work requires constant emotional regulation - smiling through rudeness, suppressing frustration. This is exhausting and alienating.",
-                "job_specific": "After difficult customer, take 2min breathing break. Remind yourself: rudeness isn't personal, it's their bad day. Find humor with coworkers.",
-            })
-        
-        # Physical fatigue from standing/moving
-        if predictions["energy_level"]["at_risk"] or avg["steps_count"] > 15000:
-            recommendations.append({
-                "category": "physical_health",
-                "priority": "medium",
-                "advice": "Reduce physical strain: wear compression socks, use supportive shoes (invest in quality), stretch between shifts, ice sore areas, request standing mat if cashier",
-                "rationale": "Prolonged standing/walking causes cumulative physical damage - foot pain, varicose veins, back problems. Physical exhaustion drains mental energy.",
-                "job_specific": "Alternate standing position (shift weight). Use breaks to sit with feet elevated. Consider orthotics if chronic pain.",
-            })
-        
-        # Irregular schedules
-        if avg["sleep_hours"] < 7 or avg["sleep_quality"] < 6:
-            recommendations.append({
-                "category": "sleep",
-                "priority": "high",
-                "advice": "Cope with shift work: request consistent schedule where possible, use blackout curtains, maintain same sleep time on days off, strategic caffeine (not after 2pm)",
-                "rationale": "Rotating or late shifts disrupt circadian rhythm. Poor sleep compounds stress from customer interactions and physical demands.",
-                "job_specific": "If closing shift, wind-down routine before bed (no screens). If opening shift, prepare night before to reduce morning stress.",
-            })
-        
-        # Low job satisfaction + limited growth
-        if predictions["job_satisfaction"]["at_risk"]:
-            recommendations.append({
-                "category": "career",
-                "priority": "medium",
-                "advice": "Explore growth: ask about supervisor training, cross-train in other departments, use job as funding for school/certifications, network for opportunities",
-                "rationale": "Service jobs often lack clear advancement paths. Without goals, work feels meaningless, increasing burnout risk.",
-                "job_specific": "Set 6-month goal (promotion, new skill, side business). Even if staying temporarily, progress mindset reduces resentment.",
-            })
-    
-    # ========================================================================
-    # MANUAL LABOR / SKILLED TRADES
-    # ========================================================================
-    elif job_category == "manual_labor":
-        
-        # Physical strain + fatigue
-        if predictions["energy_level"]["at_risk"] or avg["work_hours"] > 9:
-            recommendations.append({
-                "category": "physical_health",
-                "priority": "high",
-                "advice": "Prevent injury: proper lifting technique always (bend knees, not back), stretch before/after shift, use ergonomic tools, report pain early before chronic",
-                "rationale": "Physical jobs have cumulative injury risk. Ignoring pain leads to chronic conditions that can end careers. Prevention > treatment.",
-                "job_specific": "Wear proper PPE even when inconvenient. Use mechanical assistance (dollies, lifts) - don't be 'tough'. Ice sore muscles after shift.",
-            })
-        
-        # Sleep deprivation from early starts
-        if avg["sleep_hours"] < 7 or avg["sleep_quality"] < 6:
-            recommendations.append({
-                "category": "sleep",
-                "priority": "high",
-                "advice": "Prioritize recovery sleep: go to bed 8h before wake-up (non-negotiable), keep bedroom dark and cool, limit alcohol (disrupts deep sleep), nap on breaks if needed",
-                "rationale": "Physical recovery happens during sleep. Sleep deprivation increases injury risk, slows healing, and impairs safety judgment.",
-                "job_specific": "If 5am start, in bed by 9pm. Use alarm across room to ensure waking. Weekend sleep-in doesn't compensate for weekday debt.",
-            })
-        
-        # High stress from deadlines/quotas
-        if predictions["stress_level"]["at_risk"]:
-            recommendations.append({
-                "category": "stress",
-                "priority": "medium",
-                "advice": "Manage work pressure: communicate realistic timelines to supervisors, pace yourself to avoid injury, take full breaks (don't skip lunch), use weekends for full rest",
-                "rationale": "Pressure to work faster increases injury risk and decreases quality. Rushing is how accidents happen.",
-                "job_specific": "Safety over speed, always. If quotas are unrealistic, document and escalate. Your body has to last 40+ years.",
-            })
-        
-        # Low job satisfaction
-        if predictions["job_satisfaction"]["at_risk"]:
-            recommendations.append({
-                "category": "career",
-                "priority": "medium",
-                "advice": "Explore advancement: pursue certifications (electrician, HVAC, etc.), join union for better conditions, consider foreman/management track, research better-paying companies",
-                "rationale": "Manual labor satisfaction often tied to pay, respect, and autonomy. Skilled trades offer good pay but require investment in training.",
-                "job_specific": "Research apprenticeship programs. Specialized skills (welding, electrical) command higher pay and respect. Network with senior workers.",
-            })
-    
-    # ========================================================================
-    # SALES & MARKETING
-    # ========================================================================
-    elif job_category == "sales_marketing":
-        
-        # High stress from targets/quotas
+    elif job_category == "wellness":
+        # Practitioner heal thyself
         if predictions["stress_level"]["at_risk"] or predictions["anxiety_score"]["at_risk"]:
             recommendations.append({
-                "category": "performance_pressure",
+                "category": "self_care",
                 "priority": "high",
-                "advice": "Manage quota stress: focus on activities (calls, meetings) not just outcomes, track leading indicators, celebrate small wins, don't personalize rejection",
-                "rationale": "Sales stress comes from outcome focus and rejection. Without reframing, anxiety compounds, harming performance (desperation repels buyers).",
-                "job_specific": "Keep 'activity scoreboard' - controllable metrics. Bad month? Review process, not self-worth. Top sellers have thick skin from practice.",
+                "advice": "Practice what you preach: schedule your own self-care appointments like client sessions, use the techniques you teach, seek supervision/therapy for yourself.",
+                "rationale": "Wellness professionals often prioritize clients over own health. Vicarious trauma and emotional labor accumulate without personal practice.",
+                "job_specific": "You can't pour from empty cup. Model boundaries for clients - saying no to extra sessions protects both parties. Use peer supervision to process difficult cases.",
             })
         
-        # Irregular schedule + client demands
-        if avg["work_hours"] > 9 or predictions["mood_score"]["at_risk"]:
+        # Compassion fatigue
+        if predictions["depression_score"]["at_risk"] or predictions["mood_score"]["at_risk"]:
             recommendations.append({
-                "category": "work_life_balance",
-                "priority": "medium",
-                "advice": "Set client boundaries: establish communication hours (no nights/weekends), batch client calls, use scheduling tools (Calendly), protect personal time",
-                "rationale": "Sales culture often glorifies 'always on' availability. This leads to burnout, resentment, and actually reduces effectiveness.",
-                "job_specific": "Prospects respect boundaries (shows professionalism). Use auto-responders for off-hours. Top performers work smart, not endless.",
+                "category": "emotional_health",
+                "priority": "high",
+                "advice": "Address compassion fatigue: establish post-session reset ritual, keep professional boundaries (clients are not friends), take regular breaks from direct client work.",
+                "rationale": "Constant empathy work depletes emotional reserves. Without boundaries, you absorb clients' struggles and lose objectivity.",
+                "job_specific": "Between client sessions, take 5min to reset (walk, breathe, stretch). Don't check client messages after hours. Rotate between direct service and administrative tasks.",
             })
         
-        # Emotional rollercoaster from wins/losses
-        if predictions["mood_score"]["at_risk"] or avg["mood_score"] < 6:
-            recommendations.append({
-                "category": "emotional_regulation",
-                "priority": "medium",
-                "advice": "Stabilize emotional swings: keep gratitude journal (3 wins daily), separate identity from performance, build non-work interests, talk to supportive friends",
-                "rationale": "Sales creates emotional volatility - highs from wins, lows from losses. Without emotional stability, burnout or substance abuse risk increases.",
-                "job_specific": "Don't let one bad call ruin the day. Use 'reset routine' (walk, music) between meetings. Remember: 70% close rate means 30% rejection is normal.",
-            })
-        
-        # Low job satisfaction from misaligned values
+        # Career mission alignment
         if predictions["job_satisfaction"]["at_risk"]:
             recommendations.append({
                 "category": "career",
-                "priority": "high",
-                "advice": "Reassess product fit: ensure you believe in what you sell (ethic misalignment destroys soul), discuss concerns with leadership, consider industry/company change",
-                "rationale": "Selling something you don't believe in creates cognitive dissonance and moral injury. No commission is worth self-respect.",
-                "job_specific": "If product is genuinely helpful, reframe sales as problem-solving. If not, exit strategy. Plenty of sales jobs for ethical products.",
+                "priority": "medium",
+                "advice": "Reconnect with purpose: reflect on why you entered wellness field, celebrate client progress stories, join professional community for support, consider specialization refresh.",
+                "rationale": "Wellness work can feel repetitive or ineffective during plateaus. Burnout often comes from mismatch between ideals and reality of slow behavior change.",
+                "job_specific": "Keep 'impact journal' of client wins. If feeling stuck, pursue additional certifications in areas of interest. Not every client will change - focus on those who do.",
             })
     
     # ========================================================================
-    # OTHER / DEFAULT
+    # GENERAL (Operations, Unknown, Other)
+    # Minimal job-specific advice - mostly universal recommendations
     # ========================================================================
     else:
-        # General recommendations if job category unknown
-        if predictions["stress_level"]["at_risk"]:
-            recommendations.append({
-                "category": "stress",
-                "priority": "high",
-                "advice": "Manage stress: practice daily relaxation (meditation, deep breathing, progressive muscle relaxation), identify stress triggers, seek therapy if persistent",
-                "rationale": "Chronic stress damages physical and mental health. Early intervention prevents escalation to anxiety disorders or burnout.",
-                "job_specific": None,
-            })
-        
-        if avg["sleep_hours"] < 7:
-            recommendations.append({
-                "category": "sleep",
-                "priority": "high",
-                "advice": "Improve sleep: maintain consistent schedule, create bedtime routine, avoid screens 1h before bed, keep bedroom cool and dark, limit caffeine after 2pm",
-                "rationale": "Sleep is foundation of mental and physical health. Most adults need 7-9h for optimal functioning.",
-                "job_specific": None,
-            })
-        
-        if avg["exercise_minutes"] < 30:
-            recommendations.append({
-                "category": "physical_health",
-                "priority": "medium",
-                "advice": "Increase activity: aim for 30min moderate exercise daily (brisk walk counts), take movement breaks every hour, use stairs, park farther away",
-                "rationale": "Regular exercise reduces stress, improves mood, and enhances cognitive function. Small changes compound over time.",
-                "job_specific": None,
-            })
-        
-        if predictions["job_satisfaction"]["at_risk"]:
-            recommendations.append({
-                "category": "career",
-                "priority": "high",
-                "advice": "Address job dissatisfaction: identify specific dissatisfaction sources, discuss with manager, explore growth opportunities, consider career counseling",
-                "rationale": "Job dissatisfaction affects all life domains. Early intervention can prevent burnout or misguided career changes.",
-                "job_specific": None,
-            })
+        # Only include truly job-specific advice for general category
+        # Most generic advice is handled by universal recommendations section
+        pass
     
     # ========================================================================
     # UNIVERSAL RECOMMENDATIONS (add to all categories if relevant)

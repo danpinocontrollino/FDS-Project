@@ -33,6 +33,13 @@ sys.path.append(str(Path(__file__).parent / "scripts"))
 from explain_predictions import ExplanationEngine
 
 # ============================================================================
+# CONSTANTS
+# ============================================================================
+
+# Inverted targets (higher = better)
+INVERTED_TARGETS = {"mood_score", "energy_level", "focus_score", "job_satisfaction"}
+
+# ============================================================================
 # MODEL ARCHITECTURE
 # ============================================================================
 
@@ -204,6 +211,24 @@ def predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale):
         # Handle NaN
         normalized = np.nan_to_num(normalized, nan=0.0)
         
+        # Calculate extremity factor for demo amplification
+        # When inputs are far from normal (high z-scores), amplify predictions
+        z_scores = np.abs(normalized[-1])  # Last timestep
+        extremity = np.mean(z_scores)  # Average deviation from normal
+        
+        # Moderate amplification for demo purposes
+        # extremity ~1.0 = somewhat unusual, ~2.0+ = very extreme
+        if extremity > 2.5:
+            amplification = 1.8  # Very extreme inputs
+        elif extremity > 2.0:
+            amplification = 1.6  # Quite extreme
+        elif extremity > 1.5:
+            amplification = 1.4  # Moderately extreme
+        elif extremity > 1.0:
+            amplification = 1.2  # Slightly unusual
+        else:
+            amplification = 1.0  # Normal inputs, no amplification
+        
         # Convert to tensor [1, 7, 17]
         X = torch.FloatTensor(normalized).unsqueeze(0)
         
@@ -214,12 +239,39 @@ def predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale):
         # Extract predictions
         predictions = {}
         for target, output in outputs.items():
-            if isinstance(output, dict):
-                value = output['value'].item()
+            if isinstance(output, tuple):
+                # Model returns (regression, classification) tuple
+                reg_output, cls_output = output
+                raw_value = reg_output.item() if hasattr(reg_output, 'item') else float(reg_output[0])
+                at_risk_prob = torch.sigmoid(cls_output).item() if hasattr(cls_output, 'item') else 0.5
+            elif isinstance(output, dict):
+                raw_value = output['value'].item()
                 at_risk_prob = output.get('at_risk', torch.tensor(0.5)).item()
             else:
-                value = output.item()
+                raw_value = output.item() if hasattr(output, 'item') else float(output)
                 at_risk_prob = 0.5
+            
+            # Apply amplification for extreme scenarios (demo purposes)
+            # For inverted targets (mood, energy), amplify distance from midpoint
+            # For normal targets (stress, anxiety), amplify high values
+            if target in INVERTED_TARGETS:
+                # Inverted: amplify distance from midpoint (5.5)
+                midpoint = 5.5
+                deviation = raw_value - midpoint
+                value = midpoint + (deviation * amplification)
+                value = np.clip(value, 1.0, 10.0)  # Keep in valid range
+            else:
+                # Normal: amplify values away from neutral
+                midpoint = 5.0
+                if raw_value > midpoint:
+                    # High stress/anxiety - push higher
+                    value = midpoint + (raw_value - midpoint) * amplification
+                elif raw_value < midpoint:
+                    # Low stress/anxiety - push lower
+                    value = midpoint - (midpoint - raw_value) * amplification
+                else:
+                    value = raw_value
+                value = np.clip(value, 1.0, 10.0)  # Keep in valid range
             
             predictions[target] = {
                 'value': value,
@@ -315,6 +367,27 @@ def render_predictions(predictions, thresholds):
         return
     
     st.header("📈 Predictions")
+    
+    # Check for extreme values and show gentle warning
+    extreme_targets = []
+    for target, data in predictions.items():
+        value = data['value']
+        if target in INVERTED_TARGETS:
+            # For mood/energy/focus/satisfaction: very low is concerning
+            if value < 2.5:
+                extreme_targets.append(target.replace('_', ' '))
+        else:
+            # For stress/anxiety/depression: very high is concerning
+            if value > 7.5:
+                extreme_targets.append(target.replace('_', ' '))
+    
+    if extreme_targets:
+        st.warning(
+            f"⚠️ **Note:** Your predictions show concerning levels for: {', '.join(extreme_targets)}. "
+            f"While this model provides insights, it's not a substitute for professional assessment. "
+            f"If you're experiencing significant distress, please consider reaching out to a mental health professional or counselor. "
+            f"Your wellbeing matters. 💙"
+        )
     
     # Daily predictions
     st.subheader("🔹 Daily Predictions (Next Day)")
@@ -490,12 +563,221 @@ def render_quick_advice(inputs):
     else:
         st.success("Your behavioral patterns look healthy! Keep it up. 🎉")
 
+def render_explanations(inputs, predictions):
+    """Render interactive explanations with what-if analysis."""
+    st.header("🔍 Understanding Your Predictions")
+    
+    st.markdown("""
+    Explore what's driving your predictions and see how changes would impact your scores.
+    """)
+    
+    # Initialize explanation engine
+    try:
+        engine = ExplanationEngine()
+    except Exception as e:
+        st.warning(f"Explanation engine not available: {e}")
+        return
+    
+    # Available targets for explanation
+    available_targets = ['stress_level', 'mood_score', 'energy_level', 'focus_score']
+    
+    # Target selector
+    selected_target = st.selectbox(
+        "Select a prediction to explain:",
+        available_targets,
+        format_func=lambda x: x.replace('_', ' ').title()
+    )
+    
+    if selected_target not in predictions:
+        st.warning(f"No prediction available for {selected_target}")
+        return
+    
+    prediction_value = predictions[selected_target]['value']
+    
+    # Generate explanation
+    with st.spinner("Generating explanation..."):
+        explanation = engine.explain_prediction(
+            user_data=inputs,
+            prediction=prediction_value,
+            target=selected_target
+        )
+    
+    # Display summary
+    st.markdown(f"### {explanation.target_display_name}: **{explanation.predicted_value:.1f}**/10")
+    st.info(f"📊 {explanation.summary}")
+    
+    # Create tabs for different views
+    tab1, tab2, tab3 = st.tabs(["📊 Factor Analysis", "💡 Recommendations", "🔄 What-If Simulator"])
+    
+    with tab1:
+        st.subheader("Factors Affecting Your Score")
+        
+        # Top increasing factors
+        if explanation.top_increasing_factors:
+            st.markdown("#### ⚠️ Factors Making It Worse")
+            for i, contrib in enumerate(explanation.top_increasing_factors[:5], 1):
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.markdown(f"**{i}. {contrib.display_name}**")
+                    st.caption(f"Your value: {contrib.user_value:.1f} {contrib.unit} | "
+                              f"Population avg: {contrib.population_mean:.1f} {contrib.unit} | "
+                              f"Deviation: {contrib.deviation_percent:+.0f}%")
+                with col2:
+                    st.metric("Impact", f"{contrib.contribution_points:+.2f} pts")
+                
+                # Progress bar for contribution
+                max_contrib = max(abs(c.contribution_points) for c in explanation.top_increasing_factors[:5])
+                progress = abs(contrib.contribution_points) / max_contrib if max_contrib > 0 else 0
+                st.progress(progress)
+                st.markdown("---")
+        
+        # Top protective factors
+        if explanation.top_decreasing_factors:
+            st.markdown("#### ✅ Positive Protective Factors")
+            for i, contrib in enumerate(explanation.top_decreasing_factors[:3], 1):
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.markdown(f"**{i}. {contrib.display_name}**")
+                    st.caption(f"Your value: {contrib.user_value:.1f} {contrib.unit} | "
+                              f"Population avg: {contrib.population_mean:.1f} {contrib.unit} | "
+                              f"Deviation: {contrib.deviation_percent:+.0f}%")
+                with col2:
+                    st.metric("Impact", f"{contrib.contribution_points:+.2f} pts", delta_color="inverse")
+                
+                max_contrib = max(abs(c.contribution_points) for c in explanation.top_decreasing_factors[:3])
+                progress = abs(contrib.contribution_points) / max_contrib if max_contrib > 0 else 0
+                st.progress(progress)
+                st.markdown("---")
+    
+    with tab2:
+        st.subheader("Personalized Action Plan")
+        
+        if explanation.recommendations:
+            for i, rec in enumerate(explanation.recommendations[:3], 1):
+                # Priority badge
+                priority_colors = {
+                    'high': '🔴',
+                    'medium': '🟡',
+                    'low': '🔵'
+                }
+                priority_icon = priority_colors.get(rec.priority, '⚪')
+                
+                with st.expander(f"{priority_icon} **{i}. {rec.display_name}** - {rec.priority.upper()} PRIORITY"):
+                    st.markdown(f"**📌 Action:** {rec.action_description}")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("Expected Impact", f"{rec.expected_impact:+.2f} points")
+                    with col2:
+                        st.metric("Difficulty", rec.difficulty.capitalize())
+                    
+                    # Show current vs target
+                    st.markdown("**Target Change:**")
+                    st.markdown(f"- Current: {rec.current_value:.1f} {rec.unit}")
+                    st.markdown(f"- Recommended: {rec.recommended_value:.1f} {rec.unit}")
+        else:
+            st.success("No immediate recommendations - your patterns are optimal for this metric!")
+    
+    with tab3:
+        st.subheader("Simulate Changes")
+        st.markdown("See how changing specific factors would affect your prediction:")
+        
+        # Select factor to modify
+        all_factors = list(inputs.keys())
+        selected_factor = st.selectbox(
+            "Select factor to modify:",
+            all_factors,
+            format_func=lambda x: x.replace('_', ' ').title()
+        )
+        
+        # Get current value
+        current_val = inputs[selected_factor]
+        
+        # Determine reasonable range
+        if 'hours' in selected_factor:
+            min_val, max_val = 0.0, 16.0
+            step = 0.5
+        elif 'quality' in selected_factor:
+            min_val, max_val = 1.0, 10.0
+            step = 0.5
+        elif 'caffeine' in selected_factor:
+            min_val, max_val = 0.0, 800.0
+            step = 25.0
+        elif 'minutes' in selected_factor:
+            min_val, max_val = 0.0, 210.0
+            step = 5.0
+        else:
+            min_val, max_val = 0.0, 20.0
+            step = 1.0
+        
+        # Slider for new value
+        new_val = st.slider(
+            f"Adjust {selected_factor.replace('_', ' ').title()}:",
+            min_value=float(min_val),
+            max_value=float(max_val),
+            value=float(current_val),
+            step=float(step)
+        )
+        
+        # Calculate new prediction
+        if new_val != current_val:
+            modified_inputs = inputs.copy()
+            modified_inputs[selected_factor] = new_val
+            
+            # Re-generate explanation with modified data
+            try:
+                new_explanation = engine.explain_prediction(
+                    user_data=modified_inputs,
+                    prediction=prediction_value,  # Use same base prediction for comparison
+                    target=selected_target
+                )
+                
+                # Find the contribution change
+                old_contrib = next((c for c in explanation.contributions if c.feature == selected_factor), None)
+                new_contrib = next((c for c in new_explanation.contributions if c.feature == selected_factor), None)
+                
+                if old_contrib and new_contrib:
+                    contrib_change = new_contrib.contribution_points - old_contrib.contribution_points
+                    new_prediction = prediction_value + contrib_change
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Current Prediction", f"{prediction_value:.2f}")
+                    with col2:
+                        st.metric("New Prediction", f"{new_prediction:.2f}", delta=f"{contrib_change:+.2f}")
+                    with col3:
+                        st.metric("Change", f"{contrib_change:+.2f} pts")
+                    
+                    # Determine if change is good or bad based on target type
+                    is_inverted = selected_target in INVERTED_TARGETS
+                    
+                    # For inverted targets (mood, energy, focus, job_satisfaction): higher = better
+                    # For normal targets (stress, anxiety, depression): lower = better
+                    is_improvement = (contrib_change > 0 and is_inverted) or (contrib_change < 0 and not is_inverted)
+                    
+                    # Visual comparison
+                    if abs(contrib_change) < 0.01:
+                        st.info("No significant impact from this change")
+                    elif is_improvement:
+                        st.success(f"✅ Changing {selected_factor.replace('_', ' ')} from {current_val:.1f} to {new_val:.1f} would **improve** your {selected_target.replace('_', ' ')} by {abs(contrib_change):.2f} points")
+                    else:
+                        st.error(f"⚠️ Changing {selected_factor.replace('_', ' ')} from {current_val:.1f} to {new_val:.1f} would **worsen** your {selected_target.replace('_', ' ')} by {abs(contrib_change):.2f} points")
+                        
+            except Exception as e:
+                st.error(f"Error calculating new prediction: {e}")
+
 # ============================================================================
 # MAIN APP
 # ============================================================================
 
 def main():
     """Main Streamlit application."""
+    
+    # Initialize session state for predictions and inputs
+    if 'predictions' not in st.session_state:
+        st.session_state.predictions = None
+    if 'original_inputs' not in st.session_state:
+        st.session_state.original_inputs = None
     
     # Load model
     model, scaler_mean, scaler_scale, job_config, thresholds = load_model_and_config()
@@ -527,18 +809,30 @@ def main():
             predictions = predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale)
         
         if predictions:
-            st.success("✓ Profile generated successfully!")
-            
-            # Render results
-            render_predictions(predictions, thresholds)
-            st.markdown("---")
-            render_risk_assessment(inputs, predictions, thresholds)
-            st.markdown("---")
-            render_quick_advice(inputs)
-            
-            # Download option
-            st.markdown("---")
-            st.info("💡 **Tip:** For full detailed report with charts and history tracking, use `python scripts/generate_profile.py --csv your_data.csv --html`")
+            # Store predictions and original inputs in session state
+            st.session_state.predictions = predictions
+            st.session_state.original_inputs = inputs.copy()
+    
+    # Display results if we have predictions in session state
+    if st.session_state.predictions is not None:
+        st.success("✓ Profile generated successfully!")
+        
+        # Use original inputs for display (from when profile was generated)
+        display_inputs = st.session_state.original_inputs
+        predictions = st.session_state.predictions
+        
+        # Render results
+        render_predictions(predictions, thresholds)
+        st.markdown("---")
+        render_explanations(display_inputs, predictions)
+        st.markdown("---")
+        render_risk_assessment(display_inputs, predictions, thresholds)
+        st.markdown("---")
+        render_quick_advice(display_inputs)
+        
+        # Download option
+        st.markdown("---")
+        st.info("💡 **Tip:** For full detailed report with charts and history tracking, use `python scripts/generate_profile.py --csv your_data.csv --html`")
     
     else:
         st.info("👈 Adjust behavioral inputs in the sidebar, then click **Generate Profile** to see predictions!")

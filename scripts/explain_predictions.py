@@ -57,6 +57,9 @@ CONTROLLABLE_FEATURES = {
     "weather_mood_impact": False,  # External factor
 }
 
+# Inverted targets (higher = better)
+INVERTED_TARGETS = {"mood_score", "energy_level", "focus_score", "job_satisfaction"}
+
 
 # ============================================================================
 # DATA STRUCTURES
@@ -282,14 +285,25 @@ class ExplanationEngine:
         harmful_features = ["work_hours", "caffeine_mg", "alcohol_units", 
                            "screen_time_hours", "work_pressure", "commute_minutes"]
         
+        # Determine if target is inverted (higher = better)
+        is_inverted_target = target in INVERTED_TARGETS
+        
         if feature in beneficial_features:
-            # For beneficial features: being above mean is good (negative contribution to bad outcomes)
-            # being below mean is bad (positive contribution)
-            contribution = -importance * z_score * target_std
+            # For beneficial features: being above mean helps
+            # - For normal targets (stress/anxiety): helps by LOWERING them (negative contribution)
+            # - For inverted targets (mood/energy): helps by RAISING them (positive contribution)
+            if is_inverted_target:
+                contribution = importance * z_score * target_std  # More sleep = higher mood
+            else:
+                contribution = -importance * z_score * target_std  # More sleep = lower stress
         elif feature in harmful_features:
-            # For harmful features: being above mean is bad (positive contribution)
-            # being below mean is good (negative contribution)
-            contribution = importance * z_score * target_std
+            # For harmful features: being above mean hurts
+            # - For normal targets (stress): hurts by RAISING them (positive contribution)
+            # - For inverted targets (mood): hurts by LOWERING them (negative contribution)
+            if is_inverted_target:
+                contribution = -importance * z_score * target_std  # More work_hours = lower mood
+            else:
+                contribution = importance * z_score * target_std  # More work_hours = higher stress
         else:
             # For neutral features, use standard calculation
             contribution = importance * z_score * target_std
