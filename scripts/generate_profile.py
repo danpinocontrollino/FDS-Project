@@ -42,6 +42,9 @@ import torch
 import torch.nn as nn
 from sklearn.preprocessing import StandardScaler
 
+# Import explanation engine
+from explain_predictions import ExplanationEngine, PredictionExplanation
+
 warnings.filterwarnings("ignore")
 
 # ============================================================================
@@ -123,6 +126,9 @@ class UserProfile:
     
     # Predictions
     predictions: Dict[str, Dict[str, Any]]  # target → {value, at_risk, confidence}
+    
+    # Explanations (NEW: feature importance-based explanations)
+    explanations: Dict[str, PredictionExplanation]  # target → explanation
     
     # Analysis flags
     contradictions: List[Dict[str, str]]  # List of detected contradictions
@@ -2013,6 +2019,31 @@ def generate_profile(
         checkpoint["risk_thresholds"],
     )
     
+    # Generate explanations for predictions (NEW)
+    explanation_engine = ExplanationEngine()
+    explanations = {}
+    
+    # Calculate average user data for the week (for explanations)
+    user_avg = user_data[FEATURE_COLS].mean().to_dict()
+    
+    # Only generate explanations for targets with feature importance weights
+    # (currently: stress_level, mood_score, energy_level, focus_score, burnout_score)
+    available_targets = ["stress_level", "mood_score", "energy_level", "focus_score"]
+    
+    # Generate explanation for each available target
+    for target in available_targets:
+        if target in predictions:
+            prediction_value = predictions[target]["value"]
+            try:
+                explanation = explanation_engine.explain_prediction(
+                    user_data=user_avg,
+                    prediction=prediction_value,
+                    target=target,
+                )
+                explanations[target] = explanation
+            except Exception as e:
+                print(f"Warning: Could not generate explanation for {target}: {e}")
+    
     # Analyze
     contradictions = detect_contradictions(user_data, predictions)
     risk_factors = identify_risk_factors(predictions, user_data)
@@ -2053,6 +2084,7 @@ def generate_profile(
         job_category=job_category,
         behavioral_data=user_data,
         predictions=predictions,
+        explanations=explanations,  # NEW
         contradictions=contradictions,
         risk_factors=risk_factors,
         positive_factors=positive_factors,
@@ -2216,6 +2248,7 @@ def save_profile_json(profile: UserProfile, output_dir: Path) -> Path:
         "data_quality_score": profile.data_quality_score,
         "missing_features": profile.missing_features,
         "predictions": profile.predictions,
+        "explanations": {target: exp.to_dict() for target, exp in profile.explanations.items()},  # NEW
         "risk_factors": profile.risk_factors,
         "positive_factors": profile.positive_factors,
         "contradictions": profile.contradictions,
@@ -2229,6 +2262,184 @@ def save_profile_json(profile: UserProfile, output_dir: Path) -> Path:
     
     print(f"✓ Saved JSON profile: {output_path}")
     return output_path
+
+
+def render_explanation_html(explanation: PredictionExplanation, target: str) -> str:
+    """Render explanation as HTML card with detailed factor analysis."""
+    if not explanation:
+        return ""
+    
+    target_display = explanation.target_display_name
+    pred_val = explanation.predicted_value
+    pop_mean = explanation.population_mean
+    
+    # Determine if inverted target (higher is better)
+    is_inverted = target in INVERTED_TARGETS
+    
+    html = f"""
+                <div class="explanation-card" style="margin-bottom: 30px;">
+                    <h3 style="color: #7c3aed; margin-bottom: 15px; font-size: 1.2em;">
+                        {target_display}: {pred_val:.1f}/10
+                    </h3>
+                    <div class="explanation-summary" style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        {explanation.summary}
+                    </div>
+"""
+    
+    # Factors making it WORSE
+    if explanation.top_increasing_factors:
+        if is_inverted:
+            section_title = "❌ Factors Lowering Your Score"
+            section_desc = "These behaviors are dragging down your score. Each shows your current value, how far from optimal, and the impact on your prediction."
+        else:
+            section_title = "⚠️ Factors Raising Your Score (Making It Worse)"
+            section_desc = "These behaviors are pushing your score higher (which is worse for this metric). Each shows your current value, how far from optimal, and the impact."
+        
+        html += f"""
+                    <div class="contributions-section">
+                        <div class="contributions-title" style="font-size: 1em; margin-bottom: 8px;">{section_title}</div>
+                        <p style="font-size: 0.85em; color: #6b7280; margin-bottom: 15px; line-height: 1.5;">{section_desc}</p>
+"""
+        
+        for i, contrib in enumerate(explanation.top_increasing_factors[:5], 1):
+            # Calculate percentage width for bar
+            max_contrib = max(abs(c.contribution_points) for c in explanation.top_increasing_factors[:5])
+            bar_width = (abs(contrib.contribution_points) / max_contrib * 100) if max_contrib > 0 else 0
+            
+            # Get deviation info
+            deviation_text = f"{abs(contrib.deviation_percent):.0f}% from avg"
+            if contrib.is_suboptimal:
+                if contrib.user_value > contrib.population_mean:
+                    deviation_text = f"{abs(contrib.deviation_percent):.0f}% above average"
+                else:
+                    deviation_text = f"{abs(contrib.deviation_percent):.0f}% below average"
+            
+            html += f"""
+                        <div class="contribution-item" style="margin-bottom: 12px; background: #fff5f5; padding: 12px; border-radius: 6px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                                <div class="contribution-feature" style="flex: 0 0 160px; font-weight: 600; color: #1f2937;">
+                                    {i}. {contrib.display_name}
+                                </div>
+                                <div style="flex: 1; font-size: 0.85em; color: #6b7280; text-align: right;">
+                                    Your value: <strong>{contrib.user_value:.1f} {contrib.unit}</strong> ({deviation_text})
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div class="contribution-bar-container" style="flex: 1; height: 24px; background: #fee2e2; border-radius: 4px; overflow: hidden;">
+                                    <div class="contribution-bar increasing" style="width: {bar_width}%; height: 100%; background: linear-gradient(90deg, #dc2626, #ef4444); display: flex; align-items: center; padding-left: 8px; color: white; font-weight: 600; font-size: 0.8em;">
+                                        {contrib.contribution_points:+.2f} pts
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="font-size: 0.8em; color: #6b7280; margin-top: 6px;">
+                                💡 <em>Population average: {contrib.population_mean:.1f} {contrib.unit}</em>
+                            </div>
+                        </div>
+"""
+        html += """
+                    </div>
+"""
+    
+    # Factors making it BETTER (protective/positive factors)
+    if explanation.top_decreasing_factors:
+        if is_inverted:
+            section_title = "✅ Positive Factors Boosting Your Score"
+            section_desc = "These healthy behaviors are helping increase your score. Keep these up!"
+        else:
+            section_title = "✅ Positive Factors Lowering Your Score (Protective)"
+            section_desc = "These healthy behaviors are keeping your score down (which is good for this metric). These are your strengths!"
+        
+        html += f"""
+                    <div class="contributions-section" style="margin-top: 20px;">
+                        <div class="contributions-title" style="font-size: 1em; margin-bottom: 8px;">{section_title}</div>
+                        <p style="font-size: 0.85em; color: #6b7280; margin-bottom: 15px; line-height: 1.5;">{section_desc}</p>
+"""
+        
+        for i, contrib in enumerate(explanation.top_decreasing_factors[:3], 1):
+            max_contrib = max(abs(c.contribution_points) for c in explanation.top_decreasing_factors[:3])
+            bar_width = (abs(contrib.contribution_points) / max_contrib * 100) if max_contrib > 0 else 0
+            
+            deviation_text = f"{abs(contrib.deviation_percent):.0f}% from avg"
+            if contrib.user_value > contrib.population_mean:
+                deviation_text = f"{abs(contrib.deviation_percent):.0f}% above average"
+            elif contrib.user_value < contrib.population_mean:
+                deviation_text = f"{abs(contrib.deviation_percent):.0f}% below average"
+            
+            html += f"""
+                        <div class="contribution-item" style="margin-bottom: 12px; background: #f0fdf4; padding: 12px; border-radius: 6px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                                <div class="contribution-feature" style="flex: 0 0 160px; font-weight: 600; color: #1f2937;">
+                                    {i}. {contrib.display_name}
+                                </div>
+                                <div style="flex: 1; font-size: 0.85em; color: #6b7280; text-align: right;">
+                                    Your value: <strong>{contrib.user_value:.1f} {contrib.unit}</strong> ({deviation_text})
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div class="contribution-bar-container" style="flex: 1; height: 24px; background: #dcfce7; border-radius: 4px; overflow: hidden;">
+                                    <div class="contribution-bar decreasing" style="width: {bar_width}%; height: 100%; background: linear-gradient(90deg, #059669, #10b981); display: flex; align-items: center; padding-left: 8px; color: white; font-weight: 600; font-size: 0.8em;">
+                                        {contrib.contribution_points:+.2f} pts
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="font-size: 0.8em; color: #6b7280; margin-top: 6px;">
+                                💡 <em>Population average: {contrib.population_mean:.1f} {contrib.unit}</em>
+                            </div>
+                        </div>
+"""
+        html += """
+                    </div>
+"""
+    
+    # Recommendations
+    if explanation.recommendations:
+        html += """
+                    <div class="recommendations-section" style="margin-top: 20px;">
+                        <div class="contributions-title" style="font-size: 1em; margin-bottom: 8px;">💡 What You Can Do</div>
+                        <p style="font-size: 0.85em; color: #6b7280; margin-bottom: 15px; line-height: 1.5;">
+                            Based on your current patterns, here are the most impactful changes you can make:
+                        </p>
+"""
+        for rec in explanation.recommendations[:3]:
+            priority_colors = {
+                "high": {"bg": "#fee2e2", "border": "#dc2626", "text": "#991b1b"},
+                "medium": {"bg": "#fef3c7", "border": "#f59e0b", "text": "#92400e"},
+                "low": {"bg": "#dbeafe", "border": "#3b82f6", "text": "#1e40af"}
+            }
+            colors = priority_colors.get(rec.priority, priority_colors["medium"])
+            
+            html += f"""
+                        <div class="recommendation-item" style="background: {colors['bg']}; border-left: 4px solid {colors['border']}; padding: 15px; margin-bottom: 12px; border-radius: 6px;">
+                            <div class="recommendation-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <div class="recommendation-feature" style="font-weight: 700; font-size: 1em; color: #1f2937;">
+                                    {rec.display_name}
+                                </div>
+                                <div class="recommendation-priority" style="background: {colors['text']}; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700;">
+                                    {rec.priority}
+                                </div>
+                            </div>
+                            <div class="recommendation-action" style="font-size: 0.9em; color: #374151; margin-bottom: 8px; line-height: 1.5;">
+                                📌 {rec.action_description}
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.85em;">
+                                <div class="recommendation-impact" style="color: {colors['border']}; font-weight: 600;">
+                                    Expected impact: {rec.expected_impact:+.2f} points
+                                </div>
+                                <div style="color: #6b7280;">
+                                    Difficulty: {rec.difficulty}
+                                </div>
+                            </div>
+                        </div>
+"""
+        html += """
+                    </div>
+"""
+    
+    html += """
+                </div>
+"""
+    
+    return html
 
 
 # ============================================================================
@@ -2443,6 +2654,163 @@ def generate_html_report(profile: UserProfile, output_dir: Path) -> Path:
             font-size: 0.85em;
             color: #6c757d;
             margin-top: 8px;
+        }}
+        
+        /* Explanation Cards (NEW) */
+        .explanation-card {{
+            background: #f8f9ff;
+            border-radius: 10px;
+            padding: 18px;
+            margin-top: 15px;
+            border-left: 4px solid #7c3aed;
+        }}
+        
+        .explanation-header {{
+            font-size: 0.95em;
+            font-weight: 700;
+            color: #7c3aed;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        
+        .explanation-summary {{
+            font-size: 0.9em;
+            color: #4b5563;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }}
+        
+        .contributions-section {{
+            margin-bottom: 15px;
+        }}
+        
+        .contributions-title {{
+            font-size: 0.85em;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }}
+        
+        .contribution-item {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 0.85em;
+        }}
+        
+        .contribution-feature {{
+            flex: 0 0 140px;
+            color: #4b5563;
+            font-weight: 500;
+        }}
+        
+        .contribution-bar-container {{
+            flex: 1;
+            height: 20px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }}
+        
+        .contribution-bar {{
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }}
+        
+        .contribution-bar.increasing {{
+            background: linear-gradient(90deg, #dc2626, #ef4444);
+        }}
+        
+        .contribution-bar.decreasing {{
+            background: linear-gradient(90deg, #059669, #10b981);
+        }}
+        
+        .contribution-value {{
+            min-width: 50px;
+            text-align: right;
+            color: #6b7280;
+            font-weight: 600;
+        }}
+        
+        .recommendations-section {{
+            margin-top: 15px;
+        }}
+        
+        .recommendation-item {{
+            background: white;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 3px solid;
+        }}
+        
+        .recommendation-item.high {{
+            border-color: #dc2626;
+        }}
+        
+        .recommendation-item.medium {{
+            border-color: #f59e0b;
+        }}
+        
+        .recommendation-item.low {{
+            border-color: #10b981;
+        }}
+        
+        .recommendation-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }}
+        
+        .recommendation-feature {{
+            font-weight: 600;
+            font-size: 0.9em;
+            color: #1f2937;
+        }}
+        
+        .recommendation-priority {{
+            font-size: 0.75em;
+            padding: 3px 8px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }}
+        
+        .recommendation-priority.high {{
+            background: #fee2e2;
+            color: #991b1b;
+        }}
+        
+        .recommendation-priority.medium {{
+            background: #fef3c7;
+            color: #92400e;
+        }}
+        
+        .recommendation-priority.low {{
+            background: #d1fae5;
+            color: #065f46;
+        }}
+        
+        .recommendation-action {{
+            font-size: 0.85em;
+            color: #4b5563;
+            margin-bottom: 6px;
+            line-height: 1.4;
+        }}
+        
+        .recommendation-impact {{
+            font-size: 0.8em;
+            color: #7c3aed;
+            font-weight: 600;
         }}
         
         .chart-container {{
@@ -2907,6 +3275,26 @@ def generate_html_report(profile: UserProfile, output_dir: Path) -> Path:
                 <div class="chart-container">
                     <canvas id="predictionsChart"></canvas>
                 </div>
+            </div>
+"""
+    
+    # Add explanations section
+    if profile.explanations:
+        html += """
+            <!-- Prediction Explanations -->
+            <div class="section">
+                <h2 class="section-title">🔍 Understanding Your Predictions</h2>
+                <p style="color: #6c757d; margin-bottom: 25px; line-height: 1.6;">
+                    These explanations break down the key behavioral factors influencing each prediction. 
+                    We analyze how your daily habits compare to population averages and quantify their impact on your mental health scores.
+                </p>
+"""
+        
+        for target in DAILY_TARGETS:
+            if target in profile.explanations:
+                html += render_explanation_html(profile.explanations[target], target)
+        
+        html += """
             </div>
 """
     

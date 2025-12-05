@@ -29,6 +29,9 @@ import sys
 # Add scripts to path
 sys.path.append(str(Path(__file__).parent / "scripts"))
 
+# Import explanation engine
+from explain_predictions import ExplanationEngine
+
 # ============================================================================
 # MODEL ARCHITECTURE
 # ============================================================================

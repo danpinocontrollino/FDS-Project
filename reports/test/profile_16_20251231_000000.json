@@ -1,0 +1,132 @@
+{
+  "user_id": "16",
+  "timestamp": "2025-12-31T00:00:00",
+  "data_date": "2025-12-31T00:00:00",
+  "job_category": "other",
+  "data_quality_score": 0.7176470588235294,
+  "missing_features": [],
+  "predictions": {
+    "stress_level": {
+      "value": 4.09,
+      "at_risk": false,
+      "at_risk_probability": 0.092,
+      "confidence": 0.817,
+      "threshold": 6
+    },
+    "mood_score": {
+      "value": 6.5,
+      "at_risk": false,
+      "at_risk_probability": 0.062,
+      "confidence": 0.876,
+      "threshold": 4
+    },
+    "energy_level": {
+      "value": 5.82,
+      "at_risk": false,
+      "at_risk_probability": 0.169,
+      "confidence": 0.662,
+      "threshold": 4
+    },
+    "focus_score": {
+      "value": 5.74,
+      "at_risk": false,
+      "at_risk_probability": 0.219,
+      "confidence": 0.561,
+      "threshold": 4
+    },
+    "perceived_stress_scale": {
+      "value": 18.62,
+      "at_risk": false,
+      "at_risk_probability": 0.306,
+      "confidence": 0.388,
+      "threshold": 20
+    },
+    "anxiety_score": {
+      "value": 5.02,
+      "at_risk": false,
+      "at_risk_probability": 0.173,
+      "confidence": 0.654,
+      "threshold": 6
+    },
+    "depression_score": {
+      "value": 10.25,
+      "at_risk": false,
+      "at_risk_probability": 0.0,
+      "confidence": 0.999,
+      "threshold": 15
+    },
+    "job_satisfaction": {
+      "value": 7.09,
+      "at_risk": false,
+      "at_risk_probability": 0.0,
+      "confidence": 1.0,
+      "threshold": 4
+    }
+  },
+  "risk_factors": [
+    "Sedentary lifestyle: 5min/day exercise",
+    "Elevated alcohol: 5.0 units/day"
+  ],
+  "positive_factors": [
+    "Healthy depression score: 10.2",
+    "Low anxiety: 5.0",
+    "High job satisfaction: 7.1/9",
+    "Optimal sleep: 7.6h/day",
+    "Good social connections: 5.0 interactions/day"
+  ],
+  "contradictions": [],
+  "recommendations": [
+    {
+      "category": "physical_health",
+      "priority": "medium",
+      "advice": "Increase activity: aim for 30min moderate exercise daily (brisk walk counts), take movement breaks every hour, use stairs, park farther away",
+      "rationale": "Regular exercise reduces stress, improves mood, and enhances cognitive function. Small changes compound over time.",
+      "job_specific": null
+    },
+    {
+      "category": "tracking",
+      "priority": "low",
+      "advice": "Schedule your next mental health check-in 2-4 weeks from now to establish trend data. Consistent tracking reveals patterns that single assessments miss.",
+      "rationale": "Mental health fluctuates. Tracking trends helps differentiate temporary stress from chronic issues, and validates that interventions are working.",
+      "job_specific": null
+    }
+  ],
+  "behavioral_interventions": [
+    {
+      "category": "Sleep Quality",
+      "current": "5.0/10",
+      "target": "7-9/10",
+      "change_needed": "+2.0 points",
+      "evidence": "\ud83d\udcca Data insight: Meditation intervention participants improved sleep quality by average 2.3 points over 6-8 weeks",
+      "specific_actions": [
+        "Try 4-7-8 breathing before bed: inhale 4s, hold 7s, exhale 8s (repeat 4x)",
+        "No caffeine after 2pm (6-hour half-life fragments REM sleep)",
+        "Keep bedroom cool (65-68\u00b0F) and dark - temperature drop signals sleep onset"
+      ],
+      "priority": "MEDIUM"
+    },
+    {
+      "category": "Physical Activity",
+      "current": "5min/day",
+      "target": "30+ min/day",
+      "change_needed": "+25min daily movement",
+      "evidence": "\ud83d\udcca Data insight: Exercise plan intervention - participants averaging 30+min daily had 23% lower anxiety scores vs sedentary group",
+      "specific_actions": [
+        "Start small: add 25min walking during lunch break",
+        "Movement snacks: 5-min walks every 2 hours (breaks cortisol accumulation)",
+        "Commute hack: park farther away, take stairs, get off bus 1 stop early"
+      ],
+      "priority": "MEDIUM"
+    }
+  ],
+  "history_analysis": {
+    "trends": {},
+    "summary": "first_assessment",
+    "alerts": [],
+    "insights": [
+      "This is your first assessment. Future assessments will track trends."
+    ],
+    "assessment_count": 1,
+    "tracking_days": 0
+  }
+}
