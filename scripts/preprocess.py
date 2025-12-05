@@ -173,89 +173,47 @@ GOOGLE_FORM_COLUMN_MAPPING = {
 # Maps text responses to standardized categories for label encoding
 
 JOB_TYPE_MAPPING = {
-    # 🧠 Knowledge/Office work
-    "software": "knowledge_work",
-    "research": "knowledge_work",
-    "it": "knowledge_work",
-    "engineer": "knowledge_work",
-    "developer": "knowledge_work",
-    "analyst": "knowledge_work",
-    "consultant": "knowledge_work",
-    "data scientist": "knowledge_work",
-    "programmer": "knowledge_work",
-    "actuary": "knowledge_work",
-
-    # 🎨 Creative work
-    "creative work": "creative_work",
-    "design": "creative_work",
-    "writing": "creative_work",
-    "marketing": "creative_work",
-    "content": "creative_work",
-    "art": "creative_work",
-    "editor": "creative_work",
-    "journalist": "creative_work",
-    "designer": "creative_work",
-    "musician": "creative_work",
-
-    # 🏥 Healthcare
-    "healthcare": "healthcare",
-    "medical": "healthcare",
-    "nurse": "healthcare",
-    "doctor": "healthcare",
-    "surgeon": "healthcare",
-    "dentist": "healthcare",
-    "paramedic": "healthcare",
-    "therapist": "healthcare",
-    "pharmacist": "healthcare",
-
-    # 📚 Education
-    "teacher": "education",
-    "professor": "education",
-    "tutor": "education",
-    "principal": "education",
-    "librarian": "education",
-    "instructor": "education",
+    # 💻 Software Engineer
+    "software developer": "software_engineer",
+    "engineer": "software_engineer",
+    "programmer": "software_engineer",
+    "it": "software_engineer",
+    "tech": "software_engineer",
+    "data scientist": "software_engineer",
 
 
-    # 🤝 Service industry
-    "customer service": "service",
-    "retail": "service",
-    "hospitality": "service",
-    "sales": "service",
-    "cashier": "service",
-    "waiter": "service",
-    "barista": "service",
-    "security guard": "service",
-    "food service": "service",
-    "flight attendant": "service",
+    # 🏫 Teacher
+    "teacher": "teacher",
+    "professor": "teacher",
+    "instructor": "teacher",
+    "tutor": "teacher",
 
-    # 💪 Manual/Physical
-    "other manual labor": "manual_labor",
-    "other physical labor": "manual_labor",
-    "construction": "manual_labor",
-    "manufacturing": "manual_labor",
-    "electrician": "manual_labor",
-    "plumber": "manual_labor",
-    "carpenter": "manual_labor",
-    "mechanic": "manual_labor",
-    "driver": "manual_labor",
-    "laborer": "manual_labor",
-    "janitor": "manual_labor",
+    # 🏥 Nurse
+    "nurse": "nurse",
+    "healthcare": "nurse",
+    "physiotherapist": "nurse",
+    "doctor": "nurse",
+    
+    # 👔 Manager
+    "manager": "manager",
+    "executive": "manager",
+    "director": "manager",
+    "supervisor": "manager",
+    "ceo": "manager",
+    "lead": "manager",
 
-    # 📈 Management
-    "executive": "management",
-    "manager": "management",
-    "ceo": "management",
-    "director": "management",
-    "supervisor": "management",
-    "operations": "management",
+    # ⚙️ Operations
+    "operations": "operations",
+    "administrative": "operations",
+    "coordinator": "operations",
+    "specialist": "operations",
 
-    # 💰 Finance
-    "banker": "finance",
-    "accountant": "finance",
-    "auditor": "finance",
-    "investor": "finance",
-    "broker": "finance",
+    # 🧘 Wellness Coach
+    "wellness coach": "wellness_coach",
+    "health coach": "wellness_coach",
+    "fitness": "wellness_coach",
+    "trainer": "wellness_coach",
+    "psychologist": "wellness_coach",
 }
 
 WORK_ARRANGEMENT_MAPPING = {
@@ -696,15 +654,12 @@ def adjust_screen_time_for_job(df: pd.DataFrame) -> pd.DataFrame:
     
     # Estimate work-required screen time based on job type
     job_screen_requirements = {
-        "knowledge_work": 6,
-        "creative_work": 5,
-        "finance": 6,
-        "customer_service": 5,
-        "management": 4,
-        "sales": 3,
-        "healthcare": 2,
-        "education": 3,
-        "manual_labor": 1,
+        "software_engineer": 6,
+        "teacher": 3,
+        "nurse": 2,
+        "manager": 4,
+        "operations": 5,
+        "wellness_coach": 2,
         "other": 3,
     }
     

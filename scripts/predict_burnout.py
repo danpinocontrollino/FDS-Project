@@ -2338,10 +2338,10 @@ def get_specific_advice(feature: str, current: float, target: float, diff: float
 
 JOB_ADVICE_TEMPLATES = {
     # =========================================================================
-    # KNOWLEDGE WORKERS (Software, Research, Data, Engineering)
+    # SOFTWARE ENGINEER (Software, Tech, Programming)
     # =========================================================================
-    "knowledge_work": {
-        "title": "Knowledge Worker (Software/Research)",
+    "software_engineer": {
+        "title": "Software Engineer",
         "icon": "💻",
         "key_risks": [
             "Extended screen time causing eye strain and posture issues",
@@ -2402,9 +2402,9 @@ JOB_ADVICE_TEMPLATES = {
     },
     
     # =========================================================================
-    # HEALTHCARE WORKERS (Medical, Nursing, Therapy)
+    # NURSE (Healthcare, Medical, Nursing)
     # =========================================================================
-    "healthcare": {
+    "nurse": {
         "title": "Healthcare Professional",
         "icon": "🏥",
         "key_risks": [
@@ -2434,9 +2434,9 @@ JOB_ADVICE_TEMPLATES = {
     },
     
     # =========================================================================
-    # EDUCATION (Teaching, Professors, Trainers)
+    # TEACHER (Teaching, Education, Training)
     # =========================================================================
-    "education": {
+    "teacher": {
         "title": "Educator (Teaching/Training)",
         "icon": "📚",
         "key_risks": [
@@ -2466,34 +2466,66 @@ JOB_ADVICE_TEMPLATES = {
     },
     
     # =========================================================================
-    # SERVICE INDUSTRY (Retail, Customer Service, Hospitality)
+    # OPERATIONS (Administrative, Coordinators, Specialists)
     # =========================================================================
-    "service": {
-        "title": "Service Professional (Retail/Hospitality)",
-        "icon": "🛍️",
+    "operations": {
+        "title": "Operations Professional",
+        "icon": "⚙️",
         "key_risks": [
-            "Emotional labor of customer-facing performance",
-            "Unpredictable schedules disrupting circadian rhythm",
-            "Physical demands of standing, walking, lifting",
-            "Low autonomy and micromanagement stress",
+            "Constant interruptions disrupting workflow",
+            "Responsibility for smooth organizational functioning",
+            "Multiple stakeholders with competing demands",
+            "Limited visibility for contributions",
         ],
         "recovery_tips": [
-            "Transition ritual after work: shower, change clothes, decompress",
-            "Social time with people you DON'T have to be 'nice' to",
-            "Complete silence/solitude to recharge from constant interaction",
-            "Hobbies where you are not serving anyone",
+            "Transition ritual after work: separate from work device",
+            "Organize non-work time with same attention to detail you use at work",
+            "Hobbies that are 'good enough' and don't require perfection",
+            "Acknowledge small wins - operations work often goes unnoticed",
         ],
         "boundaries": [
-            "Do not internalize rude customers - their behavior is not about you",
-            "Advocate for schedule predictability when possible",
-            "Use break time for actual breaks, not prep work",
-            "Off-clock means off - do not answer work messages",
+            "Not everything urgent IS urgent - triage based on real impact",
+            "Protect focus time for important projects, not just reactive tasks",
+            "Delegate when possible - you don't have to do everything",
+            "Off-hours emergency protocols: define what counts as 'real' emergency",
         ],
         "physical": [
-            "Supportive footwear is critical - invest in quality shoes",
-            "Compression socks for long standing shifts",
-            "Stretching before and after shifts for back/leg health",
-            "Meal timing around shifts - do not skip meals",
+            "Movement breaks every hour - operations roles are often desk-bound",
+            "Eye strain prevention: 20-20-20 rule, blue light filter",
+            "Posture optimization for desk work",
+            "Regular walks to break interrupt cycles",
+        ],
+    },
+    
+    # =========================================================================
+    # WELLNESS COACH (Health, Fitness, Coaching, Psychology)
+    # =========================================================================
+    "wellness_coach": {
+        "title": "Wellness Coach/Health Professional",
+        "icon": "🧘",
+        "key_risks": [
+            "Emotional labor from deep client relationships",
+            "Tendency to neglect own health while helping others",
+            "Vicarious trauma from client struggles",
+            "Boundary blurring between professional and personal",
+        ],
+        "recovery_tips": [
+            "Practice the wellness advice you give clients",
+            "Regular supervision or peer consultation for emotional processing",
+            "Hobbies completely separate from coaching/health field",
+            "Clear end-of-day ritual to transition from 'helper' mode",
+        ],
+        "boundaries": [
+            "Your health comes first - you cannot pour from empty cup",
+            "Set firm session boundaries and stick to them",
+            "Do not provide free advice outside sessions",
+            "Protect personal health boundaries from client needs",
+        ],
+        "physical": [
+            "Walk the talk - prioritize your own exercise and nutrition",
+            "Regular massage or physical therapy (practice self-care)",
+            "Sleep and stress management protocols",
+            "Movement throughout day, not just during client sessions",
         ],
     },
     
@@ -2530,9 +2562,9 @@ JOB_ADVICE_TEMPLATES = {
     },
     
     # =========================================================================
-    # MANAGEMENT/EXECUTIVE
+    # MANAGER/EXECUTIVE
     # =========================================================================
-    "management": {
+    "manager": {
         "title": "Manager/Executive",
         "icon": "📊",
         "key_risks": [
@@ -2677,54 +2709,31 @@ def get_job_specific_advice(job_type: str) -> Dict[str, Any]:
     if job_lower in JOB_ADVICE_TEMPLATES:
         return JOB_ADVICE_TEMPLATES[job_lower]
     
-    # Map common variations to standard categories
+    # Map common variations to standard categories (matching preprocess.py JOB_TYPE_MAPPING)
     # Order matters: more specific patterns first, then generic ones
-    # Note: C-suite titles need spaces to avoid matching within words (e.g., "cto" in "instructor")
     job_mapping = [
-        # Finance/Accounting - Check BEFORE knowledge work (analyst overlap)
-        (["accountant", "accounting", "financial", "finance", "banker", "banking",
-          "auditor", "bookkeeper", "tax ", "investment", "actuary"], "finance"),
+        # Software Engineer - Software/Tech/Programming
+        (["software developer", "engineer", "programmer", "tech", "it ", "coding",
+          "data scientist", "architect"], "software_engineer"),
         
-        # Management/Executive - Check early for "lead" patterns
-        # Using word boundary matching so "cto" won't match "instructor"
-        (["manager", "executive", "director", "ceo", "cto", "cfo", "coo", "vp ",
-          "vice president", "lead", "supervisor", "head of", "chief", "founder", 
-          "owner", "president", "principal"], "management"),
+        # Teacher - Education/Teaching/Training
+        (["teacher", "professor", "instructor", "tutor"], "teacher"),
         
-        # Healthcare - Medical/Nursing/Therapy
-        (["doctor", "nurse", "medical", "healthcare", "hospital", "therapist", 
-          "counselor", "physician", "surgeon", "dentist", "pharmacist", "paramedic",
-          "caregiver", "health"], "healthcare"),
+        # Nurse - Healthcare/Medical
+        (["nurse", "healthcare", "physiotherapist", "doctor", "medical", "hospital",
+          "therapist", "health professional"], "nurse"),
         
-        # Education - Teaching/Training
-        (["teacher", "professor", "educator", "instructor", "trainer", "tutor", 
-          "teaching", "academic", "faculty", "lecturer", "coach", "mentor"], "education"),
+        # Manager - Management/Executive
+        (["manager", "executive", "director", "supervisor", "ceo", "lead"],
+          "manager"),
         
-        # Creative Work - Design/Writing/Art/Marketing
-        (["designer", "artist", "writer", "author", "creative", "marketing", "content",
-          "graphic", "ux ", "ui ", "illustrator", "photographer", "video", "animator",
-          "copywriter", "editor", "journalist"], "creative_work"),
+        # Operations - Administrative/Operations
+        (["operations", "administrative", "coordinator", "specialist"],
+          "operations"),
         
-        # Service Industry - Retail/Hospitality/Customer Service  
-        (["retail", "hospitality", "customer service", "waiter", "waitress", "server",
-          "cashier", "barista", "bartender", "receptionist", "sales associate", 
-          "shop assistant", "store clerk", "service rep", "call center", "hotel",
-          "restaurant"], "service"),
-        
-        # Manual/Physical Labor - Construction/Trades/Manufacturing
-        (["construction", "manufacturing", "physical labor", "manual", "trades",
-          "mechanic", "plumber", "electrician", "carpenter", "welder", "factory",
-          "warehouse", "driver", "delivery", "mover", "landscap", "mason", 
-          "roofer", "hvac"], "manual_labor"),
-        
-        # Student - University, Graduate, High School (check BEFORE knowledge_work for "phd student")
-        (["student", "university", "college", "graduate", "undergrad", "phd student",
-          "masters", "bachelor", "studying", "school", "intern"], "student"),
-        
-        # Knowledge Work - Software/Tech/Research/IT (check last - has broad terms like "analyst")
-        (["software", "developer", "programmer", "engineer", "coding", "data scientist",
-          "researcher", "analyst", "data", "it ", "tech", "scientist", "phd", "architect",
-          "consultant", "it professional"], "knowledge_work"),
+        # Wellness Coach - Wellness/Fitness/Psychology
+        (["wellness coach", "health coach", "fitness", "trainer", "psychologist"],
+          "wellness_coach"),
     ]
     
     # Helper function to check word boundary match

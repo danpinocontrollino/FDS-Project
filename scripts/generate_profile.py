@@ -98,12 +98,12 @@ JOB_CATEGORIES = [
 
 # Job category keyword mapping for automatic classification (matching training data)
 JOB_KEYWORDS = {
-    "software_engineer": ["software", "developer", "engineer", "programmer", "tech", "it", "coding", "data scientist"],
-    "teacher": ["teacher", "professor", "educator", "instructor", "tutor", "academic", "faculty", "lecturer"],
-    "nurse": ["nurse", "nursing", "healthcare", "medical", "hospital", "rn", "health professional"],
-    "manager": ["manager", "director", "executive", "lead", "supervisor", "ceo", "management"],
-    "operations": ["operations", "ops", "admin", "coordinator", "specialist", "administrative"],
-    "wellness_coach": ["wellness", "coach", "health coach", "fitness", "trainer", "therapist"],
+    "software_engineer": ["software developer", "engineer", "programmer", "tech", "it", "coding", "data scientist"],
+    "teacher": ["teacher", "professor", "instructor", "tutor"],
+    "nurse": ["nurse", "healthcare", "physiotherapist", "doctor"],
+    "manager": ["manager", "executive", "director", "supervisor", "ceo", "lead"],
+    "operations": ["operations", "administrative", "coordinator", "specialist"],
+    "wellness_coach": ["wellness coach", "health coach", "fitness", "trainer", "psychologist"],
 }
 
 
