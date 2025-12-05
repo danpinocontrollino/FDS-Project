@@ -157,9 +157,7 @@ BINARY_RISK_LEVELS = {
 
 # Jobs that require screen time - don't suggest "reduce screen time" for these
 SCREEN_INTENSIVE_JOBS = {
-    "knowledge work", "software", "research", "engineering", "developer",
-    "programming", "data", "analyst", "designer", "creative", "writing",
-    "content", "marketing", "finance", "accounting", "customer service",
+    "software_engineer", "manager", "operations",
 }
 
 # Extended healthy baselines including V2 features
@@ -2723,9 +2721,10 @@ def get_job_specific_advice(job_type: str) -> Dict[str, Any]:
         (["student", "university", "college", "graduate", "undergrad", "phd student",
           "masters", "bachelor", "studying", "school", "intern"], "student"),
         
-        # Knowledge Work - Software/Tech/Research (check last - has broad terms like "analyst")
+        # Knowledge Work - Software/Tech/Research/IT (check last - has broad terms like "analyst")
         (["software", "developer", "programmer", "engineer", "coding", "data scientist",
-          "researcher", "analyst", "data", "it ", "tech", "scientist", "phd"], "knowledge_work"),
+          "researcher", "analyst", "data", "it ", "tech", "scientist", "phd", "architect",
+          "consultant", "it professional"], "knowledge_work"),
     ]
     
     # Helper function to check word boundary match

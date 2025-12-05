@@ -173,68 +173,89 @@ GOOGLE_FORM_COLUMN_MAPPING = {
 # Maps text responses to standardized categories for label encoding
 
 JOB_TYPE_MAPPING = {
-    # Knowledge/Office work
-    "knowledge work (software, research)": "knowledge_work",
-    "knowledge work": "knowledge_work",
+    # 🧠 Knowledge/Office work
     "software": "knowledge_work",
     "research": "knowledge_work",
     "it": "knowledge_work",
     "engineer": "knowledge_work",
     "developer": "knowledge_work",
     "analyst": "knowledge_work",
-    
-    # Creative work
-    "creative work (design, writing, art)": "creative_work",
+    "consultant": "knowledge_work",
+    "data scientist": "knowledge_work",
+    "programmer": "knowledge_work",
+    "actuary": "knowledge_work",
+
+    # 🎨 Creative work
     "creative work": "creative_work",
     "design": "creative_work",
     "writing": "creative_work",
     "marketing": "creative_work",
     "content": "creative_work",
-    
-    # Healthcare
-    "healthcare / medical": "healthcare",
+    "art": "creative_work",
+    "editor": "creative_work",
+    "journalist": "creative_work",
+    "designer": "creative_work",
+    "musician": "creative_work",
+
+    # 🏥 Healthcare
     "healthcare": "healthcare",
     "medical": "healthcare",
     "nurse": "healthcare",
     "doctor": "healthcare",
-    
-    # Education
-    "education / teaching": "education",
-    "education": "education",
-    "teaching": "education",
+    "surgeon": "healthcare",
+    "dentist": "healthcare",
+    "paramedic": "healthcare",
+    "therapist": "healthcare",
+    "pharmacist": "healthcare",
+
+    # 📚 Education
     "teacher": "education",
     "professor": "education",
-    
-    # Service industry
-    "customer service / retail": "service",
+    "tutor": "education",
+    "principal": "education",
+    "librarian": "education",
+    "instructor": "education",
+
+
+    # 🤝 Service industry
     "customer service": "service",
     "retail": "service",
     "hospitality": "service",
     "sales": "service",
-    
-    # Manual/Physical
-    "manual / physical labor": "manual_labor",
-    "manual labor": "manual_labor",
-    "physical labor": "manual_labor",
+    "cashier": "service",
+    "waiter": "service",
+    "barista": "service",
+    "security guard": "service",
+    "food service": "service",
+    "flight attendant": "service",
+
+    # 💪 Manual/Physical
+    "other manual labor": "manual_labor",
+    "other physical labor": "manual_labor",
     "construction": "manual_labor",
     "manufacturing": "manual_labor",
-    
-    # Management
-    "management / executive": "management",
-    "management": "management",
+    "electrician": "manual_labor",
+    "plumber": "manual_labor",
+    "carpenter": "manual_labor",
+    "mechanic": "manual_labor",
+    "driver": "manual_labor",
+    "laborer": "manual_labor",
+    "janitor": "manual_labor",
+
+    # 📈 Management
     "executive": "management",
     "manager": "management",
-    
-    # Finance
-    "finance / accounting": "finance",
-    "finance": "finance",
-    "accounting": "finance",
-    
-    # Other
-    "other": "other",
-    "student": "other",
-    "unemployed": "other",
-    "retired": "other",
+    "ceo": "management",
+    "director": "management",
+    "supervisor": "management",
+    "operations": "management",
+
+    # 💰 Finance
+    "banker": "finance",
+    "accountant": "finance",
+    "auditor": "finance",
+    "investor": "finance",
+    "broker": "finance",
 }
 
 WORK_ARRANGEMENT_MAPPING = {

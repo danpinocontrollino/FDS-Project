@@ -85,29 +85,25 @@ ALL_TARGETS = DAILY_TARGETS + WEEKLY_TARGETS
 # Inverted targets (higher = better)
 INVERTED_TARGETS = {"mood_score", "energy_level", "focus_score", "job_satisfaction"}
 
-# Job categories for personalized advice
+# Job categories for personalized advice (matching training data)
 JOB_CATEGORIES = [
-    "knowledge_worker",      # Software, data science, research
-    "healthcare",            # Doctors, nurses, therapists
-    "education",             # Teachers, professors
-    "creative",              # Designers, artists, content creators
-    "management",            # Managers, executives, team leads
-    "service",               # Customer service, hospitality
-    "manual_labor",          # Construction, warehouse, delivery
-    "sales_marketing",       # Sales, marketing, business development
+    "software_engineer",     # Software developers, engineers, programmers
+    "teacher",               # Teachers, educators, instructors
+    "nurse",                 # Healthcare professionals, nurses
+    "manager",               # Managers, executives, supervisors
+    "operations",            # Operations staff, coordinators, specialists
+    "wellness_coach",        # Wellness coaches, health professionals
     "other",                 # Default fallback
 ]
 
-# Job category keyword mapping for automatic classification
+# Job category keyword mapping for automatic classification (matching training data)
 JOB_KEYWORDS = {
-    "knowledge_worker": ["software", "developer", "engineer", "data", "scientist", "analyst", "programmer", "tech", "research", "architect"],
-    "healthcare": ["doctor", "nurse", "physician", "therapist", "medical", "healthcare", "clinical", "hospital", "patient"],
-    "education": ["teacher", "professor", "educator", "instructor", "academic", "tutor", "faculty", "lecturer"],
-    "creative": ["designer", "artist", "creative", "writer", "content", "marketing creative", "ux", "ui", "graphic", "film", "producer", "director", "cinematographer", "editor", "media"],
-    "management": ["manager", "director", "executive", "lead", "supervisor", "ceo", "cto", "head of", "vp"],
-    "service": ["customer service", "support", "hospitality", "retail", "waiter", "server", "receptionist"],
-    "manual_labor": ["construction", "warehouse", "delivery", "driver", "mechanic", "technician", "maintenance", "labor"],
-    "sales_marketing": ["sales", "marketing", "business development", "account", "representative", "consultant"],
+    "software_engineer": ["software", "developer", "engineer", "programmer", "tech", "it", "coding", "data scientist"],
+    "teacher": ["teacher", "professor", "educator", "instructor", "tutor", "academic", "faculty", "lecturer"],
+    "nurse": ["nurse", "nursing", "healthcare", "medical", "hospital", "rn", "health professional"],
+    "manager": ["manager", "director", "executive", "lead", "supervisor", "ceo", "management"],
+    "operations": ["operations", "ops", "admin", "coordinator", "specialist", "administrative"],
+    "wellness_coach": ["wellness", "coach", "health coach", "fitness", "trainer", "therapist"],
 }
 
 
@@ -1035,7 +1031,7 @@ def generate_job_specific_advice(
     # ========================================================================
     # KNOWLEDGE WORKERS (Software, Data Science, Research)
     # ========================================================================
-    if job_category == "knowledge_worker":
+    if job_category == "knowledge_work":
         
         # High stress + long hours
         if predictions["stress_level"]["at_risk"] and avg["work_hours"] > 9:
