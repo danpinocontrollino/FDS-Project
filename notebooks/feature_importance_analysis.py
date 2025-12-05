@@ -5,6 +5,15 @@ FEATURE IMPORTANCE ANALYSIS - KAGGLE NOTEBOOK
 Run this in Kaggle with the mental health dataset to analyze which behavioral
 features are most predictive of mental health outcomes.
 
+SETUP IN KAGGLE:
+1. Add your dataset as input (e.g., /kaggle/input/mental-health-daily-logs)
+2. Clone the repo and run preprocessing:
+   !git clone https://github.com/danpinocontrollino/FDS-Project.git
+   %cd FDS-Project
+   !python scripts/create_burnout_labels.py --input-dir /kaggle/input/your-dataset/
+   !python scripts/preprocess.py
+3. Run this notebook (uses data/processed/daily_with_burnout.parquet)
+
 Copy this entire file into a Kaggle notebook cell.
 ================================================================================
 """
@@ -94,19 +103,9 @@ print("="*80)
 print("LOADING DATA")
 print("="*80)
 
-# Load your dataset
-# Option 1: From raw CSV (needs preprocessing)
-# df = pd.read_csv('/kaggle/input/your-dataset/daily_logs.csv')
-
-# Option 2: From preprocessed parquet (recommended)
-df = pd.read_parquet('/kaggle/input/your-dataset/daily_with_burnout.parquet')
-
-# Option 3: Preprocess from scratch
-# Uncomment to run preprocessing:
-# import sys
-# sys.path.append('/kaggle/working/FDS-Project/scripts')
-# from preprocess import preprocess_data
-# df = preprocess_data('/kaggle/input/your-dataset/daily_logs.csv')
+# Load preprocessed data
+# After running create_burnout_labels.py, load the processed file:
+df = pd.read_parquet('data/processed/daily_with_burnout.parquet')
 
 print(f"✓ Loaded {len(df):,} samples")
 print(f"✓ Columns: {df.columns.tolist()[:10]}...")
