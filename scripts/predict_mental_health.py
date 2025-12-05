@@ -45,6 +45,8 @@ FEATURE_COLS = [
     "steps_count", "caffeine_mg", "alcohol_units", "screen_time_hours",
     "social_interactions", "outdoor_time_minutes", "diet_quality",
     "work_pressure", "weather_mood_impact",
+    # === NEW V2 FEATURES ===
+    "morning_mood", "productivity_today", "day_overall_rating",
 ]
 
 # All targets
@@ -540,7 +542,6 @@ def parse_args():
     parser.add_argument("--user-id", type=int, help="User ID to predict for")
     parser.add_argument("--csv", type=str, help="CSV file with behavioral data")
     parser.add_argument("--html", type=str, help="Output path for HTML report")
-    parser.add_argument("--interactive", "-i", action="store_true", help="Interactive mode")
     return parser.parse_args()
 
 

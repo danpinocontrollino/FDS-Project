@@ -117,6 +117,25 @@ GOOGLE_FORM_COLUMN_MAPPING = {
     "job satisfaction (weekly)": "job_satisfaction",
     "job satisfaction": "job_satisfaction",
     
+    # === NEW V2 DAILY QUESTIONS ===
+    "how did you feel when you woke up": "morning_mood",
+    "feel when you woke up": "morning_mood",
+    "woke up this morning": "morning_mood",
+    "did you reach out to anyone for help": "reached_out_for_help",
+    "reach out to anyone for help": "reached_out_for_help",
+    "reached out to anyone": "reached_out_for_help",
+    "easy for you to completely disconnect": "work_disconnect_ease",
+    "disconnect from work emails": "work_disconnect_ease",
+    "how many times have you checked your email after hours": "email_checks_after_hours",
+    "checked your email after hours": "email_checks_after_hours",
+    "email after hours": "email_checks_after_hours",
+    "how productive were you during": "productivity_today",
+    "productive were you during": "productivity_today",
+    "workday productivity": "productivity_today",
+    "overall, how was your day": "day_overall_rating",
+    "how was your day": "day_overall_rating",
+    "overall how was your day": "day_overall_rating",
+    
     # === QUANTITATIVE METRICS ===
     "sleep hours (last night)": "sleep_hours",
     "sleep hours": "sleep_hours",
@@ -303,6 +322,56 @@ JOB_REQUIRES_SCREEN_MAPPING = {
     "essential": 3,
 }
 
+# === NEW V2: Morning Mood Mapping ===
+MORNING_MOOD_MAPPING = {
+    "full of energy": 5,
+    "energy": 5,
+    "calm": 4,
+    "neutral": 3,
+    "tired": 2,
+    "sad": 1,
+    "stressed / anxious": 1,
+    "stressed": 1,
+    "anxious": 1,
+}
+
+# === NEW V2: Work Disconnect Ease Mapping ===
+WORK_DISCONNECT_EASE_MAPPING = {
+    "very easy": 4,
+    "very easy to disconnect": 4,
+    "fairly easy": 3,
+    "fairly easy to disconnect": 3,
+    "neutral": 2,
+    "fairly difficult": 1,
+    "fairly difficult to disconnect": 1,
+    "very difficult": 0,
+    "very difficult to disconnect": 0,
+}
+
+# === NEW V2: Reached Out For Help Mapping ===
+REACHED_OUT_FOR_HELP_MAPPING = {
+    "yes": 1,
+    "no but i would have liked to": 0,
+    "no but would have liked": 0,
+    "no i didn't need it": 0,
+    "no didn't need": 0,
+    "no": 0,
+}
+
+# === NEW V2: Email Checks After Hours Mapping ===
+EMAIL_CHECKS_AFTER_HOURS_MAPPING = {
+    "0": 0,
+    "0 times": 0,
+    "none": 0,
+    "1/3 times": 1,
+    "1 to 3 times": 1,
+    "1-3": 1,
+    ">= 4 times": 2,
+    "4 or more": 2,
+    "4+": 2,
+    "many": 2,
+}
+
 # ============================================================================
 # FEATURE DEFINITIONS
 # ============================================================================
@@ -335,6 +404,9 @@ NUMERIC_SIGNAL_COLS = [
     "job_satisfaction",      # Job satisfaction (1-10)
     "commute_minutes",       # Daily commute time
     "emails_received",       # Number of emails received
+    # === NEW V2 DAILY QUESTIONS ===
+    "productivity_today",    # Productivity during workday (1-5 scale)
+    "day_overall_rating",    # Overall day rating (1-10 scale)
 ]
 
 # V2 Categorical columns for LABEL ENCODING (used for embeddings in neural nets)
@@ -353,6 +425,11 @@ ORDINAL_COLS = [
     "after_hours_checking",  # 0-4 scale
     "work_pressure",         # 0-2 scale
     "job_requires_screen",   # 0-3 scale
+    # === NEW V2 ORDINAL QUESTIONS ===
+    "morning_mood",          # 1-5 scale (sad to full of energy)
+    "work_disconnect_ease",  # 0-4 scale (very difficult to very easy)
+    "email_checks_after_hours", # 0-2 scale (0 times to 4+ times)
+    "reached_out_for_help",  # Binary: 0-1 (no to yes)
 ]
 
 # Original categorical columns (will be one-hot encoded for backward compatibility)
@@ -447,7 +524,9 @@ def parse_google_form_csv(csv_path: str | Path) -> pd.DataFrame:
         "emails_received", "commute_minutes", "screen_time_hours",
         "social_quality", "social_interactions", "outdoor_time_minutes",
         "diet_quality", "job_satisfaction", "recovery_ability",
-        "environment_distractions"
+        "environment_distractions",
+        # === NEW V2 NUMERIC COLS ===
+        "productivity_today", "day_overall_rating"
     ]
     
     for col in numeric_cols:
@@ -493,6 +572,27 @@ def parse_google_form_csv(csv_path: str | Path) -> pd.DataFrame:
     if "job_requires_screen" in mapped_df.columns:
         mapped_df["job_requires_screen"] = mapped_df["job_requires_screen"].str.lower().map(
             lambda x: JOB_REQUIRES_SCREEN_MAPPING.get(x, 2) if pd.notna(x) else 2
+        )
+    
+    # === NEW V2: Map new ordinal columns ===
+    if "morning_mood" in mapped_df.columns:
+        mapped_df["morning_mood"] = mapped_df["morning_mood"].str.lower().map(
+            lambda x: MORNING_MOOD_MAPPING.get(x, 3) if pd.notna(x) else 3
+        )
+    
+    if "work_disconnect_ease" in mapped_df.columns:
+        mapped_df["work_disconnect_ease"] = mapped_df["work_disconnect_ease"].str.lower().map(
+            lambda x: WORK_DISCONNECT_EASE_MAPPING.get(x, 2) if pd.notna(x) else 2
+        )
+    
+    if "reached_out_for_help" in mapped_df.columns:
+        mapped_df["reached_out_for_help"] = mapped_df["reached_out_for_help"].str.lower().map(
+            lambda x: REACHED_OUT_FOR_HELP_MAPPING.get(x, 0) if pd.notna(x) else 0
+        )
+    
+    if "email_checks_after_hours" in mapped_df.columns:
+        mapped_df["email_checks_after_hours"] = mapped_df["email_checks_after_hours"].str.lower().map(
+            lambda x: EMAIL_CHECKS_AFTER_HOURS_MAPPING.get(x, 1) if pd.notna(x) else 1
         )
     
     return mapped_df

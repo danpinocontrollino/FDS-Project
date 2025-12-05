@@ -80,6 +80,10 @@ FEATURE_COLS = [
     "alcohol_units",
     "screen_time_hours",
     "work_pressure",
+    # === NEW V2 FEATURES ===
+    "morning_mood",
+    "productivity_today",
+    "day_overall_rating",
 ]
 
 # Human-readable names for features
@@ -101,6 +105,10 @@ FEATURE_LABELS = {
     "alcohol_units": "Alcohol Units",
     "screen_time_hours": "Screen Time (hours)",
     "work_pressure": "Work Pressure (low/medium/high)",
+    # === NEW V2 FEATURES ===
+    "morning_mood": "Morning Mood (1-5)",
+    "productivity_today": "Productivity (1-5)",
+    "day_overall_rating": "Day Rating (1-10)",
 }
 
 # Default values for missing features
@@ -122,6 +130,10 @@ DEFAULTS = {
     "alcohol_units": 0,
     "screen_time_hours": 4,
     "work_pressure": 1,  # medium
+    # === NEW V2 DEFAULTS ===
+    "morning_mood": 3,  # neutral
+    "productivity_today": 3,  # moderate
+    "day_overall_rating": 6,  # neutral to good
 }
 
 # Risk level colors and descriptions
@@ -1144,66 +1156,6 @@ def _get_average_input() -> Dict[str, float]:
             data[feature] = DEFAULTS[feature]
     
     return data
-
-
-def _get_daily_input() -> List[Dict[str, float]]:
-    """Get daily data for each of the past 7 days."""
-    print("\n📅 DAILY DATA MODE")
-    print("Enter your data for each of the past 7 days.")
-    print("Press Enter to use default value shown in [brackets].")
-    print("Tip: Start with the oldest day (7 days ago) and work to today.\n")
-    
-    day_names = ["Day 1 (7 days ago)", "Day 2 (6 days ago)", "Day 3 (5 days ago)", 
-                 "Day 4 (4 days ago)", "Day 5 (3 days ago)", "Day 6 (2 days ago)", 
-                 "Day 7 (yesterday)"]
-    
-    # Simplified questions for daily entry (fewer questions to avoid tedium)
-    daily_questions = [
-        ("stress_level", "Stress level (1-10)", 1, 10),
-        ("sleep_hours", "Sleep hours", 0, 12),
-        ("work_hours", "Work hours", 0, 16),
-        ("mood_score", "Mood (1-10)", 1, 10),
-        ("exercise_minutes", "Exercise (minutes)", 0, 180),
-    ]
-    
-    daily_data = []
-    
-    for day_idx, day_name in enumerate(day_names):
-        print(f"\n{'─' * 40}")
-        print(f"📆 {day_name}")
-        print(f"{'─' * 40}")
-        
-        day_record = DEFAULTS.copy()  # Start with defaults
-        
-        for feature, question, min_val, max_val in daily_questions:
-            default = DEFAULTS[feature]
-            while True:
-                try:
-                    response = input(f"  {question} [{default}]: ").strip()
-                    if response == "":
-                        value = default
-                    else:
-                        value = float(response)
-                        if not min_val <= value <= max_val:
-                            print(f"    ⚠️  Please enter a value between {min_val} and {max_val}")
-                            continue
-                    day_record[feature] = value
-                    break
-                except ValueError:
-                    print("    ⚠️  Please enter a number")
-        
-        daily_data.append(day_record)
-        
-        # Allow user to copy previous day for similar days
-        if day_idx < 6:
-            copy_prev = input("\n  Copy these values to next day? [y/N]: ").strip().lower()
-            if copy_prev == 'y':
-                # Pre-fill defaults for next iteration
-                for feature, _, _, _ in daily_questions:
-                    DEFAULTS[feature] = day_record[feature]
-    
-    print(f"\n✅ Collected data for all 7 days!")
-    return daily_data
 
 
 def create_weekly_sequence(daily_data: Union[Dict[str, float], List[Dict[str, float]]], feature_cols: List[str], days: int = 7) -> np.ndarray:
@@ -3966,8 +3918,6 @@ Examples:
         """
     )
     
-    parser.add_argument("--interactive", "-i", action="store_true",
-                        help="Interactive mode: answer questions one by one")
     parser.add_argument("--csv", type=str,
                         help="Path to CSV file (e.g., Google Form export)")
     parser.add_argument("--model-path", type=str, default=None,
@@ -4003,9 +3953,7 @@ def main() -> None:
         return
     
     # Get input data
-    if args.interactive:
-        data = get_interactive_input()
-    elif args.csv:
+    if args.csv:
         mapped_df, is_daily = parse_google_form_csv(args.csv)
         
         if is_daily and "_group" in mapped_df.columns:

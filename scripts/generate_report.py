@@ -1411,6 +1411,10 @@ def generate_metrics_html(data: dict) -> str:
         ("Exercise", data.get("exercise_minutes", 30), "min", 30, "higher"),
         ("Mood", data.get("mood_score", 6), "/10", 6, "higher"),
         ("Energy", data.get("energy_level", 6), "/10", 6, "higher"),
+        # === NEW V2 METRICS ===
+        ("Morning Mood", data.get("morning_mood", 3), "/5", 3, "higher"),
+        ("Productivity", data.get("productivity_today", 3), "/5", 3, "higher"),
+        ("Day Rating", data.get("day_overall_rating", 6), "/10", 6, "higher"),
     ]
     
     html_parts = []

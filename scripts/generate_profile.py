@@ -71,6 +71,10 @@ FEATURE_COLS = [
     "diet_quality",
     "work_pressure",
     "weather_mood_impact",
+    # === NEW V2 FEATURES ===
+    "morning_mood",
+    "productivity_today",
+    "day_overall_rating",
 ]
 
 # Target names
@@ -317,6 +321,10 @@ def parse_daily_entries_csv(csv_path: Path, window: int = 7) -> Dict[str, pd.Dat
         'diet_quality': ['diet quality', 'diet', 'nutrition quality'],
         'work_pressure': ['work pressure', 'pressure', 'stress level'],
         'weather_mood_impact': ['weather mood impact', 'weather mood', 'weather impact', 'weather'],
+        # === NEW V2 FEATURES ===
+        'morning_mood': ['how did you feel when you woke up', 'feel when you woke up', 'woke up', 'morning mood'],
+        'productivity_today': ['how productive were you', 'productive during', 'productivity', 'workday productivity'],
+        'day_overall_rating': ['overall how was your day', 'how was your day', 'overall day rating', 'day rating'],
     }
     
     # Map CSV columns to features
@@ -458,6 +466,10 @@ def parse_google_form_csv(csv_path: Path, window: int = 7) -> Dict[str, pd.DataF
         'diet_quality': ['diet quality', 'diet', 'nutrition quality'],
         'work_pressure': ['work pressure', 'pressure', 'stress level'],
         'weather_mood_impact': ['weather mood impact', 'weather mood', 'weather impact', 'weather'],
+        # === NEW V2 FEATURES ===
+        'morning_mood': ['how did you feel when you woke up', 'feel when you woke up', 'woke up', 'morning mood'],
+        'productivity_today': ['how productive were you', 'productive during', 'productivity', 'workday productivity'],
+        'day_overall_rating': ['overall how was your day', 'how was your day', 'overall day rating', 'day rating'],
     }
     
     for day in range(1, window + 1):
