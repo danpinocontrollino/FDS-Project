@@ -40,11 +40,13 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
-from sklearn.preprocessing import StandardScaler
 
 # Import explanation engine and model definitions
 from explain_predictions import ExplanationEngine, PredictionExplanation
 from model_definitions import MentalHealthPredictor
+
+# Import history manager for longitudinal tracking (NEW)
+from history_manager import UserHistoryManager
 
 warnings.filterwarnings("ignore")
 
@@ -84,6 +86,18 @@ ALL_TARGETS = DAILY_TARGETS + WEEKLY_TARGETS
 
 # Inverted targets (higher = better)
 INVERTED_TARGETS = {"mood_score", "energy_level", "focus_score", "job_satisfaction"}
+
+# Target scale maximums (for displaying "value/max")
+TARGET_SCALES = {
+    "stress_level": 10,
+    "mood_score": 10,
+    "energy_level": 10,
+    "focus_score": 10,
+    "perceived_stress_scale": 40,
+    "anxiety_score": 21,
+    "depression_score": 22,
+    "job_satisfaction": 9,
+}
 
 # Job-specific advice configuration
 ENABLE_JOB_ADVICE = True  # Set to False to disable job-specific recommendations
@@ -1981,21 +1995,39 @@ def save_profile_json(profile: UserProfile, output_dir: Path) -> Path:
     
     output_path = output_dir / f"profile_{profile.user_id}_{profile.timestamp.strftime('%Y%m%d_%H%M%S')}.json"
     
+    # Helper to convert NumPy types to Python types
+    def convert_numpy(obj):
+        """Recursively convert NumPy types to Python types for JSON serialization."""
+        if isinstance(obj, dict):
+            return {k: convert_numpy(v) for k, v in obj.items()}
+        elif isinstance(obj, (list, tuple)):
+            return [convert_numpy(v) for v in obj]
+        elif isinstance(obj, (bool, np.bool_)):
+            return bool(obj)
+        elif isinstance(obj, (int, np.integer)):
+            return int(obj)
+        elif isinstance(obj, (float, np.floating)):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        else:
+            return obj
+    
     profile_dict = {
         "user_id": profile.user_id,
         "timestamp": profile.timestamp.isoformat(),
         "data_date": profile.timestamp.isoformat(),  # Store actual data collection date
         "job_category": profile.job_category,
-        "data_quality_score": profile.data_quality_score,
+        "data_quality_score": float(profile.data_quality_score),
         "missing_features": profile.missing_features,
-        "predictions": profile.predictions,
+        "predictions": convert_numpy(profile.predictions),
         "explanations": {target: exp.to_dict() for target, exp in profile.explanations.items()},  # NEW
         "risk_factors": profile.risk_factors,
         "positive_factors": profile.positive_factors,
         "contradictions": profile.contradictions,
         "recommendations": profile.recommendations,
         "behavioral_interventions": profile.behavioral_interventions,
-        "history_analysis": profile.history_analysis,
+        "history_analysis": convert_numpy(profile.history_analysis) if profile.history_analysis else None,
     }
     
     with open(output_path, "w") as f:
@@ -2977,11 +3009,12 @@ def generate_html_report(profile: UserProfile, output_dir: Path) -> Path:
         status_class = "at-risk" if pred["at_risk"] else "healthy"
         status_text = "AT RISK" if pred["at_risk"] else "HEALTHY"
         status_badge_class = "status-at-risk" if pred["at_risk"] else "status-healthy"
+        max_scale = TARGET_SCALES.get(target, 10)
         
         html += f"""
                     <div class="prediction-card {status_class}">
                         <div class="prediction-name">{target.replace('_', ' ').title()}</div>
-                        <div class="prediction-value" style="color: {get_status_color(pred['at_risk'])};">{pred['value']:.1f}</div>
+                        <div class="prediction-value" style="color: {get_status_color(pred['at_risk'])};">{pred['value']:.1f}/{max_scale}</div>
                         <div class="prediction-status {status_badge_class}">{status_text}</div>
                         <div class="prediction-confidence">Confidence: {pred['confidence']:.0%}</div>
                     </div>
@@ -2999,11 +3032,12 @@ def generate_html_report(profile: UserProfile, output_dir: Path) -> Path:
         status_class = "at-risk" if pred["at_risk"] else "healthy"
         status_text = "AT RISK" if pred["at_risk"] else "HEALTHY"
         status_badge_class = "status-at-risk" if pred["at_risk"] else "status-healthy"
+        max_scale = TARGET_SCALES.get(target, 10)
         
         html += f"""
                     <div class="prediction-card {status_class}">
                         <div class="prediction-name">{target.replace('_', ' ').title()}</div>
-                        <div class="prediction-value" style="color: {get_status_color(pred['at_risk'])};">{pred['value']:.1f}</div>
+                        <div class="prediction-value" style="color: {get_status_color(pred['at_risk'])};">{pred['value']:.1f}/{max_scale}</div>
                         <div class="prediction-status {status_badge_class}">{status_text}</div>
                         <div class="prediction-confidence">Confidence: {pred['confidence']:.0%}</div>
                     </div>
@@ -3378,16 +3412,132 @@ def generate_html_report(profile: UserProfile, output_dir: Path) -> Path:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate comprehensive mental health profiles")
-    parser.add_argument("--csv", type=Path, required=True, help="Path to Google Form CSV")
-    parser.add_argument("--user-id", type=str, help="Specific user ID to profile")
+    
+    # Input data sources
+    parser.add_argument("--csv", type=Path, help="Path to CSV with behavioral data")
+    parser.add_argument("--user-id", type=str, help="Specific user ID/email to profile")
+    parser.add_argument("--from-history", action="store_true", help="Generate profile from user history (data/user_history/)")
     parser.add_argument("--all-users", action="store_true", help="Generate profiles for all users")
+    
+    # Model and output
     parser.add_argument("--model-path", type=Path, default=DEFAULT_MODEL, help="Path to trained model")
     parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR, help="Output directory for reports")
     parser.add_argument("--window", type=int, default=7, help="Days of input data")
+    
+    # History settings
     parser.add_argument("--no-history", action="store_true", help="Disable history tracking")
     parser.add_argument("--lookback-days", type=int, default=90, help="Days to look back for trend analysis")
+    parser.add_argument("--history-days", type=int, default=7, help="Number of days to load from history for prediction")
+    
+    # Output format
     parser.add_argument("--html", action="store_true", help="Generate HTML reports")
+    parser.add_argument("--json-only", action="store_true", help="Only generate JSON, skip console output")
+    
     return parser.parse_args()
+
+
+def generate_profile_from_history(
+    user_id: str,
+    model: MentalHealthPredictor,
+    checkpoint: Dict[str, Any],
+    history_manager: UserHistoryManager,
+    days: int = 7,
+    output_dir: Path = OUTPUT_DIR,
+    job: Optional[str] = None,
+) -> Optional[UserProfile]:
+    """
+    Generate mental health profile from user's historical data.
+    
+    Args:
+        user_id: User email/ID
+        model: Trained prediction model
+        checkpoint: Model checkpoint with metadata
+        history_manager: UserHistoryManager instance
+        days: Number of recent days to load for prediction (default 7)
+        output_dir: Where to save reports
+        job: Optional job category override
+        
+    Returns:
+        UserProfile if successful, None if insufficient data
+    """
+    print(f"\n{'='*80}")
+    print(f"Generating profile from history: {user_id}")
+    print(f"{'='*80}\n")
+    
+    # Load last N days from history
+    df = history_manager.get_last_n_days(user_id, n=days)
+    
+    if df is None or len(df) == 0:
+        print(f"❌ No history found for user: {user_id}")
+        print(f"   Have they logged data using collect_daily_data.py?")
+        return None
+    
+    if len(df) < days:
+        print(f"⚠️  Only {len(df)} days of data available (requested {days})")
+        print(f"   Profile will be generated with available data (padded if needed)")
+    
+    # Ensure all feature columns exist
+    for col in FEATURE_COLS:
+        if col not in df.columns:
+            print(f"⚠️  Missing feature: {col}, filling with default")
+            defaults = {
+                "sleep_hours": 7.0,
+                "sleep_quality": 5.0,
+                "work_hours": 8.0,
+                "work_pressure": 1.0,
+                "diet_quality": 5.0,
+            }
+            df[col] = defaults.get(col, 5.0)
+    
+    # Pad if less than required days
+    if len(df) < days:
+        padding_rows = days - len(df)
+        padding_data = pd.DataFrame(
+            [[df[col].mean() for col in FEATURE_COLS] for _ in range(padding_rows)],
+            columns=FEATURE_COLS
+        )
+        df = pd.concat([padding_data, df], ignore_index=True)
+    
+    # Select only the feature columns in correct order
+    user_data = df[FEATURE_COLS].tail(days).reset_index(drop=True)
+    
+    print(f"✓ Loaded {len(user_data)} days of behavioral data")
+    print(f"   Date range: {df.index[0] if hasattr(df.index[0], 'strftime') else 'Unknown'} to {df.index[-1] if hasattr(df.index[-1], 'strftime') else 'Unknown'}")
+    
+    # Get job category from history metadata if not provided
+    if job is None:
+        # Check if history has job info
+        all_entries = history_manager.get_last_n_days(user_id, n=30)  # Check last 30 days
+        if all_entries is not None and hasattr(all_entries, 'attrs') and 'job' in all_entries.attrs:
+            job = all_entries.attrs['job']
+        else:
+            job = "general"
+    
+    # Get the actual data timestamp (most recent entry)
+    data_timestamp = df.index[-1] if hasattr(df.index[-1], 'to_pydatetime') else datetime.now()
+    
+    # Generate profile
+    profile = generate_profile(
+        user_id=user_id,
+        user_data=user_data,
+        job=job,
+        model=model,
+        checkpoint=checkpoint,
+        output_dir=output_dir,
+        enable_history=True,
+        data_timestamp=data_timestamp,
+    )
+    
+    # Calculate day-over-day changes
+    changes = history_manager.calculate_day_over_day_change(user_id)
+    if changes:
+        print(f"\n📊 Day-over-day changes:")
+        for feature, change in list(changes.items())[:5]:  # Show top 5
+            if abs(change) > 0.1:
+                arrow = "↑" if change > 0 else "↓"
+                print(f"   {arrow} {feature.replace('_', ' ').title()}: {change:+.1f}")
+    
+    return profile
 
 
 def main():
@@ -3400,53 +3550,123 @@ def main():
     # Load model
     model, checkpoint = load_model(args.model_path)
     
-    # Detect CSV format and parse accordingly
-    df_peek = pd.read_csv(args.csv, nrows=1)
-    has_day_columns = any('day 1' in col.lower() for col in df_peek.columns)
+    # Initialize history manager
+    history_manager = UserHistoryManager()
     
-    if has_day_columns:
-        print("📋 Detected format: Google Form (7 days per row)")
-        user_data = parse_google_form_csv(args.csv, window=args.window)
-    else:
-        print("📋 Detected format: Daily entries (1 day per row)")
-        user_data = parse_daily_entries_csv(args.csv, window=args.window)
+    # Determine processing mode: CSV or history-based
+    if args.from_history:
+        # Generate from user history
+        print("📂 Mode: Generate from user history")
+        
+        if not args.user_id:
+            # List all users with history
+            all_users = history_manager.list_users()
+            if not all_users:
+                print("❌ No users found in history database")
+                print("   Users should first log data using: python scripts/collect_daily_data.py")
+                return
+            
+            print(f"\n📋 Found {len(all_users)} users with history:")
+            for i, user in enumerate(all_users[:10], 1):
+                stats = history_manager.get_user_stats(user, days=30)
+                if stats:
+                    print(f"   {i}. {user} ({stats['total_days']} days logged)")
+            
+            if len(all_users) > 10:
+                print(f"   ... and {len(all_users) - 10} more")
+            
+            if not args.all_users:
+                print("\n❌ Specify --user-id <email> or --all-users to process all")
+                return
+            
+            user_ids = all_users
+        else:
+            user_ids = [args.user_id]
+        
+        print(f"\n🔄 Generating {len(user_ids)} profile(s) from history...\n")
+        
+        # Generate profiles from history
+        for user_id in user_ids:
+            profile = generate_profile_from_history(
+                user_id=user_id,
+                model=model,
+                checkpoint=checkpoint,
+                history_manager=history_manager,
+                days=args.history_days,
+                output_dir=args.output_dir,
+            )
+            
+            if profile:
+                if not args.json_only:
+                    print_profile_summary(profile)
+                save_profile_json(profile, args.output_dir)
+                
+                if args.html:
+                    generate_html_report(profile, args.output_dir)
     
-    # Determine which users to process
-    if args.user_id:
-        if args.user_id not in user_data:
-            print(f"❌ User ID '{args.user_id}' not found in CSV")
+    elif args.csv:
+        # Generate from CSV
+        print(f"📂 Mode: Generate from CSV file")
+        
+        # Detect CSV format and parse accordingly
+        df_peek = pd.read_csv(args.csv, nrows=1)
+        has_day_columns = any('day 1' in col.lower() for col in df_peek.columns)
+        
+        if has_day_columns:
+            print("📋 Detected format: Google Form (7 days per row)")
+            user_data = parse_google_form_csv(args.csv, window=args.window)
+        else:
+            print("📋 Detected format: Daily entries (1 day per row)")
+            user_data = parse_daily_entries_csv(args.csv, window=args.window)
+        
+        # Determine which users to process
+        if args.user_id:
+            if args.user_id not in user_data:
+                print(f"❌ User ID '{args.user_id}' not found in CSV")
+                return
+            user_ids = [args.user_id]
+        elif args.all_users:
+            user_ids = list(user_data.keys())
+        else:
+            print("❌ Specify --user-id or --all-users")
             return
-        user_ids = [args.user_id]
-    elif args.all_users:
-        user_ids = list(user_data.keys())
+        
+        print(f"\n🔄 Generating profiles for {len(user_ids)} user(s)...\n")
+        
+        # Generate profiles
+        for user_id in user_ids:
+            data_dict = user_data[user_id]
+            
+            profile = generate_profile(
+                user_id=user_id,
+                user_data=data_dict["data"],
+                job=data_dict["job"],
+                model=model,
+                checkpoint=checkpoint,
+                output_dir=args.output_dir,
+                enable_history=not args.no_history,
+                data_timestamp=data_dict.get("timestamp"),
+            )
+            
+            # Output
+            if not args.json_only:
+                print_profile_summary(profile)
+            save_profile_json(profile, args.output_dir)
+            
+            # Generate HTML if requested
+            if args.html:
+                generate_html_report(profile, args.output_dir)
+    
     else:
-        print("❌ Specify --user-id or --all-users")
+        print("❌ Specify either --csv <file> or --from-history")
+        print("\nExamples:")
+        print("  # Generate from CSV")
+        print("  python scripts/generate_profile.py --csv data.csv --user-id sarah@example.com --html")
+        print("\n  # Generate from history")
+        print("  python scripts/generate_profile.py --from-history --user-id sarah@example.com --html")
+        print("\n  # List all users with history")
+        print("  python scripts/generate_profile.py --from-history")
         return
-    
-    print(f"\n🔄 Generating profiles for {len(user_ids)} user(s)...\n")
-    
-    # Generate profiles
-    for user_id in user_ids:
-        data_dict = user_data[user_id]
-        
-        profile = generate_profile(
-            user_id=user_id,
-            user_data=data_dict["data"],
-            job=data_dict["job"],
-            model=model,
-            checkpoint=checkpoint,
-            output_dir=args.output_dir,
-            enable_history=not args.no_history,
-            data_timestamp=data_dict.get("timestamp"),
-        )
-        
-        # Output
-        print_profile_summary(profile)
-        save_profile_json(profile, args.output_dir)
-        
-        # Generate HTML if requested
-        if args.html:
-            generate_html_report(profile, args.output_dir)
     
     print(f"\n✓ Completed {len(user_ids)} profile(s)")
     print(f"✓ Reports saved to: {args.output_dir.resolve()}")

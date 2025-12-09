@@ -8,6 +8,8 @@ recent history, using deep learning models (LSTM and Transformer).
 
 **🎯 Key Achievement:** 98.5% accuracy on job satisfaction prediction (vs 89.3% baseline)
 
+> 📊 **Research Context:** Our results align with state-of-the-art synthetic data studies (94-99% accuracy) and represent a theoretical upper bound compared to real-world wearable studies (70-82%). See [External Benchmarks & Related Work](docs/EXTERNAL_BENCHMARKS.md) for detailed comparison with clinical and ML research.
+
 ---
 
 ## 🚀 Quick Start
@@ -88,6 +90,9 @@ FDS-Project/
   ├── scripts/
   │   └── download_data.py      # Kaggle download script
   ├── models/                   # (optional) saved model definitions / weights
+  ├── docs/
+  │   ├── EXTERNAL_BENCHMARKS.md  # Research comparison & validation
+  │   └── COMPLETE_PROJECT_EXPLANATION.md
   ├── .gitignore
   ├── README.md
   └── requirements.txt          # (to be added)
