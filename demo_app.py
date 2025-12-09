@@ -29,8 +29,9 @@ import sys
 # Add scripts to path
 sys.path.append(str(Path(__file__).parent / "scripts"))
 
-# Import explanation engine
+# Import explanation engine and model definitions
 from explain_predictions import ExplanationEngine
+from model_definitions import MentalHealthPredictor
 
 # ============================================================================
 # CONSTANTS
@@ -38,113 +39,6 @@ from explain_predictions import ExplanationEngine
 
 # Inverted targets (higher = better)
 INVERTED_TARGETS = {"mood_score", "energy_level", "focus_score", "job_satisfaction"}
-
-# ============================================================================
-# MODEL ARCHITECTURE
-# ============================================================================
-
-class PositionalEncoding(nn.Module):
-    """Sinusoidal positional encoding for Transformer."""
-    def __init__(self, d_model: int, max_len: int = 5000):
-        super().__init__()
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-np.log(10000.0) / d_model))
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0)
-        self.register_buffer('pe', pe)
-    
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return x + self.pe[:, :x.size(1), :]
-
-class PredictionHead(nn.Module):
-    """Single prediction head for one target (regression only)."""
-    def __init__(self, input_dim: int, hidden_dim: int):
-        super().__init__()
-        self.shared = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-        )
-        self.regression = nn.Linear(hidden_dim, 1)
-        self.classification = nn.Linear(hidden_dim, 1)  # Single output for regression
-    
-    def forward(self, x: torch.Tensor):
-        h = self.shared(x)
-        reg = self.regression(h).squeeze(-1)
-        cls = self.classification(h).squeeze(-1)  # Same as regression for "both" task
-        return reg, cls
-
-class MentalHealthPredictor(nn.Module):
-    """Multi-target mental health prediction model."""
-    
-    def __init__(
-        self,
-        input_dim: int = 17,
-        hidden_dim: int = 128,
-        num_layers: int = 2,
-        encoder_type: str = "lstm",
-        targets = None,
-    ):
-        super().__init__()
-        
-        self.targets = targets or []
-        self.encoder_type = encoder_type
-        
-        if encoder_type == "lstm":
-            self.encoder = nn.LSTM(
-                input_dim, hidden_dim, num_layers=num_layers,
-                batch_first=True, dropout=0.2 if num_layers > 1 else 0
-            )
-        elif encoder_type == "gru":
-            self.encoder = nn.GRU(
-                input_dim, hidden_dim, num_layers=num_layers,
-                batch_first=True, dropout=0.2 if num_layers > 1 else 0
-            )
-        elif encoder_type == "transformer":
-            self.input_proj = nn.Linear(input_dim, hidden_dim)
-            self.pos_encoder = PositionalEncoding(hidden_dim)
-            encoder_layer = nn.TransformerEncoderLayer(
-                d_model=hidden_dim, nhead=4, dim_feedforward=hidden_dim * 4,
-                dropout=0.1, batch_first=True
-            )
-            self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-        
-        self.shared_repr = nn.Sequential(
-            nn.LayerNorm(hidden_dim),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-        )
-        
-        self.heads = nn.ModuleDict({
-            target: PredictionHead(hidden_dim, hidden_dim // 2)
-            for target in self.targets
-        })
-    
-    def encode(self, x: torch.Tensor) -> torch.Tensor:
-        """Encode sequence to fixed representation."""
-        if self.encoder_type in ["lstm", "gru"]:
-            out, _ = self.encoder(x)
-            return out[:, -1, :]  # Last timestep
-        else:  # transformer
-            x = self.input_proj(x)
-            x = self.pos_encoder(x)
-            x = self.encoder(x)
-            return x.mean(dim=1)  # Mean pooling
-    
-    def forward(self, x: torch.Tensor):
-        """Forward pass."""
-        h = self.encode(x)
-        h = self.shared_repr(h)
-        
-        outputs = {}
-        for target in self.targets:
-            reg, cls = self.heads[target](h)
-            outputs[target] = (reg, cls)
-        
-        return outputs
 
 st.set_page_config(
     page_title="Mental Health Profiling Demo",
@@ -335,6 +229,18 @@ def render_input_sidebar():
     st.sidebar.subheader("👔 Job Category")
     job_title = st.sidebar.text_input("Job Title (optional)", "Software Engineer")
     
+    # Advanced/Optional Inputs (collapsed by default)
+    with st.sidebar.expander("⚙️ Advanced Inputs (Optional)"):
+        st.markdown("*Most users can leave these as defaults*")
+        emails_received = st.slider("Emails Received/Day", 0, 200, 50, 5)
+        commute_minutes = st.slider("Commute Time (min/day)", 0, 120, 20, 5)
+        steps_count = st.slider("Steps/Day", 0, 20000, 5000, 500)
+        alcohol_units = st.slider("Alcohol Units/Week", 0, 20, 0, 1)
+        weather_impact = st.select_slider("Weather Mood Impact", 
+                                         options=[-2, -1, 0, 1, 2],
+                                         value=0,
+                                         format_func=lambda x: {-2: "Very Negative", -1: "Negative", 0: "Neutral", 1: "Positive", 2: "Very Positive"}[x])
+    
     # Convert work pressure to numeric
     pressure_map = {"low": 3, "medium": 5, "high": 8}
     
@@ -352,12 +258,11 @@ def render_input_sidebar():
         'diet_quality': diet_quality,
         'screen_time_hours': screen_time,
         'job_title': job_title,
-        # Fill remaining with defaults
-        'emails_received': 50,
-        'commute_minutes': 20,
-        'steps_count': 5000,
-        'alcohol_units': 0,
-        'weather_mood_impact': 0
+        'emails_received': emails_received,
+        'commute_minutes': commute_minutes,
+        'steps_count': steps_count,
+        'alcohol_units': alcohol_units,
+        'weather_mood_impact': weather_impact
     }
 
 def render_predictions(predictions, thresholds):
