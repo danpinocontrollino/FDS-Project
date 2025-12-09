@@ -481,48 +481,67 @@ def generate_prediction_explanation(target: str, value: float, inputs: dict, thr
     
     return explanation
 
-def render_goal_setter():
-    """Render goal-setting interface in sidebar."""
-    st.sidebar.markdown("---")
-    st.sidebar.header("🎯 Goal Setter")
+def render_goals_section():
+    """Render goals section in main content."""
+    st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
+    st.header("🎯 Set Your Mental Health Goals")
+    st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+    st.markdown("*Define your personal targets for mental wellbeing:*")
+    st.markdown("")
+    
+    col1, col2 = st.columns(2)
     
     goals = {}
-    st.sidebar.markdown("*Set your target values:*")
     
-    # Goal for stress
-    goals['stress_target'] = st.sidebar.slider(
-        "Target Stress Level", 
-        1.0, 10.0, 4.0, 0.5,
-        help="Lower is better (1-3: healthy, 4-6: moderate, 7+: high)"
-    )
+    with col1:
+        st.markdown("**Stress & Anxiety Goals**")
+        goals['stress_target'] = st.slider(
+            "Target Stress Level", 
+            1.0, 10.0, 4.0, 0.5,
+            key="stress_target",
+            help="Lower is better (1-3: healthy, 4-6: moderate, 7+: high)"
+        )
+        st.caption("Current: 5-10 range | Target: 1-3 is optimal")
+        st.markdown("")
+        
+        goals['anxiety_target'] = st.slider(
+            "Target Anxiety Score",
+            0.0, 21.0, 8.0, 0.5,
+            key="anxiety_target",
+            help="Lower is better (0-9: healthy, 10-14: moderate, 15-21: high)"
+        )
+        st.caption("Current: 10-21 range | Target: 0-9 is optimal")
+        st.markdown("")
+        
+        goals['mood_target'] = st.slider(
+            "Target Mood Score",
+            1.0, 10.0, 7.0, 0.5,
+            key="mood_target",
+            help="Higher is better (1-3: low, 4-6: moderate, 7-10: good)"
+        )
+        st.caption("Current: 4-6 range | Target: 7+ is optimal")
     
-    # Goal for anxiety
-    goals['anxiety_target'] = st.sidebar.slider(
-        "Target Anxiety Score",
-        0.0, 21.0, 8.0, 0.5,
-        help="Lower is better (0-9: healthy, 10-14: moderate, 15-21: high)"
-    )
-    
-    # Goal for mood
-    goals['mood_target'] = st.sidebar.slider(
-        "Target Mood Score",
-        1.0, 10.0, 7.0, 0.5,
-        help="Higher is better (1-3: low, 4-6: moderate, 7-10: good)"
-    )
-    
-    # Goal for sleep
-    goals['sleep_target'] = st.sidebar.slider(
-        "Target Sleep Hours",
-        5.0, 10.0, 8.0, 0.5,
-        help="Optimal: 7-9 hours"
-    )
-    
-    # Goal for exercise
-    goals['exercise_target'] = st.sidebar.slider(
-        "Target Exercise (min/day)",
-        0, 180, 45, 5,
-        help="Recommended: 30-60 minutes"
-    )
+    with col2:
+        st.markdown("**Lifestyle Goals**")
+        goals['sleep_target'] = st.slider(
+            "Target Sleep Hours",
+            5.0, 10.0, 8.0, 0.5,
+            key="sleep_target",
+            help="Optimal: 7-9 hours"
+        )
+        st.caption("Recommended: 7-9 hours per night")
+        st.markdown("")
+        
+        goals['exercise_target'] = st.slider(
+            "Target Exercise (min/day)",
+            0, 180, 45, 5,
+            key="exercise_target",
+            help="Recommended: 30-60 minutes"
+        )
+        st.caption("WHO recommendation: 30-60 minutes daily")
+        st.markdown("")
+        
+        st.markdown("**💡 Tip:** Adjust these goals based on your personal preferences. Come back anytime to change them!")
     
     return goals
 
@@ -762,9 +781,6 @@ def main():
     # Get inputs
     inputs = render_input_sidebar()
     
-    # Get goals
-    goals = render_goal_setter()
-    
     # Prepare behavioral data (7 days, all same for demo)
     feature_order = [
         'sleep_hours', 'sleep_quality', 'work_hours', 'meetings_count',
@@ -794,9 +810,13 @@ def main():
             render_quick_advice(inputs)
             st.markdown("---")
             
+            # Goals section
+            goals = render_goals_section()
+            st.markdown("---")
+            
             # Goal progress tracking
             st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
-            st.header("🎯 Progress Toward Your Goals")
+            st.header("📈 Progress Toward Your Goals")
             st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
             
             col1, col2, col3, col4, col5 = st.columns(5)
