@@ -119,11 +119,10 @@ class MentalHealthPredictor(nn.Module):
             self.encoder = nn.GRU(input_dim, hidden_dim, num_layers,
                                  batch_first=True, dropout=0.3 if num_layers > 1 else 0)
         
-        # Shared representation layer
+        # Shared representation layer (BatchNorm + Linear)
         self.shared_repr = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(0.2)
+            nn.BatchNorm1d(hidden_dim),
+            nn.Linear(hidden_dim, hidden_dim)
         )
         
         # Multiple prediction heads
