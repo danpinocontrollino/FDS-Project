@@ -45,6 +45,9 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 
+# Import unified form parser
+from form_parser import GoogleFormParser
+
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
@@ -450,13 +453,15 @@ INTERVENTION_FLAGS = [
 
 def parse_google_form_csv(csv_path: str | Path) -> pd.DataFrame:
     """
-    Parse a Google Form CSV export and map columns to clean variable names.
+    Parse a Google Form CSV export using unified GoogleFormParser.
     
     This function:
-    1. Maps verbose column headers to standardized names
-    2. Cleans numeric values (handles ranges like "6-10", units like "15-30 min")
+    1. Maps verbose column headers to standardized names (using GoogleFormParser)
+    2. Cleans numeric values (handles ranges, units, European format)
     3. Maps categorical text to standardized categories
     4. Returns a cleaned DataFrame ready for processing
+    
+    Uses unified parser for consistency across all scripts.
     
     Args:
         csv_path: Path to the Google Form CSV export
@@ -464,117 +469,9 @@ def parse_google_form_csv(csv_path: str | Path) -> pd.DataFrame:
     Returns:
         DataFrame with cleaned column names and values
     """
-    df = pd.read_csv(csv_path)
-    
-    # Map column names
-    mapped_df = pd.DataFrame()
-    for col in df.columns:
-        col_lower = col.lower().strip()
-        
-        # Check each mapping pattern
-        for pattern, target in GOOGLE_FORM_COLUMN_MAPPING.items():
-            if pattern in col_lower:
-                mapped_df[target] = df[col]
-                break
-    
-    # Clean numeric columns
-    def clean_numeric(value, default=5):
-        """Extract numeric value from messy input."""
-        if pd.isna(value):
-            return default
-        if isinstance(value, (int, float)):
-            return float(value)
-        
-        import re
-        s = str(value).strip().lower()
-        
-        # Remove units and extract first number
-        s_cleaned = re.sub(r'[a-zA-Z%°]+', '', s).strip()
-        numbers = re.findall(r'\d+', s_cleaned)
-        if numbers:
-            return float(numbers[0])
-        return default
-    
-    # Apply cleaning to numeric columns
-    numeric_cols = [
-        "sleep_hours", "sleep_quality", "work_hours", "stress_level",
-        "mood_score", "energy_level", "focus_score", "exercise_minutes",
-        "caffeine_mg", "alcohol_units", "steps_count", "meetings_count",
-        "emails_received", "commute_minutes", "screen_time_hours",
-        "social_quality", "social_interactions", "outdoor_time_minutes",
-        "diet_quality", "job_satisfaction", "recovery_ability",
-        "environment_distractions",
-        # === NEW V2 NUMERIC COLS ===
-        "productivity_today", "day_overall_rating"
-    ]
-    
-    for col in numeric_cols:
-        if col in mapped_df.columns:
-            mapped_df[col] = mapped_df[col].apply(lambda x: clean_numeric(x, 5))
-    
-    # Map categorical columns
-    if "job_type" in mapped_df.columns:
-        mapped_df["job_type"] = mapped_df["job_type"].str.lower().map(
-            lambda x: JOB_TYPE_MAPPING.get(x, "other") if pd.notna(x) else "other"
-        )
-    
-    if "work_arrangement" in mapped_df.columns:
-        mapped_df["work_arrangement"] = mapped_df["work_arrangement"].str.lower().map(
-            lambda x: WORK_ARRANGEMENT_MAPPING.get(x, "hybrid") if pd.notna(x) else "hybrid"
-        )
-    
-    if "chronotype" in mapped_df.columns:
-        mapped_df["chronotype"] = mapped_df["chronotype"].str.lower().map(
-            lambda x: CHRONOTYPE_MAPPING.get(x, "intermediate") if pd.notna(x) else "intermediate"
-        )
-    
-    if "loneliness_level" in mapped_df.columns:
-        mapped_df["loneliness_level"] = mapped_df["loneliness_level"].str.lower().map(
-            lambda x: LONELINESS_MAPPING.get(x, 2) if pd.notna(x) else 2
-        )
-    
-    if "work_life_boundary" in mapped_df.columns:
-        mapped_df["work_life_boundary"] = mapped_df["work_life_boundary"].str.lower().map(
-            lambda x: WORK_LIFE_BOUNDARY_MAPPING.get(x, 2) if pd.notna(x) else 2
-        )
-    
-    if "after_hours_checking" in mapped_df.columns:
-        mapped_df["after_hours_checking"] = mapped_df["after_hours_checking"].str.lower().map(
-            lambda x: AFTER_HOURS_MAPPING.get(x, 2) if pd.notna(x) else 2
-        )
-    
-    if "work_pressure" in mapped_df.columns:
-        mapped_df["work_pressure"] = mapped_df["work_pressure"].str.lower().map(
-            lambda x: WORK_PRESSURE_MAPPING.get(x, 1) if pd.notna(x) else 1
-        )
-    
-    if "job_requires_screen" in mapped_df.columns:
-        mapped_df["job_requires_screen"] = mapped_df["job_requires_screen"].str.lower().map(
-            lambda x: JOB_REQUIRES_SCREEN_MAPPING.get(x, 2) if pd.notna(x) else 2
-        )
-    
-    # === NEW V2: Map new ordinal columns ===
-    if "morning_mood" in mapped_df.columns:
-        mapped_df["morning_mood"] = mapped_df["morning_mood"].str.lower().map(
-            lambda x: MORNING_MOOD_MAPPING.get(x, 3) if pd.notna(x) else 3
-        )
-    
-    if "work_disconnect_ease" in mapped_df.columns:
-        mapped_df["work_disconnect_ease"] = mapped_df["work_disconnect_ease"].str.lower().map(
-            lambda x: WORK_DISCONNECT_EASE_MAPPING.get(x, 2) if pd.notna(x) else 2
-        )
-    
-    if "reached_out_for_help" in mapped_df.columns:
-        mapped_df["reached_out_for_help"] = mapped_df["reached_out_for_help"].str.lower().map(
-            lambda x: REACHED_OUT_FOR_HELP_MAPPING.get(x, 0) if pd.notna(x) else 0
-        )
-    
-    if "email_checks_after_hours" in mapped_df.columns:
-        mapped_df["email_checks_after_hours"] = mapped_df["email_checks_after_hours"].str.lower().map(
-            lambda x: EMAIL_CHECKS_AFTER_HOURS_MAPPING.get(x, 1) if pd.notna(x) else 1
-        )
-    
-    return mapped_df
+    # Use unified parser
+    parser = GoogleFormParser()
+    return parser.parse_google_form_csv(csv_path)
 
 
 def create_label_encoders(df: pd.DataFrame) -> Dict[str, LabelEncoder]:

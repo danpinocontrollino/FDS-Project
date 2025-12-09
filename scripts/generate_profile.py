@@ -42,6 +42,9 @@ import torch
 import torch.nn as nn
 from sklearn.preprocessing import StandardScaler
 
+# Import unified form parser
+from form_parser import GoogleFormParser
+
 warnings.filterwarnings("ignore")
 
 # ============================================================================
@@ -403,15 +406,20 @@ def parse_daily_entries_csv(csv_path: Path, window: int = 7) -> Dict[str, pd.Dat
 
 def parse_google_form_csv(csv_path: Path, window: int = 7) -> Dict[str, pd.DataFrame]:
     """
-    Parse Google Form CSV with flexible column mapping.
+    Parse Google Form CSV using unified GoogleFormParser.
     
-    DEPRECATED: Use parse_daily_entries_csv for daily tracking.
+    Uses form_parser.GoogleFormParser for consistent column mapping
+    across all scripts.
     
     Handles various naming conventions from Google Forms:
       - "Sleep hours (Day 1)" → sleep_hours
       - "Day 1: Sleep Quality" → sleep_quality
       - Fuzzy matching for feature names
     
+    Args:
+        csv_path: Path to Google Form CSV export
+        window: Number of days to track (default: 7)
+        
     Returns:
         Dict mapping user_id → DataFrame with 7 days × 17 features
     """
@@ -419,6 +427,9 @@ def parse_google_form_csv(csv_path: Path, window: int = 7) -> Dict[str, pd.DataF
     
     print(f"📂 Loaded CSV: {len(df)} responses, {len(df.columns)} columns")
     print(f"   Columns: {list(df.columns[:5])}... (showing first 5)")
+    
+    # Use unified parser for consistent column mapping
+    parser = GoogleFormParser()
     
     # Detect user ID column (timestamp or explicit ID)
     user_id_col = None
@@ -439,63 +450,7 @@ def parse_google_form_csv(csv_path: Path, window: int = 7) -> Dict[str, pd.DataF
             job_col = col
             break
     
-    # Build mapping from form columns to feature names
-    # Expected pattern: "Day X: Feature Name" or "Feature Name (Day X)"
-    column_mapping = {}
-    
-    # Feature name variations for better matching (handle abbreviations)
-    feature_variations = {
-        'outdoor_time_minutes': ['outdoor time minutes', 'outdoor minutes', 'outdoor time', 'outdoor'],
-        'emails_received': ['emails received', 'emails', 'email count'],
-        'screen_time_hours': ['screen time hours', 'screen time', 'screen hours'],
-        'exercise_minutes': ['exercise minutes', 'exercise', 'workout minutes'],
-        'sleep_hours': ['sleep hours', 'hours of sleep', 'sleep'],
-        'sleep_quality': ['sleep quality', 'quality of sleep'],
-        'work_hours': ['work hours', 'hours worked', 'working hours'],
-        'meetings_count': ['meetings count', 'meetings', 'number of meetings'],
-        'tasks_completed': ['tasks completed', 'tasks', 'completed tasks'],
-        'commute_minutes': ['commute minutes', 'commute time', 'commute'],
-        'steps_count': ['steps count', 'steps', 'step count'],
-        'caffeine_mg': ['caffeine mg', 'caffeine', 'caffeine intake'],
-        'alcohol_units': ['alcohol units', 'alcohol', 'drinks'],
-        'social_interactions': ['social interactions', 'social', 'interactions'],
-        'diet_quality': ['diet quality', 'diet', 'nutrition quality'],
-        'work_pressure': ['work pressure', 'pressure', 'stress level'],
-        'weather_mood_impact': ['weather mood impact', 'weather mood', 'weather impact', 'weather'],
-        # === NEW V2 FEATURES ===
-        'morning_mood': ['how did you feel when you woke up', 'feel when you woke up', 'woke up', 'morning mood'],
-        'productivity_today': ['how productive were you', 'productive during', 'productivity', 'workday productivity'],
-        'day_overall_rating': ['overall how was your day', 'how was your day', 'overall day rating', 'day rating'],
-    }
-    
-    for day in range(1, window + 1):
-        for feature in FEATURE_COLS:
-            # Get variations for this feature
-            variations = feature_variations.get(feature, [feature.replace('_', ' ')])
-            
-            # Try various naming patterns with each variation
-            for variation in variations:
-                patterns = [
-                    f"Day {day}: {variation.title()}",
-                    f"Day {day} - {variation.title()}",
-                    f"{variation.title()} (Day {day})",
-                    f"D{day}: {variation.title()}",
-                ]
-                
-                matched = False
-                for pattern in patterns:
-                    # Case-insensitive fuzzy match
-                    for col in df.columns:
-                        if pattern.lower() in col.lower() or col.lower() in pattern.lower():
-                            column_mapping[col] = (feature, day)
-                            matched = True
-                            break
-                    if matched:
-                        break
-                if matched:
-                    break
-    
-    print(f"✓ Mapped {len(column_mapping)} columns to features")
+    print(f"✓ Using unified GoogleFormParser for consistent column mapping")
     
     # Parse each user's data
     user_data = {}
@@ -508,32 +463,46 @@ def parse_google_form_csv(csv_path: Path, window: int = 7) -> Dict[str, pd.DataF
         if job_col and pd.notna(row[job_col]):
             job = str(row[job_col]).lower()
         
-        # Build 7-day sequence
+        # Parse this row using unified parser
+        row_df = pd.DataFrame([row])
+        try:
+            parsed_row = parser.parse_google_form_csv(csv_path) if idx == 0 else None
+            if parsed_row is not None:
+                # Use parsed data
+                parsed_data = parsed_row.iloc[[idx]] if idx < len(parsed_row) else row_df
+            else:
+                # Single row parsing
+                parsed_data = row_df.copy()
+                for col in parsed_data.columns:
+                    feature = parser.normalize_column_name(col)
+                    if feature:
+                        parsed_data[feature] = row_df[col]
+        except:
+            # Fallback: parse directly from row
+            parsed_data = row_df.copy()
+            for col in parsed_data.columns:
+                feature = parser.normalize_column_name(col)
+                if feature:
+                    parsed_data[feature] = row_df[col]
+        
+        # Build 7-day sequence (for compatibility with multi-day tracking)
         sequence = pd.DataFrame(index=range(window), columns=FEATURE_COLS, dtype=float)
         
-        for col, (feature, day) in column_mapping.items():
-            value = row[col]
-            if pd.notna(value):
-                try:
-                    sequence.loc[day - 1, feature] = float(value)
-                except (ValueError, TypeError):
-                    # Handle categorical (e.g., work_pressure: low/medium/high)
-                    if feature == "work_pressure":
-                        pressure_map = {"low": 0, "medium": 1, "high": 2}
-                        sequence.loc[day - 1, feature] = pressure_map.get(str(value).lower(), 1)
-        
-        # Fill missing values with column means (basic imputation)
+        # Fill from parsed data
         for feature in FEATURE_COLS:
-            if sequence[feature].isna().all():
-                # Use reasonable defaults
-                defaults = {
-                    "sleep_hours": 7.0,
-                    "sleep_quality": 5.0,
-                    "work_hours": 8.0,
-                    "work_pressure": 1.0,
-                    "diet_quality": 5.0,
-                }
-                sequence[feature] = defaults.get(feature, sequence[feature].mean())
+            if feature in parsed_data.columns:
+                value = parsed_data[feature].iloc[0]
+                if pd.notna(value):
+                    try:
+                        sequence.loc[0, feature] = float(value)
+                    except (ValueError, TypeError):
+                        pass
+        
+        # Fill missing values with defaults from parser
+        for feature in FEATURE_COLS:
+            if pd.isna(sequence[feature]).all():
+                default = parser.defaults.get(feature, 5.0)
+                sequence[feature] = default
             else:
                 sequence[feature].fillna(sequence[feature].mean(), inplace=True)
         
@@ -543,8 +512,9 @@ def parse_google_form_csv(csv_path: Path, window: int = 7) -> Dict[str, pd.DataF
             "timestamp": datetime.now(),
         }
     
-    print(f"✓ Parsed {len(user_data)} user profiles")
+    print(f"✓ Parsed {len(user_data)} user profiles using unified parser")
     return user_data
+
 
 
 # ============================================================================

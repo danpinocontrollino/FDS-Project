@@ -49,6 +49,9 @@ import pandas as pd
 import torch
 import torch.nn as nn
 
+# Import unified form parser
+from form_parser import GoogleFormParser
+
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
@@ -784,309 +787,38 @@ def parse_google_form_csv(csv_path: str) -> Tuple[pd.DataFrame, bool]:
     """
     Parse a Google Form CSV export into model-ready format.
     
+    Uses the unified GoogleFormParser from form_parser.py to ensure
+    consistency across all scripts.
+    
     Supports two formats:
     1. Weekly averages: One row per person
     2. Daily data: 7 rows per person (grouped by name/email)
     
+    Args:
+        csv_path: Path to Google Form CSV export
+        
     Returns:
         (dataframe, is_daily): Processed data and whether it's daily format
     """
-    df = pd.read_csv(csv_path)
-    
-    # Column name mapping (Google Form question -> feature name)
-    # IMPORTANT: More specific patterns MUST come before generic ones!
-    # E.g., "recover after stress" must come before "stress"
-    column_mapping = {
-        # Recovery - MUST come before "stress" since recovery questions often contain "stress"
-        "how well do you recover": "recovery_ability",
-        "recover after stress": "recovery_ability",
-        "recover from a stressful": "recovery_ability",
-        "recover from": "recovery_ability",
-        "recovery ability": "recovery_ability",
-        "recovery:": "recovery_ability",  # Match "Recovery: How well..."
-        
-        # Stress (after recovery to avoid conflicts)
-        "stress level": "stress_level",
-        "how stressed": "stress_level",
-        "stress": "stress_level",
-        
-        # Sleep
-        "sleep hours": "sleep_hours",
-        "hours of sleep": "sleep_hours",
-        "how many hours": "sleep_hours",
-        "sleep quality": "sleep_quality",
-        
-        # Work
-        "work hours": "work_hours",
-        "hours worked": "work_hours",
-        "meetings": "meetings_count",
-        "emails": "emails_received",
-        
-        # Mood/Energy
-        "mood": "mood_score",
-        "how do you feel": "mood_score",
-        "energy": "energy_level",
-        "focus": "focus_score",
-        
-        # Physical
-        "exercise": "exercise_minutes",
-        "workout": "exercise_minutes",
-        "steps": "steps_count",
-        "caffeine": "caffeine_mg",
-        "coffee": "caffeine_mg",
-        "alcohol": "alcohol_units",
-        
-        # Other
-        "commute": "commute_minutes",
-        "screen time": "screen_time_hours",
-        "pressure": "work_pressure",
-        
-        # Identifiers - be specific to avoid matching "today" etc.
-        # More specific patterns first, then generic
-        "name / email": "_name",
-        "name/email": "_name",
-        "your name": "_name",
-        "what is your name": "_name",
-        "which day": "_day",  # Changed from "day" to avoid matching "today"
-        "what day": "_day",
-        
-        # Social - IMPORTANT: more specific patterns must come first!
-        # The matching is done with "key in column_name" so order matters
-        "number of meaningful social": "social_interactions",  # Must come before "quality of social"
-        "meaningful social interaction": "social_interactions",
-        "quality of social interaction": "social_quality",  # "Quality of Social Interactions today"
-        "quality of social": "social_quality",
-        "lonely": "loneliness_level",
-        "isolated": "loneliness_level",
-        
-        # Work Environment
-        "work arrangement": "work_arrangement",
-        "primary work arrangement": "work_arrangement",
-        "workspace type": "workspace_type",
-        "how distracting": "environment_distractions",
-        "distracting": "environment_distractions",
-        "distraction": "environment_distractions",
-        
-        # Job Context
-        "job type": "job_type",
-        "job title": "job_type",
-        "what best describes your job": "job_type",
-        "does your job require": "job_requires_screen",
-        "job require": "job_requires_screen",
-        "screen time required": "job_requires_screen",
-        "extended screen time": "job_requires_screen",
-        "take breaks": "break_flexibility",
-        "break flexibility": "break_flexibility",
-        
-        # Boundaries
-        "work-life boundary": "work_life_boundary",
-        "boundary clarity": "work_life_boundary",
-        "boundary": "work_life_boundary",
-        "checking emails outside": "after_hours_checking",
-        "check work outside": "after_hours_checking",
-        "outside hours": "after_hours_checking",
-        
-        # === DATASET-ALIGNED FEATURES (High Priority) ===
-        "time spent outdoors": "outdoor_time_minutes",
-        "outdoor": "outdoor_time_minutes",
-        "outside time": "outdoor_time_minutes",
-        "time outdoors": "outdoor_time_minutes",
-        "diet quality": "diet_quality",
-        "nutrition": "diet_quality",
-        "job satisfaction": "job_satisfaction",
-        "satisfied with job": "job_satisfaction",
-        "chronotype": "chronotype",
-        "sleep pattern": "chronotype",
-        "morning person": "chronotype",
-        "night owl": "chronotype",
-    }
-    
-    # V2 feature defaults
-    V2_DEFAULTS = {
-        "social_quality": 6,
-        "loneliness_level": "Sometimes",
-        "work_arrangement": "Hybrid",
-        "workspace_type": "Shared office",
-        "environment_distractions": 5,
-        "job_type": "Other",
-        "job_requires_screen": "Moderate, 2-4 hours",
-        "break_flexibility": "Mostly, with some constraints",
-        "work_life_boundary": "Somewhat blurred",
-        "after_hours_checking": "Sometimes",
-        "recovery_ability": 5,
-        # Dataset-aligned features
-        "social_interactions": 3,
-        "outdoor_time_minutes": 30,
-        "diet_quality": 5,
-        "job_satisfaction": 6,
-        "chronotype": "intermediate",
-    }
-    
-    # Try to map columns
-    mapped_df = pd.DataFrame()
-    for col in df.columns:
-        col_lower = col.lower()
-        for key, feature in column_mapping.items():
-            if key in col_lower:
-                mapped_df[feature] = df[col]
-                break
-    
-    # Fill missing columns with defaults
-    for feature in FEATURE_COLS:
-        if feature not in mapped_df.columns:
-            mapped_df[feature] = DEFAULTS[feature]
-    
-    # Fill V2 features with defaults if missing
-    for feature, default in V2_DEFAULTS.items():
-        if feature not in mapped_df.columns:
-            mapped_df[feature] = default
-    
-    # Clean numeric columns - handle messy user input like "Abbastanza", "4h", "10/15"
-    def clean_numeric(value, default):
-        """Extract numeric value from messy input."""
-        if pd.isna(value):
-            return default
-        if isinstance(value, (int, float)):
-            return float(value)
-        
-        # Convert to string and clean
-        s = str(value).strip().lower()
-        
-        # Handle common text responses
-        text_to_num = {
-            "abbastanza": 7,  # "enough" in Italian
-            "molto": 8,      # "a lot"
-            "poco": 3,       # "little"
-            "normale": 5,    # "normal"
-            "high": 2,       # for work_pressure
-            "medium": 1,
-            "low": 0,
-        }
-        for text, num in text_to_num.items():
-            if text in s:
-                return num
-        
-        # Handle time duration categorical values (e.g., "2+ hours", "15-30 min")
-        # This is critical for outdoor_time_minutes parsing from Google Forms!
-        import re
-        if "hour" in s:
-            # Extract number before "hour" and convert to minutes
-            hour_match = re.search(r'(\d+)\+?\s*hour', s)
-            if hour_match:
-                hours = float(hour_match.group(1))
-                return hours * 60  # Convert to minutes (e.g., "2+ hours" -> 120)
-        
-        # Handle minute ranges (e.g., "15-30 min", "30-60 min")
-        min_range_match = re.search(r'(\d+)\s*-\s*(\d+)\s*min', s)
-        if min_range_match:
-            # Use midpoint of range
-            low = float(min_range_match.group(1))
-            high = float(min_range_match.group(2))
-            return (low + high) / 2  # e.g., "15-30 min" -> 22.5
-        
-        # Handle single minute values (e.g., "30 min", "< 15 min")
-        single_min_match = re.search(r'[<>]?\s*(\d+)\s*min', s)
-        if single_min_match:
-            return float(single_min_match.group(1))
-        
-        # Handle European number format (15.000 or 15,000 = 15000)
-        # First, try to parse the whole string as a number
-        
-        # Remove common units and text
-        s_cleaned = re.sub(r'[a-zA-Z%°]+', '', s).strip()
-        
-        # Handle European format: "15.000" or "15,000" meaning 15000
-        # If it looks like "X.000" or "X,000", it's likely thousands
-        european_match = re.match(r'^(\d{1,3})[.,](\d{3})$', s_cleaned)
-        if european_match:
-            # This is European thousands format (e.g., 15.000 = 15000)
-            return float(european_match.group(1) + european_match.group(2))
-        
-        # Handle decimal numbers like "7.5" or "7,5"
-        decimal_match = re.match(r'^(\d+)[.,](\d{1,2})$', s_cleaned)
-        if decimal_match:
-            # This is a decimal (e.g., 7.5 or 7,5)
-            return float(decimal_match.group(1) + '.' + decimal_match.group(2))
-        
-        # Try to extract first number from string (handles "4h", "10/15", "120 mg", etc.)
-        numbers = re.findall(r'\d+', s_cleaned)
-        if numbers:
-            try:
-                return float(numbers[0])
-            except ValueError:
-                pass
-        
-        return default
-    
-    # Apply cleaning to all feature columns
-    for feature in FEATURE_COLS:
-        if feature in mapped_df.columns:
-            default = DEFAULTS.get(feature, 5)
-            mapped_df[feature] = mapped_df[feature].apply(lambda x: clean_numeric(x, default))
-    
-    # Special handling for steps_count: European format "15.000" means 15000, not 15.0
-    # This is ONLY for steps because steps are always whole numbers in thousands
-    if "steps_count" in mapped_df.columns:
-        def fix_steps_european(value):
-            """Convert European thousands format for steps (15.000 -> 15000)."""
-            if pd.isna(value):
-                return DEFAULTS.get("steps_count", 5000)
-            if isinstance(value, (int, float)):
-                # If it's a suspiciously low number like 15.0, it might be European format
-                # Real step counts are typically 1000+ per day
-                if 1 <= value <= 30:
-                    # Likely European format: 15.000 was parsed as 15.0
-                    return value * 1000
-                return value
-            # String handling
-            s = str(value).strip()
-            # Handle "15.000" or "15,000" as 15000
-            import re
-            european_match = re.match(r'^(\d{1,2})[.,](\d{3})$', s)
-            if european_match:
-                return float(european_match.group(1) + european_match.group(2))
-            # Try parsing normally
-            try:
-                val = float(re.sub(r'[^\d.]', '', s))
-                if 1 <= val <= 30:
-                    return val * 1000
-                return val
-            except:
-                return DEFAULTS.get("steps_count", 5000)
-        
-        mapped_df["steps_count"] = mapped_df["steps_count"].apply(fix_steps_european)
-    
-    # Clean V2 features (not in FEATURE_COLS but needed for context-aware logic)
-    v2_features = [
-        "social_quality", "social_interactions", "outdoor_time_minutes",
-        "diet_quality", "job_satisfaction", "recovery_ability", "chronotype_score"
-    ]
-    for v2_feat in v2_features:
-        if v2_feat in mapped_df.columns:
-            mapped_df[v2_feat] = mapped_df[v2_feat].apply(lambda x: clean_numeric(x, 5))
-    
-    # Convert work_pressure text to numeric
-    if mapped_df["work_pressure"].dtype == object:
-        pressure_map = {"low": 0, "medium": 1, "high": 2}
-        mapped_df["work_pressure"] = mapped_df["work_pressure"].str.lower().map(pressure_map).fillna(1)
+    # Use unified parser
+    parser = GoogleFormParser()
+    mapped_df = parser.parse_google_form_csv(csv_path)
     
     # Detect if this is daily data (check for name/email column and multiple rows)
-    is_daily = False
-    group_col = None
+    is_daily = parser.detect_format(mapped_df)
     
-    if "_name" in mapped_df.columns:
-        group_col = "_name"
-    elif "_email" in mapped_df.columns:
-        group_col = "_email"
-    
-    if group_col and len(mapped_df) >= 7:
-        # Check if any user has ~7 entries
-        counts = mapped_df[group_col].value_counts()
-        if counts.max() >= 7:
-            is_daily = True
-            mapped_df["_group"] = mapped_df[group_col]
+    # For daily format, add grouping information
+    if is_daily == "daily":
+        if "_name" in mapped_df.columns:
+            mapped_df["_group"] = mapped_df["_name"]
+        elif "_email" in mapped_df.columns:
+            mapped_df["_group"] = mapped_df["_email"]
+        is_daily = True
+    else:
+        is_daily = False
     
     return mapped_df, is_daily
+
 
 
 def get_interactive_input() -> Union[Dict[str, float], List[Dict[str, float]]]:
@@ -3001,6 +2733,8 @@ def print_cvae_suggestions(data: Dict[str, float], pred_class: int, feature_cols
         
     except Exception as e:
         print(f"\n  ⚠️  Could not generate AI suggestions: {e}")
+
+
 
 
 def print_prediction_result(data: Dict[str, float], pred_class: int, probs: np.ndarray, 
