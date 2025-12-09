@@ -62,53 +62,85 @@ SYNTHETIC_MODEL_PATH = None
 REAL_MODEL_PATH = None
 
 # ============================================================================
-# MODEL DEFINITION (same as training scripts)
+# MODEL DEFINITION - Import from project
 # ============================================================================
 
-class PredictionHead(nn.Module):
-    def __init__(self, input_dim, target_name):
-        super().__init__()
-        self.target_name = target_name
-        self.regression = nn.Linear(input_dim, 1)
-        self.classification = nn.Linear(input_dim, 1)
+# Try to import from project, fallback to inline definition
+try:
+    import sys
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+    from scripts.model_definitions import MentalHealthPredictor
+    print("✓ Using model definition from scripts/model_definitions.py")
+except ImportError:
+    print("⚠ Could not import model_definitions, using inline definition")
     
-    def forward(self, x):
-        reg_output = self.regression(x)
-        cls_output = self.classification(x)
-        return reg_output.squeeze(-1), cls_output.squeeze(-1)
+    class PredictionHead(nn.Module):
+        """Single prediction head for one target (regression + classification)."""
+        def __init__(self, input_dim: int, hidden_dim: int):
+            super().__init__()
+            self.shared = nn.Sequential(
+                nn.Linear(input_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(0.2),
+            )
+            self.regression = nn.Linear(hidden_dim, 1)
+            self.classification = nn.Linear(hidden_dim, 1)
+        
+        def forward(self, x: torch.Tensor):
+            h = self.shared(x)
+            reg = self.regression(h).squeeze(-1)
+            cls = self.classification(h).squeeze(-1)
+            return reg, cls
 
 
-class MentalHealthPredictor(nn.Module):
-    def __init__(self, input_dim, hidden_dim=128, num_layers=2, 
-                 encoder_type='lstm', targets=None):
-        super().__init__()
-        self.encoder_type = encoder_type
-        self.hidden_dim = hidden_dim
+    class MentalHealthPredictor(nn.Module):
+        """Multi-task LSTM for mental health prediction."""
+        def __init__(self, input_dim, hidden_dim=128, num_layers=2, 
+                     encoder_type='lstm', targets=None):
+            super().__init__()
+            self.encoder_type = encoder_type
+            self.hidden_dim = hidden_dim
+            
+            if targets is None:
+                targets = ['stress_level', 'mood_score', 'energy_level', 'focus_score',
+                          'perceived_stress_scale', 'anxiety_score', 'depression_score', 
+                          'job_satisfaction']
+            
+            self.targets = targets
+            
+            if encoder_type == 'lstm':
+                self.encoder = nn.LSTM(input_dim, hidden_dim, num_layers, 
+                                      batch_first=True, dropout=0.3 if num_layers > 1 else 0)
+            elif encoder_type == 'gru':
+                self.encoder = nn.GRU(input_dim, hidden_dim, num_layers,
+                                     batch_first=True, dropout=0.3 if num_layers > 1 else 0)
+            
+            # Shared representation layer
+            self.shared_repr = nn.Sequential(
+                nn.Linear(hidden_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(0.2)
+            )
+            
+            # Multiple prediction heads
+            self.heads = nn.ModuleDict({
+                target: PredictionHead(hidden_dim, 64) for target in targets
+            })
         
-        if targets is None:
-            targets = ['stress_level', 'mood_score', 'energy_level', 'focus_score',
-                      'perceived_stress_scale', 'anxiety_score', 'depression_score', 
-                      'job_satisfaction']
-        
-        self.targets = targets
-        
-        if encoder_type == 'lstm':
-            self.encoder = nn.LSTM(input_dim, hidden_dim, num_layers, 
-                                  batch_first=True, dropout=0.3 if num_layers > 1 else 0)
-        
-        self.prediction_heads = nn.ModuleDict({
-            target: PredictionHead(hidden_dim, target) for target in targets
-        })
-    
-    def forward(self, x):
-        encoded, _ = self.encoder(x)
-        last_hidden = encoded[:, -1, :]
-        
-        outputs = {}
-        for target, head in self.prediction_heads.items():
-            outputs[target] = head(last_hidden)
-        
-        return outputs
+        def forward(self, x):
+            if self.encoder_type in ['lstm', 'gru']:
+                encoded, _ = self.encoder(x)
+                last_hidden = encoded[:, -1, :]
+            else:
+                last_hidden = self.encoder(x)
+            
+            shared = self.shared_repr(last_hidden)
+            
+            outputs = {}
+            for target, head in self.heads.items():
+                outputs[target] = head(shared)
+            
+            return outputs
 
 
 # ============================================================================
