@@ -41,19 +41,25 @@ OUTPUT_PATH = '/kaggle/working/dual_predictions_comparison.json'
 def find_model_path(model_name):
     """Try multiple locations for models."""
     possible_paths = [
-        f'/kaggle/working/{model_name}',
-        f'/kaggle/input/mental-health-models/{model_name}',
-        f'/kaggle/input/fds-project/models/saved/{model_name}',
-        f'models/saved/{model_name}'
+        f'/kaggle/input/mental-health-models/{model_name}',  # Dataset upload
+        f'/kaggle/working/{model_name}',  # Direct upload
+        f'/kaggle/input/mental-health/{model_name}',  # Alternative dataset name
+        f'models/saved/{model_name}'  # Local path
     ]
     for path in possible_paths:
         if os.path.exists(path):
+            print(f"  ✓ Found {model_name} at: {path}")
             return path
-    raise FileNotFoundError(f"Could not find {model_name} in any expected location. "
-                          f"Please upload to /kaggle/working/ or add as dataset.")
+    
+    # Show what we checked
+    print(f"  ✗ Could not find {model_name}. Checked:")
+    for path in possible_paths:
+        print(f"    - {path}")
+    raise FileNotFoundError(f"Could not find {model_name} in any expected location.")
 
-SYNTHETIC_MODEL_PATH = find_model_path('mental_health_lstm.pt')
-REAL_MODEL_PATH = find_model_path('mental_health_lstm_studentlife.pt')
+# These will be set in run_dual_predictions()
+SYNTHETIC_MODEL_PATH = None
+REAL_MODEL_PATH = None
 
 # ============================================================================
 # MODEL DEFINITION (same as training scripts)
@@ -303,9 +309,16 @@ def build_student_daily_features(base_path, student_id):
 
 def run_dual_predictions():
     """Main comparison function."""
+    global SYNTHETIC_MODEL_PATH, REAL_MODEL_PATH
+    
     print("="*80)
     print("DUAL MODEL COMPARISON")
     print("="*80)
+    
+    # Find models first
+    print("\nLocating models...")
+    SYNTHETIC_MODEL_PATH = find_model_path('mental_health_lstm.pt')
+    REAL_MODEL_PATH = find_model_path('mental_health_lstm_studentlife.pt')
     
     # Load both models
     print("\nLoading models...")
