@@ -50,6 +50,7 @@ def validate_pipeline():
         (SCRIPT_DIR / "predict_burnout.py", "Burnout Predictor"),
         (SCRIPT_DIR / "generate_profile.py", "Profile Generator"),
         (SCRIPT_DIR / "generate_report.py", "Report Generator"),
+        (SCRIPT_DIR / "personalized_advisor.py", "Personalized Advisor"),
         (SCRIPT_DIR / "main_pipeline.py", "Main Pipeline"),
     ]
     

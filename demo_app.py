@@ -305,6 +305,270 @@ def render_input_sidebar():
         'weather_mood_impact': 0
     }
 
+def get_color_and_delta(target: str, value: float, thresholds: dict) -> tuple:
+    """
+    Get color emoji and delta_color based on target value and thresholds.
+    Returns: (color_emoji, delta_color)
+    
+    Color scheme:
+    - Green (🟢): Healthy/Good
+    - Orange (🟠): Moderate/Warning
+    - Red (🔴): At-risk/Severe
+    """
+    
+    # Get threshold info
+    threshold_info = thresholds['at_risk_thresholds'].get(target, {})
+    threshold = threshold_info.get('threshold', 10)
+    inverted = threshold_info.get('inverted', False)
+    
+    # Special handling for anxiety_score (0-9 green, 10-14 orange, 15-21 red)
+    if target == 'anxiety_score':
+        if value < 10:
+            return "🟢", "normal"
+        elif value <= 14:
+            return "🟠", "normal"
+        else:  # 15-21
+            return "🔴", "inverse"
+    
+    # Special handling for depression_score (0-10 green, 11-18 orange, 19-27 red)
+    elif target == 'depression_score':
+        if value < 11:
+            return "🟢", "normal"
+        elif value <= 18:
+            return "🟠", "normal"
+        else:  # 19-27
+            return "🔴", "inverse"
+    
+    # Special handling for perceived_stress_scale (0-13 green, 14-26 orange, 27-40 red)
+    elif target == 'perceived_stress_scale':
+        if value < 14:
+            return "🟢", "normal"
+        elif value <= 26:
+            return "🟠", "normal"
+        else:  # 27-40
+            return "🔴", "inverse"
+    
+    # Special handling for job_satisfaction (inverted: higher is better)
+    elif target == 'job_satisfaction':
+        if value >= 7:
+            return "🟢", "normal"
+        elif value >= 5:
+            return "🟠", "normal"
+        else:  # < 5
+            return "🔴", "inverse"
+    
+    # Default logic for daily metrics (stress_level, mood_score, energy_level, focus_score)
+    else:
+        # For non-inverted: higher value = worse (stress_level uses this)
+        if not inverted:
+            if value < 4:
+                return "🟢", "normal"
+            elif value <= 6:
+                return "🟠", "normal"
+            else:  # > 6
+                return "🔴", "inverse"
+        # For inverted: lower value = worse (mood, energy, focus)
+        else:
+            if value >= 7:
+                return "🟢", "normal"
+            elif value >= 5:
+                return "🟠", "normal"
+            else:  # < 5
+                return "🔴", "inverse"
+
+def generate_prediction_explanation(target: str, value: float, inputs: dict, thresholds: dict) -> dict:
+    """
+    Generate detailed explanation for why a prediction has this value.
+    Returns dict with factors, percentages, and recommendations.
+    """
+    
+    explanation = {
+        'target': target,
+        'value': value,
+        'factors': [],
+        'recommendations': []
+    }
+    
+    # Anxiety explanation
+    if target == 'anxiety_score':
+        anxiety_factors = []
+        if inputs['sleep_quality'] < 6:
+            anxiety_factors.append(('Poor sleep quality', inputs['sleep_quality'], 6, 30))
+        if inputs['social_interactions'] < 3:
+            anxiety_factors.append(('Social isolation', inputs['social_interactions'], 3, 25))
+        if inputs['caffeine_mg'] > 300:
+            anxiety_factors.append(('High caffeine', inputs['caffeine_mg'], 300, 20))
+        if inputs['outdoor_time_minutes'] < 20:
+            anxiety_factors.append(('No outdoor time', inputs['outdoor_time_minutes'], 20, 15))
+        if inputs['work_pressure'] > 6:
+            anxiety_factors.append(('High work pressure', inputs['work_pressure'], 6, 10))
+        
+        explanation['factors'] = anxiety_factors
+        explanation['recommendations'] = [
+            {'action': 'Improve sleep quality', 'impact': 'Could reduce anxiety by ~4-5 points', 'effort': 'Medium'},
+            {'action': 'Increase social interactions', 'impact': 'Could reduce anxiety by ~2-3 points', 'effort': 'Easy'},
+            {'action': 'Reduce caffeine intake', 'impact': 'Could reduce anxiety by ~1-2 points', 'effort': 'Easy'},
+            {'action': 'Spend 30min outdoors daily', 'impact': 'Could reduce anxiety by ~1-2 points', 'effort': 'Easy'},
+        ]
+    
+    # Stress Level explanation
+    elif target == 'stress_level':
+        stress_factors = []
+        if inputs['work_hours'] > 9:
+            stress_factors.append(('Long work hours', inputs['work_hours'], 9, 35))
+        if inputs['sleep_hours'] < 7:
+            stress_factors.append(('Insufficient sleep', inputs['sleep_hours'], 7, 30))
+        if inputs['meetings_count'] > 5:
+            stress_factors.append(('Too many meetings', inputs['meetings_count'], 5, 20))
+        if inputs['exercise_minutes'] < 30:
+            stress_factors.append(('Low exercise', inputs['exercise_minutes'], 30, 15))
+        
+        explanation['factors'] = stress_factors
+        explanation['recommendations'] = [
+            {'action': 'Reduce work hours to 8-9h max', 'impact': 'Could reduce stress by ~2-3 points', 'effort': 'Hard'},
+            {'action': 'Improve sleep to 7-9h', 'impact': 'Could reduce stress by ~2 points', 'effort': 'Medium'},
+            {'action': 'Exercise 30+ min daily', 'impact': 'Could reduce stress by ~1 point', 'effort': 'Medium'},
+        ]
+    
+    # Mood Score explanation (inverted)
+    elif target == 'mood_score':
+        mood_factors = []
+        if inputs['social_interactions'] < 4:
+            mood_factors.append(('Low social contact', inputs['social_interactions'], 4, 30))
+        if inputs['sleep_hours'] < 7:
+            mood_factors.append(('Poor sleep', inputs['sleep_hours'], 7, 25))
+        if inputs['diet_quality'] < 6:
+            mood_factors.append(('Poor diet', inputs['diet_quality'], 6, 20))
+        if inputs['outdoor_time_minutes'] < 30:
+            mood_factors.append(('No outdoor time', inputs['outdoor_time_minutes'], 30, 15))
+        if inputs['exercise_minutes'] < 20:
+            mood_factors.append(('Low exercise', inputs['exercise_minutes'], 20, 10))
+        
+        explanation['factors'] = mood_factors
+        explanation['recommendations'] = [
+            {'action': 'Increase social interactions', 'impact': 'Could improve mood by ~1-2 points', 'effort': 'Easy'},
+            {'action': 'Sleep 7-9h nightly', 'impact': 'Could improve mood by ~1 point', 'effort': 'Medium'},
+            {'action': 'Eat healthier', 'impact': 'Could improve mood by ~0.5 points', 'effort': 'Medium'},
+            {'action': 'Spend 30min outdoors daily', 'impact': 'Could improve mood by ~0.5 points', 'effort': 'Easy'},
+        ]
+    
+    # Depression Score explanation
+    elif target == 'depression_score':
+        depression_factors = []
+        if inputs['exercise_minutes'] < 15:
+            depression_factors.append(('Sedentary', inputs['exercise_minutes'], 15, 35))
+        if inputs['social_interactions'] < 2:
+            depression_factors.append(('Social isolation', inputs['social_interactions'], 2, 30))
+        if inputs['sleep_hours'] < 6.5:
+            depression_factors.append(('Severe sleep deficit', inputs['sleep_hours'], 6.5, 20))
+        if inputs['work_satisfaction'] < 5:
+            depression_factors.append(('Job dissatisfaction', 0, 1, 15))
+        
+        explanation['factors'] = depression_factors
+        explanation['recommendations'] = [
+            {'action': 'Start exercise routine (30min/day)', 'impact': 'Could reduce depression by ~5-7 points', 'effort': 'Medium'},
+            {'action': 'Increase social contact', 'impact': 'Could reduce depression by ~4-5 points', 'effort': 'Medium'},
+            {'action': 'Improve sleep to 7-9h', 'impact': 'Could reduce depression by ~3-4 points', 'effort': 'Medium'},
+            {'action': 'Seek professional support', 'impact': 'Significant improvement', 'effort': 'N/A'},
+        ]
+    
+    # Default for other targets
+    else:
+        explanation['factors'] = [('Multiple behavioral factors', 0, 0, 100)]
+        explanation['recommendations'] = [
+            {'action': 'Balance sleep, exercise, work', 'impact': 'General improvement', 'effort': 'Medium'},
+        ]
+    
+    return explanation
+
+def render_goal_setter():
+    """Render goal-setting interface in sidebar."""
+    st.sidebar.markdown("---")
+    st.sidebar.header("🎯 Goal Setter")
+    
+    goals = {}
+    st.sidebar.markdown("*Set your target values:*")
+    
+    # Goal for stress
+    goals['stress_target'] = st.sidebar.slider(
+        "Target Stress Level", 
+        1.0, 10.0, 4.0, 0.5,
+        help="Lower is better (1-3: healthy, 4-6: moderate, 7+: high)"
+    )
+    
+    # Goal for anxiety
+    goals['anxiety_target'] = st.sidebar.slider(
+        "Target Anxiety Score",
+        0.0, 21.0, 8.0, 0.5,
+        help="Lower is better (0-9: healthy, 10-14: moderate, 15-21: high)"
+    )
+    
+    # Goal for mood
+    goals['mood_target'] = st.sidebar.slider(
+        "Target Mood Score",
+        1.0, 10.0, 7.0, 0.5,
+        help="Higher is better (1-3: low, 4-6: moderate, 7-10: good)"
+    )
+    
+    # Goal for sleep
+    goals['sleep_target'] = st.sidebar.slider(
+        "Target Sleep Hours",
+        5.0, 10.0, 8.0, 0.5,
+        help="Optimal: 7-9 hours"
+    )
+    
+    # Goal for exercise
+    goals['exercise_target'] = st.sidebar.slider(
+        "Target Exercise (min/day)",
+        0, 180, 45, 5,
+        help="Recommended: 30-60 minutes"
+    )
+    
+    return goals
+
+def render_prediction_explanations(predictions, inputs, thresholds):
+    """Render detailed explanations for each prediction."""
+    st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
+    st.header("🔍 Understanding Your Predictions")
+    st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+    
+    st.markdown("**Click on any metric below to understand what's driving it:**")
+    st.markdown("")
+    
+    # Explanations for main metrics
+    explanation_targets = ['stress_level', 'anxiety_score', 'mood_score', 'depression_score']
+    
+    for target in explanation_targets:
+        if target in predictions:
+            value = predictions[target]['value']
+            explanation = generate_prediction_explanation(target, value, inputs, thresholds)
+            
+            # Create expander
+            with st.expander(f"📊 {target.replace('_', ' ').title()} = {value:.1f}", expanded=False):
+                col1, col2 = st.columns(2)
+                
+                # Left: Contributing factors
+                with col1:
+                    st.subheader("📍 Contributing Factors")
+                    if explanation['factors']:
+                        for factor_name, current, target_val, percentage in explanation['factors']:
+                            st.markdown(f"**{factor_name}**")
+                            st.markdown(f"• Current: {current:.1f} | Target: {target_val:.1f}")
+                            st.markdown(f"• Impact: ~{percentage}% of your score")
+                            st.markdown("")
+                    else:
+                        st.markdown("Multiple factors at play")
+                
+                # Right: What can help
+                with col2:
+                    st.subheader("💡 What Can Help")
+                    if explanation['recommendations']:
+                        for i, rec in enumerate(explanation['recommendations'][:3], 1):
+                            st.markdown(f"**{i}. {rec['action']}**")
+                            st.markdown(f"• Expected impact: {rec['impact']}")
+                            st.markdown(f"• Difficulty: {rec['effort']}")
+                            st.markdown("")
+
 def render_predictions(predictions, thresholds):
     """Render prediction results."""
     if predictions is None:
@@ -313,8 +577,10 @@ def render_predictions(predictions, thresholds):
     
     st.header("📈 Predictions")
     
+    
     # Daily predictions
     st.subheader("🔹 Daily Predictions (Next Day)")
+    st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
     daily_cols = st.columns(4)
     daily_targets = ['stress_level', 'mood_score', 'energy_level', 'focus_score']
     
@@ -323,29 +589,23 @@ def render_predictions(predictions, thresholds):
             value = predictions[target]['value']
             at_risk_prob = predictions[target]['at_risk_prob']
             
-            # Determine if at-risk
-            threshold_info = thresholds['at_risk_thresholds'].get(target, {})
-            threshold = threshold_info.get('threshold', 5)
-            inverted = threshold_info.get('inverted', False)
-            
-            if inverted:
-                at_risk = value < threshold
-            else:
-                at_risk = value >= threshold
-            
-            # Color coding
-            color = "🔴" if at_risk else "✅"
+            # Get color and delta_color
+            color, delta_color = get_color_and_delta(target, value, thresholds)
             
             with col:
                 st.metric(
                     f"{color} {target.replace('_', ' ').title()}",
                     f"{value:.1f}",
                     delta=f"{at_risk_prob*100:.0f}% confidence",
-                    delta_color="inverse" if at_risk else "normal"
+                    delta_color=delta_color
                 )
+    
+    # Spacing between sections
+    st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
     
     # Weekly predictions
     st.subheader("🔹 Weekly Predictions (End of Week)")
+    st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
     weekly_cols = st.columns(4)
     weekly_targets = ['perceived_stress_scale', 'anxiety_score', 'depression_score', 'job_satisfaction']
     
@@ -354,29 +614,22 @@ def render_predictions(predictions, thresholds):
             value = predictions[target]['value']
             at_risk_prob = predictions[target]['at_risk_prob']
             
-            # Determine if at-risk
-            threshold_info = thresholds['at_risk_thresholds'].get(target, {})
-            threshold = threshold_info.get('threshold', 10)
-            inverted = threshold_info.get('inverted', False)
-            
-            if inverted:
-                at_risk = value < threshold
-            else:
-                at_risk = value >= threshold
-            
-            color = "🔴" if at_risk else "✅"
+            # Get color and delta_color using helper function
+            color, delta_color = get_color_and_delta(target, value, thresholds)
             
             with col:
                 st.metric(
                     f"{color} {target.replace('_', ' ').title()}",
                     f"{value:.1f}",
                     delta=f"{at_risk_prob*100:.0f}% confidence",
-                    delta_color="inverse" if at_risk else "normal"
+                    delta_color=delta_color
                 )
 
 def render_risk_assessment(inputs, predictions, thresholds):
     """Render risk factors and positive factors."""
+    st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
     st.header("⚠️ Risk Assessment")
+    st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
     
     risk_factors = []
     positive_factors = []
@@ -442,7 +695,9 @@ def render_risk_assessment(inputs, predictions, thresholds):
 
 def render_quick_advice(inputs):
     """Render quick actionable advice."""
+    st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
     st.header("💡 Quick Recommendations")
+    st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
     
     advice = []
     
@@ -507,6 +762,9 @@ def main():
     # Get inputs
     inputs = render_input_sidebar()
     
+    # Get goals
+    goals = render_goal_setter()
+    
     # Prepare behavioral data (7 days, all same for demo)
     feature_order = [
         'sleep_hours', 'sleep_quality', 'work_hours', 'meetings_count',
@@ -529,9 +787,49 @@ def main():
             # Render results
             render_predictions(predictions, thresholds)
             st.markdown("---")
+            render_prediction_explanations(predictions, inputs, thresholds)
+            st.markdown("---")
             render_risk_assessment(inputs, predictions, thresholds)
             st.markdown("---")
             render_quick_advice(inputs)
+            st.markdown("---")
+            
+            # Goal progress tracking
+            st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
+            st.header("🎯 Progress Toward Your Goals")
+            st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+            
+            col1, col2, col3, col4, col5 = st.columns(5)
+            
+            with col1:
+                current_stress = predictions.get('stress_level', {}).get('value', 5)
+                progress = max(0, min(100, ((goals['stress_target'] - current_stress) / (goals['stress_target'] - 1)) * 100))
+                st.metric("Stress", f"{current_stress:.1f}", f"Goal: {goals['stress_target']:.1f}")
+                st.progress(progress / 100 if progress > 0 else 0)
+            
+            with col2:
+                current_anxiety = predictions.get('anxiety_score', {}).get('value', 8)
+                progress = max(0, min(100, ((goals['anxiety_target'] - current_anxiety) / max(1, goals['anxiety_target'])) * 100))
+                st.metric("Anxiety", f"{current_anxiety:.1f}", f"Goal: {goals['anxiety_target']:.1f}")
+                st.progress(progress / 100 if progress > 0 else 0)
+            
+            with col3:
+                current_mood = predictions.get('mood_score', {}).get('value', 5)
+                progress = max(0, min(100, ((current_mood - 1) / 9) * 100))
+                st.metric("Mood", f"{current_mood:.1f}", f"Goal: {goals['mood_target']:.1f}")
+                st.progress(progress / 100)
+            
+            with col4:
+                sleep_current = inputs.get('sleep_hours', 7)
+                progress = min(100, (sleep_current / goals['sleep_target']) * 100)
+                st.metric("Sleep", f"{sleep_current}h", f"Goal: {goals['sleep_target']}h")
+                st.progress(progress / 100)
+            
+            with col5:
+                exercise_current = inputs.get('exercise_minutes', 30)
+                progress = min(100, (exercise_current / goals['exercise_target']) * 100)
+                st.metric("Exercise", f"{exercise_current}min", f"Goal: {goals['exercise_target']}min")
+                st.progress(progress / 100)
             
             # Download option
             st.markdown("---")

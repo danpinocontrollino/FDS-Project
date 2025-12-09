@@ -38,6 +38,7 @@ import pandas as pd
 
 # Import unified parser
 from form_parser import GoogleFormParser
+from personalized_advisor import PersonalizedAdvisor, PersonMetrics
 
 # Import modules (will be loaded with proper error handling)
 try:
@@ -278,6 +279,102 @@ def step_generate_profile(df: pd.DataFrame, user_email: str) -> Dict[str, Any]:
 
 
 # ============================================================================
+# STEP 3.5: PERSONALIZED ADVISOR
+# ============================================================================
+
+def step_personalized_advice(
+    df: pd.DataFrame,
+    burnout_data: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Step 3.5: Generate ultra-specific personalized advice.
+    
+    Args:
+        df: Parsed dataframe with user metrics
+        burnout_data: Burnout predictions
+        
+    Returns:
+        Dictionary with prioritized personalized advice
+    """
+    print("\n" + "=" * 70)
+    print("🎯 STEP 3.5: Generating Personalized Advice")
+    print("=" * 70)
+    
+    try:
+        # Extract metrics from dataframe
+        row = df.iloc[0]
+        
+        metrics = PersonMetrics(
+            stress_level=float(row.get('stress_level', 5)),
+            sleep_hours=float(row.get('sleep_hours', 7)),
+            sleep_quality=float(row.get('sleep_quality', 6)),
+            mood_score=float(row.get('mood_score', 6)),
+            energy_level=float(row.get('energy_level', 6)),
+            exercise_minutes=float(row.get('exercise_minutes', 30)),
+            work_hours=float(row.get('work_hours', 8)),
+            social_interactions=float(row.get('social_interactions', 3)),
+            work_pressure=int(row.get('work_pressure', 1)),
+            job_type=str(row.get('job_type', 'other')),
+            work_arrangement=str(row.get('work_arrangement', 'hybrid')),
+            caffeine_mg=float(row.get('caffeine_mg', 100)),
+            screen_time_hours=float(row.get('screen_time_hours', 4)),
+            outdoor_time_minutes=float(row.get('outdoor_time_minutes', 30)),
+            diet_quality=float(row.get('diet_quality', 5)),
+            morning_mood=int(row.get('morning_mood', 3)),
+            work_life_boundary=int(row.get('work_life_boundary', 2)),
+            after_hours_checking=int(row.get('after_hours_checking', 2)),
+            recovery_ability=float(row.get('recovery_ability', 5)),
+            job_satisfaction=float(row.get('job_satisfaction', 6)),
+            burnout_risk=float(burnout_data.get('burnout', {}).get('probability', 0) * 100),
+            anxiety_score=float(row.get('anxiety_score', 5)),
+            depression_score=float(row.get('depression_score', 5)),
+        )
+        
+        # Generate personalized advice
+        advisor = PersonalizedAdvisor()
+        advice_list = advisor.analyze_person(metrics)
+        
+        print(f"✓ Analyzed personal metrics")
+        print(f"✓ Identified {len(advice_list)} prioritized recommendations")
+        print(f"✓ Root causes ranked by impact")
+        
+        # Format advice for output
+        formatted_advice = []
+        for i, advice in enumerate(advice_list, 1):
+            formatted_advice.append({
+                "priority": i,
+                "impact_score": advice.impact_score,
+                "root_cause": advice.root_cause,
+                "your_current_value": advice.your_current_value,
+                "healthy_target": advice.healthy_target,
+                "behavioral_chain": advice.behavioral_chain,
+                "specific_action": advice.specific_action,
+                "why_it_matters": advice.why_it_matters,
+                "expected_outcome": advice.expected_outcome,
+                "difficulty_level": advice.difficulty_level,
+                "time_to_see_results": advice.time_to_see_results,
+                "success_rate": advice.success_rate,
+                "related_problems": advice.related_problems,
+            })
+        
+        return {
+            "advice_list": formatted_advice,
+            "top_priority": formatted_advice[0] if formatted_advice else None,
+            "total_recommendations": len(formatted_advice),
+        }
+        
+    except Exception as e:
+        print(f"⚠️  Warning during personalized advice: {str(e)}")
+        traceback.print_exc()
+        return {
+            "advice_list": [],
+            "top_priority": None,
+            "total_recommendations": 0,
+            "error": str(e)
+        }
+
+
+# ============================================================================
 # STEP 4: GENERATE REPORT
 # ============================================================================
 
@@ -391,6 +488,7 @@ def step_generate_report(
 def step_save_outputs(
     burnout_data: Dict[str, Any],
     profile_data: Dict[str, Any],
+    personalized_advice: Dict[str, Any],
     output_dir: Path,
     user_email: str
 ) -> Dict[str, Path]:
@@ -400,6 +498,7 @@ def step_save_outputs(
     Args:
         burnout_data: Burnout predictions
         profile_data: Mental health profile
+        personalized_advice: Personalized recommendations
         output_dir: Output directory
         user_email: User email
         
@@ -431,6 +530,13 @@ def step_save_outputs(
         json.dump(profile_data, f, indent=2, default=str)
     print(f"✓ Mental health profile: {profile_file.name}")
     saved_files["profile"] = profile_file
+    
+    # Save personalized advice
+    advice_file = output_dir / f"advice_{safe_email}_{timestamp}.json"
+    with open(advice_file, "w") as f:
+        json.dump(personalized_advice.get("advice_list", []), f, indent=2, default=str)
+    print(f"✓ Personalized advice: {advice_file.name}")
+    saved_files["advice"] = advice_file
     
     return saved_files
 
@@ -475,11 +581,14 @@ def run_pipeline(
         # Step 3: Profile
         profile_data = step_generate_profile(df, user_email)
         
+        # Step 3.5: Personalized Advice
+        personalized_advice = step_personalized_advice(df, burnout_data)
+        
         # Step 4: Report
         report_path = step_generate_report(burnout_data, profile_data, user_email, output_dir)
         
         # Step 5: Save
-        saved_files = step_save_outputs(burnout_data, profile_data, output_dir, user_email)
+        saved_files = step_save_outputs(burnout_data, profile_data, personalized_advice, output_dir, user_email)
         saved_files["report"] = report_path
         
         # Final summary
@@ -496,6 +605,8 @@ def run_pipeline(
             "timestamp": datetime.now().isoformat(),
             "burnout": burnout_data.get("burnout", {}),
             "profile": profile_data,
+            "personalized_advice": personalized_advice.get("advice_list", []),
+            "top_priority_advice": personalized_advice.get("top_priority"),
             "files": {k: str(v) for k, v in saved_files.items()},
         }
         
