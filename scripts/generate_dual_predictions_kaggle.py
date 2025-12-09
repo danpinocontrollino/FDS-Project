@@ -62,85 +62,144 @@ SYNTHETIC_MODEL_PATH = None
 REAL_MODEL_PATH = None
 
 # ============================================================================
-# MODEL DEFINITION - Import from project
+# MODEL DEFINITION - Support BOTH architectures
 # ============================================================================
 
-# Try to import from project, fallback to inline definition
-try:
-    import sys
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-    from scripts.model_definitions import MentalHealthPredictor
-    print("✓ Using model definition from scripts/model_definitions.py")
-except ImportError:
-    print("⚠ Could not import model_definitions, using inline definition")
+class PredictionHead(nn.Module):
+    """Prediction head WITH shared layer (original synthetic model)."""
+    def __init__(self, input_dim: int, hidden_dim: int):
+        super().__init__()
+        self.shared = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+        )
+        self.regression = nn.Linear(hidden_dim, 1)
+        self.classification = nn.Linear(hidden_dim, 1)
     
-    class PredictionHead(nn.Module):
-        """Single prediction head for one target (regression + classification)."""
-        def __init__(self, input_dim: int, hidden_dim: int):
-            super().__init__()
-            self.shared = nn.Sequential(
-                nn.Linear(input_dim, hidden_dim),
-                nn.ReLU(),
-                nn.Dropout(0.2),
-            )
-            self.regression = nn.Linear(hidden_dim, 1)
-            self.classification = nn.Linear(hidden_dim, 1)
-        
-        def forward(self, x: torch.Tensor):
-            h = self.shared(x)
-            reg = self.regression(h).squeeze(-1)
-            cls = self.classification(h).squeeze(-1)
-            return reg, cls
+    def forward(self, x: torch.Tensor):
+        h = self.shared(x)
+        reg = self.regression(h).squeeze(-1)
+        cls = self.classification(h).squeeze(-1)
+        return reg, cls
 
 
-    class MentalHealthPredictor(nn.Module):
-        """Multi-task LSTM for mental health prediction."""
-        def __init__(self, input_dim, hidden_dim=128, num_layers=2, 
-                     encoder_type='lstm', targets=None):
-            super().__init__()
-            self.encoder_type = encoder_type
-            self.hidden_dim = hidden_dim
-            
-            if targets is None:
-                targets = ['stress_level', 'mood_score', 'energy_level', 'focus_score',
-                          'perceived_stress_scale', 'anxiety_score', 'depression_score', 
-                          'job_satisfaction']
-            
-            self.targets = targets
-            
-            if encoder_type == 'lstm':
-                self.encoder = nn.LSTM(input_dim, hidden_dim, num_layers, 
-                                      batch_first=True, dropout=0.3 if num_layers > 1 else 0)
-            elif encoder_type == 'gru':
-                self.encoder = nn.GRU(input_dim, hidden_dim, num_layers,
-                                     batch_first=True, dropout=0.3 if num_layers > 1 else 0)
-            
-            # Shared representation layer
-            self.shared_repr = nn.Sequential(
-                nn.Linear(hidden_dim, hidden_dim),
-                nn.ReLU(),
-                nn.Dropout(0.2)
-            )
-            
-            # Multiple prediction heads
-            self.heads = nn.ModuleDict({
-                target: PredictionHead(hidden_dim, 64) for target in targets
-            })
+class SimplePredictionHead(nn.Module):
+    """Simple prediction head WITHOUT shared layer (StudentLife model)."""
+    def __init__(self, input_dim: int):
+        super().__init__()
+        self.regression = nn.Linear(input_dim, 1)
+        self.classification = nn.Linear(input_dim, 1)
+    
+    def forward(self, x: torch.Tensor):
+        reg = self.regression(x).squeeze(-1)
+        cls = self.classification(x).squeeze(-1)
+        return reg, cls
+
+
+class MentalHealthPredictor(nn.Module):
+    """Multi-task LSTM - ORIGINAL architecture with shared_repr."""
+    def __init__(self, input_dim, hidden_dim=128, num_layers=2, 
+                 encoder_type='lstm', targets=None):
+        super().__init__()
+        self.encoder_type = encoder_type
+        self.hidden_dim = hidden_dim
         
-        def forward(self, x):
-            if self.encoder_type in ['lstm', 'gru']:
-                encoded, _ = self.encoder(x)
-                last_hidden = encoded[:, -1, :]
-            else:
-                last_hidden = self.encoder(x)
-            
-            shared = self.shared_repr(last_hidden)
-            
-            outputs = {}
-            for target, head in self.heads.items():
-                outputs[target] = head(shared)
-            
-            return outputs
+        if targets is None:
+            targets = ['stress_level', 'mood_score', 'energy_level', 'focus_score',
+                      'perceived_stress_scale', 'anxiety_score', 'depression_score', 
+                      'job_satisfaction']
+        
+        self.targets = targets
+        
+        if encoder_type == 'lstm':
+            self.encoder = nn.LSTM(input_dim, hidden_dim, num_layers, 
+                                  batch_first=True, dropout=0.3 if num_layers > 1 else 0)
+        elif encoder_type == 'gru':
+            self.encoder = nn.GRU(input_dim, hidden_dim, num_layers,
+                                 batch_first=True, dropout=0.3 if num_layers > 1 else 0)
+        
+        # Shared representation layer
+        self.shared_repr = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(0.2)
+        )
+        
+        # Multiple prediction heads
+        self.heads = nn.ModuleDict({
+            target: PredictionHead(hidden_dim, 64) for target in targets
+        })
+    
+    def forward(self, x):
+        if self.encoder_type in ['lstm', 'gru']:
+            encoded, _ = self.encoder(x)
+            last_hidden = encoded[:, -1, :]
+        else:
+            last_hidden = self.encoder(x)
+        
+        shared = self.shared_repr(last_hidden)
+        
+        outputs = {}
+        for target, head in self.heads.items():
+            outputs[target] = head(shared)
+        
+        return outputs
+
+
+class SimpleMentalHealthPredictor(nn.Module):
+    """Multi-task LSTM - SIMPLE architecture without shared_repr (StudentLife training)."""
+    def __init__(self, input_dim, hidden_dim=128, num_layers=2, 
+                 encoder_type='lstm', targets=None):
+        super().__init__()
+        self.encoder_type = encoder_type
+        self.hidden_dim = hidden_dim
+        
+        if targets is None:
+            targets = ['stress_level', 'mood_score', 'energy_level', 'focus_score',
+                      'perceived_stress_scale', 'anxiety_score', 'depression_score', 
+                      'job_satisfaction']
+        
+        self.targets = targets
+        
+        if encoder_type == 'lstm':
+            self.encoder = nn.LSTM(input_dim, hidden_dim, num_layers, 
+                                  batch_first=True, dropout=0.3 if num_layers > 1 else 0)
+        elif encoder_type == 'gru':
+            self.encoder = nn.GRU(input_dim, hidden_dim, num_layers,
+                                 batch_first=True, dropout=0.3 if num_layers > 1 else 0)
+        
+        # Simple prediction heads (no shared layer before)
+        self.prediction_heads = nn.ModuleDict({
+            target: SimplePredictionHead(hidden_dim) for target in targets
+        })
+    
+    def forward(self, x):
+        if self.encoder_type in ['lstm', 'gru']:
+            encoded, _ = self.encoder(x)
+            last_hidden = encoded[:, -1, :]
+        else:
+            last_hidden = self.encoder(x)
+        
+        outputs = {}
+        for target, head in self.prediction_heads.items():
+            outputs[target] = head(last_hidden)
+        
+        return outputs
+
+
+def detect_model_architecture(checkpoint):
+    """Detect which architecture a checkpoint uses."""
+    state_dict = checkpoint['model_state']
+    
+    # Check for shared_repr layer (original architecture)
+    if any('shared_repr' in key for key in state_dict.keys()):
+        return 'original'
+    # Check for prediction_heads (simple architecture)
+    elif any('prediction_heads' in key for key in state_dict.keys()):
+        return 'simple'
+    else:
+        raise ValueError("Unknown model architecture in checkpoint")
 
 
 # ============================================================================
@@ -357,24 +416,48 @@ def run_dual_predictions():
     
     print("  1. Synthetic-trained model...")
     synthetic_checkpoint = torch.load(SYNTHETIC_MODEL_PATH, map_location='cpu', weights_only=False)
-    synthetic_model = MentalHealthPredictor(
-        input_dim=len(synthetic_checkpoint['feature_cols']),
-        hidden_dim=128,
-        encoder_type='lstm',
-        targets=synthetic_checkpoint['targets']
-    )
+    synthetic_arch = detect_model_architecture(synthetic_checkpoint)
+    print(f"     Architecture: {synthetic_arch}")
+    
+    if synthetic_arch == 'original':
+        synthetic_model = MentalHealthPredictor(
+            input_dim=len(synthetic_checkpoint['feature_cols']),
+            hidden_dim=128,
+            encoder_type='lstm',
+            targets=synthetic_checkpoint['targets']
+        )
+    else:
+        synthetic_model = SimpleMentalHealthPredictor(
+            input_dim=len(synthetic_checkpoint['feature_cols']),
+            hidden_dim=128,
+            encoder_type='lstm',
+            targets=synthetic_checkpoint['targets']
+        )
+    
     synthetic_model.load_state_dict(synthetic_checkpoint['model_state'])
     synthetic_model.eval()
     print(f"     ✓ Trained on: Synthetic Kaggle (1.5M records)")
     
     print("  2. Real-trained model...")
     real_checkpoint = torch.load(REAL_MODEL_PATH, map_location='cpu', weights_only=False)
-    real_model = MentalHealthPredictor(
-        input_dim=len(real_checkpoint['feature_cols']),
-        hidden_dim=128,
-        encoder_type='lstm',
-        targets=real_checkpoint['targets']
-    )
+    real_arch = detect_model_architecture(real_checkpoint)
+    print(f"     Architecture: {real_arch}")
+    
+    if real_arch == 'original':
+        real_model = MentalHealthPredictor(
+            input_dim=len(real_checkpoint['feature_cols']),
+            hidden_dim=128,
+            encoder_type='lstm',
+            targets=real_checkpoint['targets']
+        )
+    else:
+        real_model = SimpleMentalHealthPredictor(
+            input_dim=len(real_checkpoint['feature_cols']),
+            hidden_dim=128,
+            encoder_type='lstm',
+            targets=real_checkpoint['targets']
+        )
+    
     real_model.load_state_dict(real_checkpoint['model_state'])
     real_model.eval()
     print(f"     ✓ Trained on: StudentLife (674 records)")
