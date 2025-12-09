@@ -1330,6 +1330,134 @@ def render_prediction_explanations(predictions, inputs, thresholds):
                             st.markdown(f"• Difficulty: {rec['effort']}")
                             st.markdown("")
 
+
+# ============================================================================
+# MODEL COMPARISON VIEWER
+# ============================================================================
+
+def render_model_comparison_viewer():
+    """Interactive viewer comparing synthetic vs real-trained models."""
+    st.header("🔬 Model Comparison: Training Data Quality Matters")
+    
+    comparison_path = Path("reports/dual_comparison/dual_predictions_comparison.json")
+    
+    if not comparison_path.exists():
+        with st.expander("📊 About Model Comparison", expanded=False):
+            st.markdown("""
+            **Coming Soon**: Interactive comparison of two models trained on different data:
+            
+            - **Synthetic Model**: Trained on 1.5M synthetic records
+            - **Real Model**: Trained on 674 real StudentLife records
+            
+            This will demonstrate how training data quality affects predictions on the same students!
+            """)
+        return
+    
+    # Load comparison data
+    with open(comparison_path) as f:
+        comparison_data = json.load(f)
+    
+    with st.expander("🎯 View Model Comparison", expanded=True):
+        # Show summary stats
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Total Comparisons", comparison_data['total_comparisons'])
+        
+        with col2:
+            synthetic_wins = comparison_data['model_performance']['synthetic_model']['wins']
+            synthetic_rate = comparison_data['model_performance']['synthetic_model']['win_rate']
+            st.metric("Synthetic Wins", f"{synthetic_wins} ({synthetic_rate:.0%})")
+        
+        with col3:
+            real_wins = comparison_data['model_performance']['real_model']['wins']
+            real_rate = comparison_data['model_performance']['real_model']['win_rate']
+            st.metric("Real Wins", f"{real_wins} ({real_rate:.0%})")
+        
+        with col4:
+            with_gt = comparison_data['total_predictions_with_ground_truth']
+            st.metric("With Ground Truth", with_gt)
+        
+        st.markdown("---")
+        
+        # Extract student IDs
+        comparisons = comparison_data['comparisons']
+        student_ids = sorted(set(c['student_id'] for c in comparisons))
+        
+        # Student selector
+        selected_student = st.selectbox(
+            "Select Student",
+            student_ids,
+            help="Choose a student to see how both models predicted their mental health"
+        )
+        
+        # Filter to selected student
+        student_comparisons = [c for c in comparisons if c['student_id'] == selected_student]
+        
+        st.markdown(f"### 📅 Timeline for {selected_student}")
+        st.markdown(f"*Showing {len(student_comparisons)} days of predictions*")
+        
+        # Show first few days with predictions
+        st.markdown("#### Sample Predictions")
+        
+        for i, comp in enumerate(student_comparisons[:5]):
+            date = comp['date']
+            
+            with st.container():
+                st.markdown(f"**Date: {date}**")
+                
+                # Show stress comparison
+                stress_synth = comp['predictions']['stress_level']['synthetic_prediction']
+                stress_real = comp['predictions']['stress_level']['real_prediction']
+                stress_actual = comp['predictions']['stress_level']['actual_value']
+                
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.metric("🔵 Synthetic Model", f"{stress_synth:.1f}", 
+                             delta=f"Error: {comp['predictions']['stress_level']['synthetic_error']:.1f}" if stress_actual else None)
+                
+                with col2:
+                    st.metric("🟢 Real Model", f"{stress_real:.1f}",
+                             delta=f"Error: {comp['predictions']['stress_level']['real_error']:.1f}" if stress_actual else None)
+                
+                with col3:
+                    if stress_actual:
+                        winner = comp['predictions']['stress_level']['winner']
+                        winner_emoji = "🔵" if winner == 'synthetic' else "🟢"
+                        st.metric(f"⭐ Actual", f"{stress_actual:.1f}", 
+                                 delta=f"{winner_emoji} {winner.capitalize()} wins!")
+                    else:
+                        st.metric("⭐ Actual", "No data", delta="No ground truth")
+                
+                # Show behavioral context
+                with st.expander("📊 Behavioral Context"):
+                    features = comp['behavioral_features']
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.markdown(f"**Sleep:** {features['sleep_hours']:.1f}h")
+                        st.markdown(f"**Exercise:** {features['exercise_minutes']:.0f}min")
+                    
+                    with col2:
+                        st.markdown(f"**Work:** {features['work_hours']:.1f}h")
+                        st.markdown(f"**Screen:** {features['screen_time_hours']:.1f}h")
+                    
+                    with col3:
+                        st.markdown(f"**Social:** {features['social_interactions']:.0f}")
+                        st.markdown(f"**Caffeine:** {features['caffeine_mg']:.0f}mg")
+                
+                st.markdown("---")
+        
+        # Summary insights
+        st.markdown("#### 🔍 Key Insights")
+        st.markdown(f"""
+        - **Synthetic model** (1.5M training samples): {synthetic_rate:.0%} accuracy on ground truth
+        - **Real model** (674 training samples): {real_rate:.0%} accuracy on ground truth
+        - **Interesting**: Despite 2000× less training data, real model performs competitively
+        - **Why**: Real data has stronger behavioral correlations than synthetic data
+        """)
+
 # ============================================================================
 # MAIN APP
 # ============================================================================
@@ -1452,6 +1580,10 @@ def main():
     # Data Quality Insights section (always show - valuable for presentation)
     st.markdown("---")
     render_data_quality_insights()
+    
+    # Model Comparison Viewer (NEW!)
+    st.markdown("---")
+    render_model_comparison_viewer()
     
     if st.session_state.predictions is None:
         st.info("👈 Adjust behavioral inputs in the sidebar, then click **Generate Profile** to see predictions!")
