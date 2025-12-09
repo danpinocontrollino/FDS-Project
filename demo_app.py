@@ -156,13 +156,14 @@ def predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale):
                 value = np.clip(value, 1.0, 10.0)  # Keep in valid range
             else:
                 # Normal: amplify values away from neutral
-                midpoint = 5.0
-                if raw_value > midpoint:
+                lowpoint = 2.5
+                highpoint = 7.5
+                if raw_value > highpoint:
                     # High stress/anxiety - push higher
-                    value = midpoint + (raw_value - midpoint) * amplification
-                elif raw_value < midpoint:
+                    value = highpoint + (raw_value - highpoint) * amplification
+                elif raw_value < lowpoint:
                     # Low stress/anxiety - push lower
-                    value = midpoint - (midpoint - raw_value) * amplification
+                    value = lowpoint - (lowpoint - raw_value) * amplification
                 else:
                     value = raw_value
                 value = np.clip(value, 1.0, 10.0)  # Keep in valid range
