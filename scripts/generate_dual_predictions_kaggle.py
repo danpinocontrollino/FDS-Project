@@ -35,9 +35,25 @@ from datetime import datetime
 # ============================================================================
 
 BASE_PATH = '/kaggle/input/student-life/dataset'
-SYNTHETIC_MODEL_PATH = '/kaggle/input/mental-health-models/mental_health_lstm.pt'
-REAL_MODEL_PATH = '/kaggle/input/mental-health-models/mental_health_lstm_studentlife.pt'
 OUTPUT_PATH = '/kaggle/working/dual_predictions_comparison.json'
+
+# Auto-detect model locations
+def find_model_path(model_name):
+    """Try multiple locations for models."""
+    possible_paths = [
+        f'/kaggle/working/{model_name}',
+        f'/kaggle/input/mental-health-models/{model_name}',
+        f'/kaggle/input/fds-project/models/saved/{model_name}',
+        f'models/saved/{model_name}'
+    ]
+    for path in possible_paths:
+        if os.path.exists(path):
+            return path
+    raise FileNotFoundError(f"Could not find {model_name} in any expected location. "
+                          f"Please upload to /kaggle/working/ or add as dataset.")
+
+SYNTHETIC_MODEL_PATH = find_model_path('mental_health_lstm.pt')
+REAL_MODEL_PATH = find_model_path('mental_health_lstm_studentlife.pt')
 
 # ============================================================================
 # MODEL DEFINITION (same as training scripts)
