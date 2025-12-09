@@ -40,6 +40,18 @@ from model_definitions import MentalHealthPredictor
 # Inverted targets (higher = better)
 INVERTED_TARGETS = {"mood_score", "energy_level", "focus_score", "job_satisfaction"}
 
+# Target scale maximums (for displaying "value/max")
+TARGET_SCALES = {
+    "stress_level": 10,
+    "mood_score": 10,
+    "energy_level": 10,
+    "focus_score": 10,
+    "perceived_stress_scale": 40,
+    "anxiety_score": 21,
+    "depression_score": 22,
+    "job_satisfaction": 9,
+}
+
 st.set_page_config(
     page_title="Mental Health Profiling Demo",
     page_icon="🧠",
@@ -304,6 +316,7 @@ def render_predictions(predictions, thresholds):
         if target in predictions:
             value = predictions[target]['value']
             at_risk_prob = predictions[target]['at_risk_prob']
+            max_scale = TARGET_SCALES.get(target, 10)
             
             # Determine if at-risk
             threshold_info = thresholds['at_risk_thresholds'].get(target, {})
@@ -321,7 +334,7 @@ def render_predictions(predictions, thresholds):
             with col:
                 st.metric(
                     f"{color} {target.replace('_', ' ').title()}",
-                    f"{value:.1f}",
+                    f"{value:.1f}/{max_scale}",
                     delta=f"{at_risk_prob*100:.0f}% confidence",
                     delta_color="inverse" if at_risk else "normal"
                 )
@@ -335,6 +348,7 @@ def render_predictions(predictions, thresholds):
         if target in predictions:
             value = predictions[target]['value']
             at_risk_prob = predictions[target]['at_risk_prob']
+            max_scale = TARGET_SCALES.get(target, 10)
             
             # Determine if at-risk
             threshold_info = thresholds['at_risk_thresholds'].get(target, {})
@@ -351,7 +365,7 @@ def render_predictions(predictions, thresholds):
             with col:
                 st.metric(
                     f"{color} {target.replace('_', ' ').title()}",
-                    f"{value:.1f}",
+                    f"{value:.1f}/{max_scale}",
                     delta=f"{at_risk_prob*100:.0f}% confidence",
                     delta_color="inverse" if at_risk else "normal"
                 )

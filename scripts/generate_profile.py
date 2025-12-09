@@ -87,6 +87,18 @@ ALL_TARGETS = DAILY_TARGETS + WEEKLY_TARGETS
 # Inverted targets (higher = better)
 INVERTED_TARGETS = {"mood_score", "energy_level", "focus_score", "job_satisfaction"}
 
+# Target scale maximums (for displaying "value/max")
+TARGET_SCALES = {
+    "stress_level": 10,
+    "mood_score": 10,
+    "energy_level": 10,
+    "focus_score": 10,
+    "perceived_stress_scale": 40,
+    "anxiety_score": 21,
+    "depression_score": 22,
+    "job_satisfaction": 9,
+}
+
 # Job-specific advice configuration
 ENABLE_JOB_ADVICE = True  # Set to False to disable job-specific recommendations
 
@@ -2997,11 +3009,12 @@ def generate_html_report(profile: UserProfile, output_dir: Path) -> Path:
         status_class = "at-risk" if pred["at_risk"] else "healthy"
         status_text = "AT RISK" if pred["at_risk"] else "HEALTHY"
         status_badge_class = "status-at-risk" if pred["at_risk"] else "status-healthy"
+        max_scale = TARGET_SCALES.get(target, 10)
         
         html += f"""
                     <div class="prediction-card {status_class}">
                         <div class="prediction-name">{target.replace('_', ' ').title()}</div>
-                        <div class="prediction-value" style="color: {get_status_color(pred['at_risk'])};">{pred['value']:.1f}</div>
+                        <div class="prediction-value" style="color: {get_status_color(pred['at_risk'])};">{pred['value']:.1f}/{max_scale}</div>
                         <div class="prediction-status {status_badge_class}">{status_text}</div>
                         <div class="prediction-confidence">Confidence: {pred['confidence']:.0%}</div>
                     </div>
@@ -3019,11 +3032,12 @@ def generate_html_report(profile: UserProfile, output_dir: Path) -> Path:
         status_class = "at-risk" if pred["at_risk"] else "healthy"
         status_text = "AT RISK" if pred["at_risk"] else "HEALTHY"
         status_badge_class = "status-at-risk" if pred["at_risk"] else "status-healthy"
+        max_scale = TARGET_SCALES.get(target, 10)
         
         html += f"""
                     <div class="prediction-card {status_class}">
                         <div class="prediction-name">{target.replace('_', ' ').title()}</div>
-                        <div class="prediction-value" style="color: {get_status_color(pred['at_risk'])};">{pred['value']:.1f}</div>
+                        <div class="prediction-value" style="color: {get_status_color(pred['at_risk'])};">{pred['value']:.1f}/{max_scale}</div>
                         <div class="prediction-status {status_badge_class}">{status_text}</div>
                         <div class="prediction-confidence">Confidence: {pred['confidence']:.0%}</div>
                     </div>
