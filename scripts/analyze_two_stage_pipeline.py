@@ -31,9 +31,21 @@ plt.rcParams['font.size'] = 10
 
 def load_results():
     """Load two-stage pipeline results."""
-    with open('reports/two_stage_predictions.json') as f:
-        data = json.load(f)
-    return data
+    # Try multiple possible locations
+    possible_paths = [
+        'reports/two_stage_predictions.json',
+        'models/saved/two_stage_predictions.json',
+        'two_stage_predictions.json'
+    ]
+    
+    for path in possible_paths:
+        if Path(path).exists():
+            with open(path) as f:
+                data = json.load(f)
+            print(f"Loaded results from: {path}")
+            return data
+    
+    raise FileNotFoundError("Could not find two_stage_predictions.json in any expected location")
 
 def create_uncertainty_waterfall(results):
     """Visualize how uncertainty compounds through pipeline."""

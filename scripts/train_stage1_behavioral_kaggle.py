@@ -42,23 +42,22 @@ FEATURE_COLS = [
 # ============================================================================
 
 class BehavioralForecastingLSTM(nn.Module):
-    """LSTM that predicts behavior AND uncertainty (aleatoric + epistemic)."""
-    def __init__(self, input_dim, hidden_dim=64, num_layers=2, targets=None):
+    """Simple LSTM for behavioral forecasting (no uncertainty - prevents overfitting)."""
+    def __init__(self, input_dim, hidden_dim=32, num_layers=1, targets=None):
         super().__init__()
         self.hidden_dim = hidden_dim
         self.targets = targets or BEHAVIORAL_TARGETS
         
-        # LSTM encoder
+        # Simpler LSTM encoder (smaller, less dropout)
         self.encoder = nn.LSTM(
             input_dim, hidden_dim, num_layers,
-            batch_first=True, dropout=0.2 if num_layers > 1 else 0
+            batch_first=True, dropout=0.0
         )
         
-        # Each target gets TWO outputs: mean + log_variance
+        # Single output head per target
         self.heads = nn.ModuleDict()
         for target in self.targets:
-            self.heads[f"{target}_mean"] = nn.Linear(hidden_dim, 1)
-            self.heads[f"{target}_logvar"] = nn.Linear(hidden_dim, 1)
+            self.heads[target] = nn.Linear(hidden_dim, 1)
     
     def forward(self, x):
         encoded, _ = self.encoder(x)
@@ -66,14 +65,7 @@ class BehavioralForecastingLSTM(nn.Module):
         
         outputs = {}
         for target in self.targets:
-            mean = self.heads[f"{target}_mean"](last_hidden).squeeze(-1)
-            logvar = self.heads[f"{target}_logvar"](last_hidden).squeeze(-1)
-            
-            outputs[target] = {
-                'mean': mean,
-                'logvar': logvar,
-                'std': torch.exp(0.5 * logvar)  # Convert log_var to std
-            }
+            outputs[target] = self.heads[target](last_hidden).squeeze(-1)
         
         return outputs
 
@@ -291,22 +283,18 @@ class ForecastingDataset(Dataset):
 
 
 # ============================================================================
-# LOSS FUNCTION WITH UNCERTAINTY
+# SIMPLE MSE LOSS (prevents overfitting)
 # ============================================================================
 
-def negative_log_likelihood_loss(predictions, targets):
-    """NLL loss for uncertainty estimation."""
+def mse_loss(predictions, targets):
+    """Simple MSE loss for all targets."""
+    criterion = nn.MSELoss()
     total_loss = 0
     for i, target_name in enumerate(BEHAVIORAL_TARGETS):
         if target_name in predictions:
             pred = predictions[target_name]
-            mean = pred['mean']
-            logvar = pred['logvar']
             target = targets[:, i]
-            
-            # NLL = 0.5 * (log(2π) + logvar + (y - μ)² / σ²)
-            loss = 0.5 * (logvar + ((target - mean) ** 2) / torch.exp(logvar))
-            total_loss += loss.mean()
+            total_loss += criterion(pred, target)
     
     return total_loss
 
@@ -344,12 +332,21 @@ def train_stage1_model():
         print(f"  {col}: μ={df[col].mean():.1f}, σ={df[col].std():.1f}, "
               f"range=[{df[col].min():.1f}, {df[col].max():.1f}]")
     
-    # Normalize
+    # Normalize features
     scaler_mean = df[FEATURE_COLS].mean().values
     scaler_std = df[FEATURE_COLS].std().values
     scaler_std[scaler_std == 0] = 1.0
     
     df[FEATURE_COLS] = (df[FEATURE_COLS] - scaler_mean) / scaler_std
+    
+    # Normalize targets too (critical for fair loss calculation!)
+    target_scaler_mean = df[BEHAVIORAL_TARGETS].mean().values
+    target_scaler_std = df[BEHAVIORAL_TARGETS].std().values
+    target_scaler_std[target_scaler_std == 0] = 1.0
+    
+    df[BEHAVIORAL_TARGETS] = (df[BEHAVIORAL_TARGETS] - target_scaler_mean) / target_scaler_std
+    
+    print(f"\n✓ Normalized features and targets (prevents scale mismatch in loss)")
     
     # Split by student (80/20)
     student_ids_list = df['student_id'].unique()
@@ -370,23 +367,26 @@ def train_stage1_model():
     
     print(f"\nTrain samples: {len(train_dataset)}, Val samples: {len(val_dataset)}")
     
-    # Initialize model
+    # Initialize model (smaller to prevent overfitting)
     model = BehavioralForecastingLSTM(
         input_dim=len(FEATURE_COLS),
-        hidden_dim=64,
-        num_layers=2,
+        hidden_dim=32,  # Reduced from 64
+        num_layers=1,   # Reduced from 2
         targets=BEHAVIORAL_TARGETS
     )
     
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    # Add weight decay for regularization
+    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)
     
     print(f"\n✓ Model: {sum(p.numel() for p in model.parameters())} parameters")
-    print("  Outputs: Mean + Uncertainty for each behavioral target")
+    print("  Simpler architecture to prevent overfitting")
     
-    # Training loop
+    # Training loop with early stopping
     print(f"\nTraining...")
-    num_epochs = 50
+    num_epochs = 100
     best_val_loss = float('inf')
+    patience = 15
+    patience_counter = 0
     
     for epoch in range(num_epochs):
         # Train
@@ -395,7 +395,7 @@ def train_stage1_model():
         for features, targets in train_loader:
             optimizer.zero_grad()
             outputs = model(features)
-            loss = negative_log_likelihood_loss(outputs, targets)
+            loss = mse_loss(outputs, targets)
             loss.backward()
             optimizer.step()
             train_loss += loss.item()
@@ -406,7 +406,7 @@ def train_stage1_model():
         with torch.no_grad():
             for features, targets in val_loader:
                 outputs = model(features)
-                loss = negative_log_likelihood_loss(outputs, targets)
+                loss = mse_loss(outputs, targets)
                 val_loss += loss.item()
         
         train_loss /= len(train_loader)
@@ -415,36 +415,46 @@ def train_stage1_model():
         if (epoch + 1) % 10 == 0:
             print(f"Epoch {epoch+1}/{num_epochs} - Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
         
+        # Early stopping
         if val_loss < best_val_loss:
             best_val_loss = val_loss
+            patience_counter = 0
             checkpoint = {
                 'model_state': model.state_dict(),
                 'feature_cols': FEATURE_COLS,
                 'targets': BEHAVIORAL_TARGETS,
                 'scaler_mean': scaler_mean,
                 'scaler_std': scaler_std,
+                'target_scaler_mean': target_scaler_mean,
+                'target_scaler_std': target_scaler_std,
                 'epoch': epoch,
                 'val_loss': val_loss,
                 'training_info': {
                     'stage': 1,
-                    'task': 'behavioral_forecasting_with_uncertainty',
+                    'task': 'behavioral_forecasting',
                     'dataset': 'StudentLife',
                     'num_records': len(df),
                     'num_students': len(student_ids_list),
-                    'uncertainty_type': 'aleatoric',
+                    'model_type': 'simple_lstm_mse_normalized',
                     'trained_on': datetime.now().isoformat()
                 }
             }
             torch.save(checkpoint, os.path.join(OUTPUT_DIR, 'stage1_behavioral_forecasting.pt'))
+        else:
+            patience_counter += 1
+            if patience_counter >= patience:
+                print(f"\nEarly stopping at epoch {epoch+1}")
+                break
     
     print(f"\n{'='*80}")
     print(f"✓ STAGE 1 COMPLETE")
     print(f"{'='*80}")
-    print(f"Best Val Loss: {best_val_loss:.4f}")
+    print(f"Best Val Loss (MSE): {best_val_loss:.4f}")
     print(f"Model: stage1_behavioral_forecasting.pt")
-    print(f"\nPredicts NEXT DAY behavior with uncertainty:")
+    print(f"\nPredicts NEXT DAY behavior:")
     for target in BEHAVIORAL_TARGETS:
-        print(f"  • {target} (mean ± std)")
+        print(f"  • {target}")
+    print(f"\nNote: Using simpler MSE loss to prevent overfitting on small dataset")
 
 
 if __name__ == '__main__':

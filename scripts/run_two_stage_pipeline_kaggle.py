@@ -25,7 +25,7 @@ from pathlib import Path
 # ============================================================================
 
 BASE_PATH = '/kaggle/input/student-life/dataset'
-STAGE1_MODEL = '/kaggle/input/student-life-models/stage1_behavioral_forecasting.pt'
+STAGE1_MODEL = '/kaggle/working/stage1_behavioral_forecasting.pt'  # Just trained!
 STAGE2_MODEL = '/kaggle/input/mental-health-lstm/mental_health_lstm.pt'
 OUTPUT_FILE = '/kaggle/working/two_stage_predictions.json'
 
@@ -43,10 +43,11 @@ def load_stage1_model():
     
     checkpoint = torch.load(STAGE1_MODEL, map_location='cpu', weights_only=False)
     
+    # Use architecture params from checkpoint (matches training)
     model = BehavioralForecastingLSTM(
         input_dim=len(checkpoint['feature_cols']),
-        hidden_dim=64,
-        num_layers=2,
+        hidden_dim=32,  # Match training script
+        num_layers=1,   # Match training script
         targets=checkpoint['targets']
     )
     model.load_state_dict(checkpoint['model_state'])
@@ -54,6 +55,7 @@ def load_stage1_model():
     
     print("✓ Stage 1 Model Loaded:")
     print(f"  Task: {checkpoint['training_info']['task']}")
+    print(f"  Model: {checkpoint['training_info'].get('model_type', 'simple_lstm_mse')}")
     print(f"  Targets: {checkpoint['targets']}")
     print(f"  Features: {checkpoint['feature_cols']}")
     
@@ -334,14 +336,27 @@ def run_two_stage_pipeline():
             with torch.no_grad():
                 stage1_outputs = stage1_model(features_stage1)
             
-            # Extract predictions and uncertainties
+            # Extract predictions (simple model - no uncertainty dict)
             behavioral_predictions = {}
             behavioral_uncertainties = {}
             
-            for target in stage1_checkpoint['targets']:
+            # Get target scalers for denormalization
+            target_mean = stage1_checkpoint.get('target_scaler_mean', np.zeros(len(stage1_checkpoint['targets'])))
+            target_std = stage1_checkpoint.get('target_scaler_std', np.ones(len(stage1_checkpoint['targets'])))
+            
+            for idx, target in enumerate(stage1_checkpoint['targets']):
                 pred = stage1_outputs[target]
-                behavioral_predictions[target] = float(pred['mean'].item())
-                behavioral_uncertainties[target] = float(pred['std'].item())
+                # Handle both simple (float) and complex (dict) outputs
+                if isinstance(pred, dict):
+                    pred_normalized = float(pred['mean'].item())
+                    uncertainty_normalized = float(pred['std'].item())
+                else:
+                    pred_normalized = float(pred.item())
+                    uncertainty_normalized = 0.5
+                
+                # Denormalize prediction
+                behavioral_predictions[target] = pred_normalized * target_std[idx] + target_mean[idx]
+                behavioral_uncertainties[target] = uncertainty_normalized * target_std[idx]
             
             # STAGE 2: Use predicted behaviors to infer mental health
             # Need to construct 7-day sequence for Stage 2
@@ -352,19 +367,46 @@ def run_two_stage_pipeline():
             stage2_scaler_std = stage2_checkpoint['scaler_std']
             
             # Build Stage 2 input: 6 actual days + 1 predicted day
+            # Stage 2 expects 17 features, but we only have 6 from StudentLife
+            # Fill missing features with reasonable defaults
             stage2_input_data = []
+            
+            # Map StudentLife features to Stage 2 expected features
+            feature_defaults = {
+                'sleep_quality': 6.0,
+                'caffeine_mg': 150.0,
+                'alcohol_units': 0.0,
+                'diet_quality': 6.0,
+                'meetings_count': 3.0,
+                'tasks_completed': 8.0,
+                'work_pressure': 5.0,
+                'commute_time': 0.5,
+                'weather_score': 7.0,
+                'chronotype_encoded': 1.0,
+                'work_arrangement_encoded': 1.0
+            }
+            
             for j in range(6):
                 day_data = window_original.iloc[j]
-                stage2_input_data.append([day_data[f] for f in stage2_features])
+                day_features = []
+                for f in stage2_features:
+                    if f in window_original.columns:
+                        day_features.append(day_data[f])
+                    else:
+                        day_features.append(feature_defaults.get(f, 0.0))
+                stage2_input_data.append(day_features)
             
-            # Add predicted day (denormalized from Stage 1)
+            # Add predicted day (from Stage 1 + defaults for missing)
             predicted_day = []
             for f in stage2_features:
                 if f in behavioral_predictions:
                     predicted_day.append(behavioral_predictions[f])
-                else:
-                    # Use mean from last 6 days if feature not predicted
+                elif f in window_original.columns:
+                    # Use mean from last 6 days if available in data
                     predicted_day.append(window_original[f].iloc[-6:].mean())
+                else:
+                    # Use default for synthetic-only features
+                    predicted_day.append(feature_defaults.get(f, 0.0))
             stage2_input_data.append(predicted_day)
             
             # Normalize for Stage 2
@@ -381,8 +423,13 @@ def run_two_stage_pipeline():
                 if target in stage2_outputs:
                     pred = stage2_outputs[target]
                     if isinstance(pred, dict):
+                        # Dict output: {'regression': tensor, 'classification': tensor}
                         mental_health_predictions[target] = float(pred['regression'].item())
+                    elif isinstance(pred, tuple):
+                        # Tuple output: (regression_tensor, classification_tensor)
+                        mental_health_predictions[target] = float(pred[0].item())
                     else:
+                        # Simple tensor
                         mental_health_predictions[target] = float(pred.item())
             
             # Store complete prediction
