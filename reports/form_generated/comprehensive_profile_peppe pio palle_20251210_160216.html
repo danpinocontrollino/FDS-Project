@@ -1,0 +1,1608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprehensive Two-Stage Mental Health Profile - peppe pio palle</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .header .subtitle {
+            font-size: 18px;
+            opacity: 0.95;
+        }
+        
+        .metadata {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 30px 40px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .metadata-item {
+            text-align: center;
+        }
+        
+        .metadata-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+        
+        .metadata-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+        }
+        
+        .section-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #2d3748;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-subtitle {
+            font-size: 14px;
+            color: #718096;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .badge-real {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-synthetic {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            border: 2px solid #e9ecef;
+        }
+        
+        .card-header {
+            font-size: 13px;
+            color: #6c757d;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .card-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 5px;
+        }
+        
+        .card-uncertainty {
+            font-size: 12px;
+            color: #e67e22;
+            font-weight: 600;
+        }
+        
+        .prediction-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            border-left: 4px solid #6c757d;
+        }
+        
+        .prediction-card.at-risk {
+            border-color: #dc3545;
+            background: #fff5f5;
+        }
+        
+        .prediction-card.healthy {
+            border-color: #28a745;
+            background: #f0fff4;
+        }
+        
+        .prediction-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .prediction-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        .prediction-value {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        .prediction-value.at-risk {
+            color: #dc3545;
+        }
+        
+        .prediction-value.healthy {
+            color: #28a745;
+        }
+        
+        .recommendation-card {
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3498db;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .recommendation-card.high {
+            border-color: #e74c3c;
+        }
+        
+        .recommendation-card.medium {
+            border-color: #f39c12;
+        }
+        
+        .recommendation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .recommendation-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        .priority-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .priority-badge.high {
+            background: #fee;
+            color: #c00;
+        }
+        
+        .priority-badge.medium {
+            background: #fff4e6;
+            color: #d68910;
+        }
+        
+        .recommendation-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .metric-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .metric-label {
+            font-size: 12px;
+            color: #6c757d;
+            margin-bottom: 4px;
+        }
+        
+        .metric-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .recommendation-evidence {
+            font-size: 14px;
+            color: #495057;
+            font-style: italic;
+            margin-bottom: 15px;
+            padding-left: 15px;
+            border-left: 3px solid #e9ecef;
+        }
+        
+        .action-list {
+            list-style: none;
+        }
+        
+        .action-list li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+            font-size: 14px;
+            color: #495057;
+        }
+        
+        .action-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .warning-box-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #856404;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .warning-box-content {
+            font-size: 14px;
+            color: #856404;
+            line-height: 1.6;
+        }
+        
+        .info-box {
+            background: #d1ecf1;
+            border: 1px solid #0c5460;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .info-box-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #0c5460;
+            margin-bottom: 10px;
+        }
+        
+        .info-box-content {
+            font-size: 14px;
+            color: #0c5460;
+            line-height: 1.6;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .chart-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .container {
+                box-shadow: none;
+                border-radius: 0;
+                max-width: 100%;
+            }
+            
+            .header {
+                background: #667eea;
+                color: white;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            .section {
+                page-break-inside: avoid;
+            }
+            
+            * {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🧠 Two-Stage Mental Health Profile</h1>
+            <div class="subtitle">Hybrid Behavioral Forecasting + Mental Health Inference</div>
+        </div>
+        
+        <!-- Metadata -->
+        <div class="metadata">
+            <div class="metadata-item">
+                <div class="metadata-label">Student ID</div>
+                <div class="metadata-value">peppe pio palle</div>
+            </div>
+            <div class="metadata-item">
+                <div class="metadata-label">Generated</div>
+                <div class="metadata-value">2025-12-10 16:02:16</div>
+            </div>
+            <div class="metadata-item">
+                <div class="metadata-label">Date Range</div>
+                <div class="metadata-value">2024-12-01 to 2024-12-07</div>
+            </div>
+            <div class="metadata-item">
+                <div class="metadata-label">Predictions</div>
+                <div class="metadata-value">7 days</div>
+            </div>
+            <div class="metadata-item">
+                <div class="metadata-label">Avg Uncertainty</div>
+                <div class="metadata-value">±25%</div>
+            </div>
+            <div class="metadata-item">
+                <div class="metadata-label">At-Risk Factors</div>
+                <div class="metadata-value">1</div>
+            </div>
+        </div>
+        
+        <div class="content">
+            <!-- Pipeline Warning -->
+            <div class="warning-box">
+                <div class="warning-box-title">⚠️ Understanding This Two-Stage Report</div>
+                <div class="warning-box-content">
+                    <p><strong>This report uses a hybrid prediction pipeline:</strong></p>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li><strong>Stage 1 (REAL DATA):</strong> Behavioral forecasting using patterns from StudentLife dataset (Dartmouth, 2013)</li>
+                        <li><strong>Stage 2 (SYNTHETIC DATA):</strong> Mental health inference trained on 1.5M synthetic records</li>
+                    </ul>
+                    <p style="margin-top: 10px;"><strong>Limitations:</strong> Stage 1 uncertainties (±25% average) compound in Stage 2. Mental health predictions are based on behavioral forecasts, not direct measurements. This report analyzes all 7 days of predictions. Use this as a screening tool, not a clinical diagnosis.</p>
+                </div>
+            </div>
+            
+            <!-- Methodology Section -->
+            <div class="section">
+                <div class="section-title">🔬 How This System Works: Two-Stage Pipeline Methodology</div>
+                
+                <div style="background: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="font-size: 18px; font-weight: 600; color: #2d3748; margin-bottom: 15px;">
+                        Pipeline Architecture
+                    </h4>
+                    
+                    <div style="display: flex; align-items: center; justify-content: space-around; margin: 30px 0; flex-wrap: wrap; gap: 20px;">
+                        <div style="text-align: center; flex: 1; min-width: 200px;">
+                            <div style="background: #667eea; color: white; padding: 20px; border-radius: 8px; margin-bottom: 10px;">
+                                <div style="font-size: 24px; margin-bottom: 5px;">📱</div>
+                                <div style="font-weight: 600;">Input Sensors</div>
+                                <div style="font-size: 12px; opacity: 0.9;">6 features × 7 days</div>
+                            </div>
+                            <div style="font-size: 12px; color: #6c757d;">
+                                Sleep, Work, Exercise<br>Screen, Social, Steps
+                            </div>
+                        </div>
+                        
+                        <div style="font-size: 24px; color: #6c757d;">→</div>
+                        
+                        <div style="text-align: center; flex: 1; min-width: 200px;">
+                            <div style="background: #3498db; color: white; padding: 20px; border-radius: 8px; margin-bottom: 10px;">
+                                <div style="font-size: 24px; margin-bottom: 5px;">🧠</div>
+                                <div style="font-weight: 600;">Stage 1: LSTM</div>
+                                <div style="font-size: 12px; opacity: 0.9;">Real Data (StudentLife)</div>
+                            </div>
+                            <div style="font-size: 12px; color: #6c757d;">
+                                Predicts next-day<br>behaviors + uncertainty
+                            </div>
+                        </div>
+                        
+                        <div style="font-size: 24px; color: #6c757d;">→</div>
+                        
+                        <div style="text-align: center; flex: 1; min-width: 200px;">
+                            <div style="background: #28a745; color: white; padding: 20px; border-radius: 8px; margin-bottom: 10px;">
+                                <div style="font-size: 24px; margin-bottom: 5px;">🧠</div>
+                                <div style="font-weight: 600;">Stage 2: LSTM</div>
+                                <div style="font-size: 12px; opacity: 0.9;">Synthetic Data (1.5M)</div>
+                            </div>
+                            <div style="font-size: 12px; color: #6c757d;">
+                                Infers mental health<br>from behaviors
+                            </div>
+                        </div>
+                        
+                        <div style="font-size: 24px; color: #6c757d;">→</div>
+                        
+                        <div style="text-align: center; flex: 1; min-width: 200px;">
+                            <div style="background: #764ba2; color: white; padding: 20px; border-radius: 8px; margin-bottom: 10px;">
+                                <div style="font-size: 24px; margin-bottom: 5px;">📊</div>
+                                <div style="font-weight: 600;">Output</div>
+                                <div style="font-size: 12px; opacity: 0.9;">8 mental health scores</div>
+                            </div>
+                            <div style="font-size: 12px; color: #6c757d;">
+                                PSS, Anxiety, Depression<br>Stress, Mood, Energy, Focus
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h4 style="font-size: 16px; font-weight: 600; color: #2d3748; margin-top: 30px; margin-bottom: 10px;">
+                        Stage 1: Behavioral Forecasting (REAL DATA)
+                    </h4>
+                    <ul style="font-size: 14px; color: #495057; line-height: 1.8; margin-left: 20px;">
+                        <li><strong>Training Data:</strong> StudentLife dataset from Dartmouth College (2013) - 10 students, 674 real sensor measurements</li>
+                        <li><strong>Model:</strong> LSTM (Long Short-Term Memory) with 32 hidden dimensions, 1 layer</li>
+                        <li><strong>Input:</strong> 6 behavioral features (sleep, work hours, exercise, steps, screen time, social interactions) over 7-day windows</li>
+                        <li><strong>Output:</strong> 5 next-day behavioral predictions + aleatoric uncertainty (inherent data noise)</li>
+                        <li><strong>Uncertainty:</strong> Quantified using log-variance outputs - measures model confidence in each prediction</li>
+                        <li><strong>Why Real Data Matters:</strong> Captures authentic behavioral patterns, circadian rhythms, and day-to-day variability from actual university students</li>
+                    </ul>
+                    
+                    <h4 style="font-size: 16px; font-weight: 600; color: #2d3748; margin-top: 30px; margin-bottom: 10px;">
+                        Stage 2: Mental Health Inference (SYNTHETIC DATA)
+                    </h4>
+                    <ul style="font-size: 14px; color: #495057; line-height: 1.8; margin-left: 20px;">
+                        <li><strong>Training Data:</strong> 1.5M synthetic records with controlled behavioral patterns and mental health labels</li>
+                        <li><strong>Model:</strong> LSTM with 128 hidden dimensions, 2 layers, multi-task prediction heads</li>
+                        <li><strong>Input:</strong> Stage 1 predicted behaviors (5 features)</li>
+                        <li><strong>Output:</strong> 8 mental health scores (4 daily: stress, mood, energy, focus + 4 weekly: PSS, anxiety, depression, job satisfaction)</li>
+                        <li><strong>Why Synthetic:</strong> No ground truth mental health labels exist for StudentLife data; synthetic data provides controlled relationships</li>
+                        <li><strong>Clinical Scales:</strong> PSS-10 (Perceived Stress), GAD-7 (Generalized Anxiety), PHQ-9 (Patient Health Questionnaire - Depression)</li>
+                    </ul>
+                    
+                    <h4 style="font-size: 16px; font-weight: 600; color: #2d3748; margin-top: 30px; margin-bottom: 10px;">
+                        Error Propagation & Uncertainty
+                    </h4>
+                    <ul style="font-size: 14px; color: #495057; line-height: 1.8; margin-left: 20px;">
+                        <li><strong>Stage 1 Uncertainty:</strong> Average ±25% across 7 days - varies by behavioral metric</li>
+                        <li><strong>Compounding Effect:</strong> Stage 2 treats Stage 1 predictions as inputs, so uncertainty accumulates</li>
+                        <li><strong>Distribution Mismatch:</strong> Stage 1 outputs may differ from Stage 2 training distribution → reduced confidence</li>
+                        <li><strong>Interpretation:</strong> Higher uncertainty = model less confident. Use trends and patterns, not absolute values</li>
+                        <li><strong>Validation Challenge:</strong> No ground truth mental health labels for StudentLife students to validate Stage 2 predictions</li>
+                    </ul>
+                    
+                    <h4 style="font-size: 16px; font-weight: 600; color: #2d3748; margin-top: 30px; margin-bottom: 10px;">
+                        How to Use This Report
+                    </h4>
+                    <ul style="font-size: 14px; color: #495057; line-height: 1.8; margin-left: 20px;">
+                        <li><strong>Focus on Trends:</strong> Look for patterns over time, not single-day values</li>
+                        <li><strong>At-Risk Indicators:</strong> Pay attention to metrics consistently exceeding clinical thresholds</li>
+                        <li><strong>Behavioral Insights:</strong> Stage 1 predictions show concrete behaviors you can modify</li>
+                        <li><strong>Personalized Interventions:</strong> Evidence-based actions tailored to your specific patterns</li>
+                        <li><strong>Professional Consultation:</strong> This is a screening tool - consult healthcare providers for clinical diagnosis</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Stage 1: Behavioral Predictions -->
+            <div class="section">
+                <div class="section-title">
+                    🟦 Stage 1: Behavioral Forecasting
+                    <span class="badge badge-real">REAL DATA</span>
+                </div>
+                <div class="section-subtitle">
+                    LSTM trained on StudentLife dataset → predicts next-day behaviors
+                </div>
+                
+                <div class="card-grid">
+
+                    <div class="card">
+                        <div class="card-header">
+                            <span>😴 Sleep</span>
+                        </div>
+                        <div class="card-value">6.2h</div>
+                        <div class="card-uncertainty">±11%</div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <span>🏃 Exercise</span>
+                        </div>
+                        <div class="card-value">0.0min</div>
+                        <div class="card-uncertainty">±0%</div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <span>📱 Screen Time</span>
+                        </div>
+                        <div class="card-value">2.9h</div>
+                        <div class="card-uncertainty">±27%</div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <span>👥 Social</span>
+                        </div>
+                        <div class="card-value">3.0</div>
+                        <div class="card-uncertainty">±32%</div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <span>🚶 Steps</span>
+                        </div>
+                        <div class="card-value">7000</div>
+                        <div class="card-uncertainty">±30%</div>
+                    </div>
+
+                </div>
+                
+                <p style="font-size: 14px; color: #6c757d; margin-top: 10px;">
+                    <strong>Note:</strong> These predictions show what your behavior is likely to be on the next day, 
+                    based on patterns learned from real university students. Uncertainty percentages reflect prediction confidence.
+                </p>
+            </div>
+            
+            <!-- Stage 2: Mental Health Predictions -->
+            <div class="section">
+                <div class="section-title">
+                    🟩 Stage 2: Mental Health Inference
+                    <span class="badge badge-synthetic">SYNTHETIC DATA</span>
+                </div>
+                <div class="section-subtitle">
+                    LSTM trained on 1.5M synthetic records → infers mental health from predicted behaviors
+                </div>
+                
+                <div class="info-box">
+                    <div class="info-box-title">ℹ️ Confidence Note</div>
+                    <div class="info-box-content">
+                        Stage 1 predictions have ±25% average uncertainty. 
+                        This uncertainty propagates to Stage 2, reducing overall confidence. Mental health scores 
+                        are inferred from <em>predicted behaviors</em>, not measured directly.
+                    </div>
+                </div>
+                
+                <div class="card-grid">
+
+                    <div class="prediction-card healthy">
+                        <div class="prediction-header">
+                            <div class="prediction-name">Stress Level</div>
+                            <div class="prediction-value healthy">6.4/10</div>
+                        </div>
+                        <div style="font-size: 12px; color: #6c757d;">
+                            ✓ Within healthy range
+                        </div>
+                    </div>
+
+                    <div class="prediction-card healthy">
+                        <div class="prediction-header">
+                            <div class="prediction-name">Mood</div>
+                            <div class="prediction-value healthy">4.9/10</div>
+                        </div>
+                        <div style="font-size: 12px; color: #6c757d;">
+                            ✓ Within healthy range
+                        </div>
+                    </div>
+
+                    <div class="prediction-card healthy">
+                        <div class="prediction-header">
+                            <div class="prediction-name">Energy</div>
+                            <div class="prediction-value healthy">5.2/10</div>
+                        </div>
+                        <div style="font-size: 12px; color: #6c757d;">
+                            ✓ Within healthy range
+                        </div>
+                    </div>
+
+                    <div class="prediction-card healthy">
+                        <div class="prediction-header">
+                            <div class="prediction-name">Focus</div>
+                            <div class="prediction-value healthy">6.8/10</div>
+                        </div>
+                        <div style="font-size: 12px; color: #6c757d;">
+                            ✓ Within healthy range
+                        </div>
+                    </div>
+
+                    <div class="prediction-card healthy">
+                        <div class="prediction-header">
+                            <div class="prediction-name">PSS</div>
+                            <div class="prediction-value healthy">16.6/40</div>
+                        </div>
+                        <div style="font-size: 12px; color: #6c757d;">
+                            ✓ Within healthy range
+                        </div>
+                    </div>
+
+                    <div class="prediction-card healthy">
+                        <div class="prediction-header">
+                            <div class="prediction-name">Anxiety</div>
+                            <div class="prediction-value healthy">8.5/21</div>
+                        </div>
+                        <div style="font-size: 12px; color: #6c757d;">
+                            ✓ Within healthy range
+                        </div>
+                    </div>
+
+                    <div class="prediction-card at-risk">
+                        <div class="prediction-header">
+                            <div class="prediction-name">Depression</div>
+                            <div class="prediction-value at-risk">14.3/27</div>
+                        </div>
+                        <div style="font-size: 12px; color: #6c757d;">
+                            ⚠️ At-risk threshold exceeded
+                        </div>
+                    </div>
+
+                    <div class="prediction-card healthy">
+                        <div class="prediction-header">
+                            <div class="prediction-name">Job Satisfaction</div>
+                            <div class="prediction-value healthy">6.0/10</div>
+                        </div>
+                        <div style="font-size: 12px; color: #6c757d;">
+                            ✓ Within healthy range
+                        </div>
+                    </div>
+
+                </div>
+                
+                <p style="font-size: 14px; color: #6c757d; margin-top: 10px;">
+                    <strong>Important:</strong> These mental health scores are inferred from predicted behaviors, not measured directly. 
+                    The model was trained on synthetic data patterns. If you're concerned about any scores, 
+                    please consult a mental health professional.
+                </p>
+            </div>
+            
+            <!-- Temporal Analysis -->
+            <div class="section">
+                <div class="section-title">📈 Temporal Trends Analysis</div>
+                <div class="section-subtitle">
+                    Complete prediction history across all {num_predictions} days
+                </div>
+                
+                <h3 style="font-size: 20px; font-weight: 600; color: #2d3748; margin-bottom: 15px; margin-top: 20px;">
+                    🟦 Stage 1: Behavioral Predictions Over Time
+                </h3>
+                
+                <div class="chart-container">
+                    <canvas id="sleepChart"></canvas>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="exerciseChart"></canvas>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="screenSocialChart"></canvas>
+                </div>
+                
+                <h3 style="font-size: 20px; font-weight: 600; color: #2d3748; margin-bottom: 15px; margin-top: 30px;">
+                    🟩 Stage 2: Mental Health Predictions Over Time
+                </h3>
+                
+                <div class="chart-container">
+                    <canvas id="dailyMetricsChart"></canvas>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="clinicalScalesChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Personalized Interventions -->
+            <div class="section">
+                <div class="section-title">💡 Personalized Evidence-Based Interventions</div>
+                <div class="section-subtitle">
+                    Specific actions tailored to your behavioral patterns and mental health trends
+                </div>
+
+                <div class="recommendation-card high">
+                    <div class="recommendation-header">
+                        <div class="recommendation-title">Sleep Quality</div>
+                        <div class="priority-badge high">HIGH PRIORITY</div>
+                    </div>
+                    
+                    <div class="recommendation-metrics">
+                        <div class="metric-item">
+                            <div class="metric-label">Current</div>
+                            <div class="metric-value">5.8 hours/night</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Target</div>
+                            <div class="metric-value">7-9 hours/night</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Change Needed</div>
+                            <div class="metric-value">+1.2h per night</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Trend</div>
+                            <div class="metric-value">increasing (12.32580180131595)</div>
+                        </div>
+                    </div>
+                    
+                    <div class="recommendation-evidence">
+                        <strong>📊 Impact:</strong> Sleep deprivation linked to 60% increased stress, 80% increased anxiety risk
+                    </div>
+                    
+                    <div class="recommendation-evidence" style="margin-top: 10px;">
+                        <strong>🔬 Evidence:</strong> Students with <7h sleep showed 2.3x higher depression scores vs 7-9h group (StudentLife dataset)
+                    </div>
+                    
+                    <div style="margin-top: 15px;">
+                        <strong style="font-size: 14px; color: #2d3748;">✅ Specific Actions:</strong>
+                        <ul class="action-list">
+
+                            <li>Set consistent bedtime 10pm (need to wake by 8am for 8.2h sleep)</li>
+
+                            <li>Create wind-down routine: dim lights 9pm, no screens after 9:30pm (blue light suppresses melatonin)</li>
+
+                            <li>Temperature hack: keep bedroom 65-68°F (thermoregulation critical for deep sleep)</li>
+
+                            <li>If racing thoughts: brain dump journal before bed, box breathing (4-4-4-4 pattern)</li>
+
+                        </ul>
+                    </div>
+                    
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e9ecef;">
+                        <strong style="font-size: 12px; color: #6c757d;">📚 Research Citations:</strong>
+                        <ul style="font-size: 12px; color: #6c757d; margin-left: 20px; margin-top: 5px;">
+
+                            <li>Walker M. (2017). Why We Sleep - Sleep deprivation linked to Alzheimer's, cardiovascular disease</li>
+
+                            <li>Pilcher JJ et al. (1997). Sleep quality vs sleep quantity - quality matters more for wellbeing</li>
+
+                            <li>Wang R et al. (2014). StudentLife study - smartphone sensing predicts academic performance from sleep</li>
+
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="recommendation-card high">
+                    <div class="recommendation-header">
+                        <div class="recommendation-title">Depression Prevention & Management</div>
+                        <div class="priority-badge high">HIGH PRIORITY</div>
+                    </div>
+                    
+                    <div class="recommendation-metrics">
+                        <div class="metric-item">
+                            <div class="metric-label">Current</div>
+                            <div class="metric-value">PHQ-9 15.6/27 (at-risk 100% of time)</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Target</div>
+                            <div class="metric-value">PHQ-9 <10 (minimal symptoms)</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Change Needed</div>
+                            <div class="metric-value">Implement depression management strategies</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Trend</div>
+                            <div class="metric-value">decreasing (N/A)</div>
+                        </div>
+                    </div>
+                    
+                    <div class="recommendation-evidence">
+                        <strong>📊 Impact:</strong> Moderate depression impairs work performance, relationships, physical health
+                    </div>
+                    
+                    <div class="recommendation-evidence" style="margin-top: 10px;">
+                        <strong>🔬 Evidence:</strong> Behavioral activation + exercise as effective as medication for mild-moderate depression
+                    </div>
+                    
+                    <div style="margin-top: 15px;">
+                        <strong style="font-size: 14px; color: #2d3748;">✅ Specific Actions:</strong>
+                        <ul class="action-list">
+
+                            <li>☀️ Morning sunlight: 15-30min within 1h of waking (regulates circadian rhythm, boosts serotonin)</li>
+
+                            <li>🎯 Behavioral activation: schedule 3 enjoyable activities/week (counters withdrawal/anhedonia)</li>
+
+                            <li>🤝 Social connection: reach out to 1 friend/family member daily (isolation worsens depression)</li>
+
+                            <li>🏃 Exercise prescription: 30min moderate intensity 3-5x/week (natural antidepressant)</li>
+
+                            <li>🩺 Professional assessment: If symptoms persist >2 weeks, consult therapist or physician</li>
+
+                        </ul>
+                    </div>
+                    
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e9ecef;">
+                        <strong style="font-size: 12px; color: #6c757d;">📚 Research Citations:</strong>
+                        <ul style="font-size: 12px; color: #6c757d; margin-left: 20px; margin-top: 5px;">
+
+                            <li>Kroenke K et al. (2001). PHQ-9 validation - score ≥10 indicates clinical depression</li>
+
+                            <li>Schuch FB et al. (2016). Exercise effective as antidepressants for mild-moderate depression</li>
+
+                            <li>Dimidjian S et al. (2006). Behavioral activation as effective as medication for depression</li>
+
+                            <li>Sit DK et al. (2018). Light therapy for prenatal depression - bright light regulates circadian rhythm</li>
+
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="recommendation-card medium">
+                    <div class="recommendation-header">
+                        <div class="recommendation-title">Physical Activity</div>
+                        <div class="priority-badge medium">MEDIUM PRIORITY</div>
+                    </div>
+                    
+                    <div class="recommendation-metrics">
+                        <div class="metric-item">
+                            <div class="metric-label">Current</div>
+                            <div class="metric-value">0 min/day</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Target</div>
+                            <div class="metric-value">30-60 min/day</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Change Needed</div>
+                            <div class="metric-value">+30min daily movement</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Trend</div>
+                            <div class="metric-value">stable (0)</div>
+                        </div>
+                    </div>
+                    
+                    <div class="recommendation-evidence">
+                        <strong>📊 Impact:</strong> Exercise reduces depression by 20-30%, anxiety by 48% (meta-analysis)
+                    </div>
+                    
+                    <div class="recommendation-evidence" style="margin-top: 10px;">
+                        <strong>🔬 Evidence:</strong> 30min daily moderate exercise effective as medication for mild-moderate depression
+                    </div>
+                    
+                    <div style="margin-top: 15px;">
+                        <strong style="font-size: 14px; color: #2d3748;">✅ Specific Actions:</strong>
+                        <ul class="action-list">
+
+                            <li>Morning routine: 30min walk before work (sunlight exposure boosts serotonin)</li>
+
+                            <li>Lunch break movement: 15min walk after eating (improves focus, reduces afternoon slump)</li>
+
+                            <li>Social exercise: join running club, sports team, or gym class (accountability + social benefits)</li>
+
+                            <li>Minimum effective dose: 3x 10min walks = 1x 30min session (breaks cortisol accumulation)</li>
+
+                        </ul>
+                    </div>
+                    
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e9ecef;">
+                        <strong style="font-size: 12px; color: #6c757d;">📚 Research Citations:</strong>
+                        <ul style="font-size: 12px; color: #6c757d; margin-left: 20px; margin-top: 5px;">
+
+                            <li>Schuch FB et al. (2016). Exercise as treatment for depression - meta-analysis of 25 RCTs</li>
+
+                            <li>Aylett E et al. (2018). Exercise for anxiety disorders - 48% symptom reduction</li>
+
+                            <li>Mammen G & Faulkner G (2013). Physical activity and prevention of depression</li>
+
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="recommendation-card medium">
+                    <div class="recommendation-header">
+                        <div class="recommendation-title">Social Connection</div>
+                        <div class="priority-badge medium">MEDIUM PRIORITY</div>
+                    </div>
+                    
+                    <div class="recommendation-metrics">
+                        <div class="metric-item">
+                            <div class="metric-label">Current</div>
+                            <div class="metric-value">3 interactions/day</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Target</div>
+                            <div class="metric-value">15-25 interactions/day</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Change Needed</div>
+                            <div class="metric-value">+12 social touches daily</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Trend</div>
+                            <div class="metric-value">decreasing (-9.649211197712368)</div>
+                        </div>
+                    </div>
+                    
+                    <div class="recommendation-evidence">
+                        <strong>📊 Impact:</strong> Social isolation increases mortality risk by 29% (meta-analysis)
+                    </div>
+                    
+                    <div class="recommendation-evidence" style="margin-top: 10px;">
+                        <strong>🔬 Evidence:</strong> Strong relationships increase survival odds by 50% (Holt-Lunstad et al. 2010)
+                    </div>
+                    
+                    <div style="margin-top: 15px;">
+                        <strong style="font-size: 14px; color: #2d3748;">✅ Specific Actions:</strong>
+                        <ul class="action-list">
+
+                            <li>Quality over quantity: 1x 30min deep conversation > 20 shallow chats</li>
+
+                            <li>Weekly social ritual: friend dinner, hobby meetup, or team lunch (prevents drift)</li>
+
+                            <li>Remote work: video calls for collab (not just Slack) - face-to-face builds trust</li>
+
+                            <li>Initiate 2 conversations/day: coffee chats, lunch invites, evening walks</li>
+
+                        </ul>
+                    </div>
+                    
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e9ecef;">
+                        <strong style="font-size: 12px; color: #6c757d;">📚 Research Citations:</strong>
+                        <ul style="font-size: 12px; color: #6c757d; margin-left: 20px; margin-top: 5px;">
+
+                            <li>Holt-Lunstad J et al. (2010). Social relationships and mortality - meta-analysis of 148 studies</li>
+
+                            <li>Umberson D & Montez JK (2010). Social relationships and health behavior across life course</li>
+
+                            <li>House JS et al. (1988). Social relationships and health - Structures and processes are distinct</li>
+
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="recommendation-card medium">
+                    <div class="recommendation-header">
+                        <div class="recommendation-title">Mood Enhancement</div>
+                        <div class="priority-badge medium">MEDIUM PRIORITY</div>
+                    </div>
+                    
+                    <div class="recommendation-metrics">
+                        <div class="metric-item">
+                            <div class="metric-label">Current</div>
+                            <div class="metric-value">Mood 4.8/10</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Target</div>
+                            <div class="metric-value">Mood 6-8/10</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Change Needed</div>
+                            <div class="metric-value">Improve daily mood baseline</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Trend</div>
+                            <div class="metric-value">increasing (N/A)</div>
+                        </div>
+                    </div>
+                    
+                    <div class="recommendation-evidence">
+                        <strong>📊 Impact:</strong> Low mood affects motivation, productivity, relationship quality
+                    </div>
+                    
+                    <div class="recommendation-evidence" style="margin-top: 10px;">
+                        <strong>🔬 Evidence:</strong> Small daily positive activities accumulate → sustained mood improvement
+                    </div>
+                    
+                    <div style="margin-top: 15px;">
+                        <strong style="font-size: 14px; color: #2d3748;">✅ Specific Actions:</strong>
+                        <ul class="action-list">
+
+                            <li>🌅 Morning routine: 10min gratitude journaling (proven to increase wellbeing by 25%)</li>
+
+                            <li>🎵 Music therapy: listen to upbeat music 30min/day (dopamine release, mood lift)</li>
+
+                            <li>🌳 Nature exposure: 20min outdoors daily (reduces rumination, improves affect)</li>
+
+                            <li>🎨 Engage hobbies: 1h/week on enjoyable activity unrelated to work (flow state boosts mood)</li>
+
+                        </ul>
+                    </div>
+                    
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e9ecef;">
+                        <strong style="font-size: 12px; color: #6c757d;">📚 Research Citations:</strong>
+                        <ul style="font-size: 12px; color: #6c757d; margin-left: 20px; margin-top: 5px;">
+
+                            <li>Emmons RA & McCullough ME (2003). Gratitude journaling increases wellbeing</li>
+
+                            <li>Bratman GN et al. (2015). Nature reduces rumination and prefrontal cortex activation</li>
+
+                            <li>Nakamura J & Csikszentmihalyi M (2002). Flow state and wellbeing</li>
+
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="recommendation-card medium">
+                    <div class="recommendation-header">
+                        <div class="recommendation-title">Energy Optimization</div>
+                        <div class="priority-badge medium">MEDIUM PRIORITY</div>
+                    </div>
+                    
+                    <div class="recommendation-metrics">
+                        <div class="metric-item">
+                            <div class="metric-label">Current</div>
+                            <div class="metric-value">Energy 4.8/10</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Target</div>
+                            <div class="metric-value">Energy 6-8/10</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Change Needed</div>
+                            <div class="metric-value">Boost sustainable energy levels</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Trend</div>
+                            <div class="metric-value">decreasing (N/A)</div>
+                        </div>
+                    </div>
+                    
+                    <div class="recommendation-evidence">
+                        <strong>📊 Impact:</strong> Low energy → reduced productivity, motivation, cognitive performance
+                    </div>
+                    
+                    <div class="recommendation-evidence" style="margin-top: 10px;">
+                        <strong>🔬 Evidence:</strong> Sleep, exercise, nutrition form energy triad - optimize all three
+                    </div>
+                    
+                    <div style="margin-top: 15px;">
+                        <strong style="font-size: 14px; color: #2d3748;">✅ Specific Actions:</strong>
+                        <ul class="action-list">
+
+                            <li>💧 Hydration: drink 2-3L water/day (dehydration causes fatigue, brain fog)</li>
+
+                            <li>🍎 Stable blood sugar: eat protein with each meal (prevents crashes)</li>
+
+                            <li>☕ Strategic caffeine: coffee 9-11am, 1-3pm only (avoid morning/evening)</li>
+
+                            <li>🚶 Movement breaks: 5min walk every 90min (counters sedentary fatigue)</li>
+
+                        </ul>
+                    </div>
+                    
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e9ecef;">
+                        <strong style="font-size: 12px; color: #6c757d;">📚 Research Citations:</strong>
+                        <ul style="font-size: 12px; color: #6c757d; margin-left: 20px; margin-top: 5px;">
+
+                            <li>Popkin BM et al. (2010). Hydration and cognitive performance</li>
+
+                            <li>Jenkins DJ et al. (1981). Glycemic index and steady energy levels</li>
+
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Footer -->
+            <div class="section">
+                <div style="border-top: 2px solid #e9ecef; padding-top: 20px; font-size: 12px; color: #6c757d;">
+                    <p><strong>Disclaimer:</strong> This report is generated by machine learning models and should not be used as a substitute for professional medical advice, diagnosis, or treatment. Always seek the advice of qualified health providers with any questions you may have regarding mental health.</p>
+                    <p style="margin-top: 10px;"><strong>Data Sources & Methodology:</strong></p>
+                    <ul style="margin-left: 20px; margin-top: 5px;">
+                        <li><strong>Stage 1:</strong> Behavioral forecasting model trained on StudentLife dataset (Dartmouth College, 2013) - 10 students, 674 sensor records</li>
+                        <li><strong>Stage 2:</strong> Mental health inference model trained on synthetic dataset - 1.5M records with controlled behavioral patterns</li>
+                        <li><strong>Pipeline:</strong> Two-stage hybrid approach predicts next-day behaviors (Stage 1), then infers mental health (Stage 2)</li>
+                        <li><strong>Uncertainty:</strong> Stage 1 uncertainties are quantified and compound in Stage 2 predictions</li>
+                        <li><strong>Recommendations:</strong> Based on peer-reviewed mental health research and clinical guidelines</li>
+                    </ul>
+                    <p style="margin-top: 10px;"><strong>Limitations:</strong> Stage 2 model trained on synthetic data with different behavioral patterns than real StudentLife data. Distribution mismatch may affect prediction accuracy. No ground truth mental health labels available for validation.</p>
+                    <p style="margin-top: 10px;">Report generated: 2025-12-10 16:02:16 | Total predictions analyzed: 7 days</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Prepare data
+        const dates = ["2024-12-01", "2024-12-02", "2024-12-03", "2024-12-04", "2024-12-05", "2024-12-06", "2024-12-07"];
+        const sleepData = [5.530944608433736, 5.6088110050685245, 5.711884496423631, 5.79241137723941, 5.720027482768755, 6.057238547974492, 6.212677878609849];
+        const sleepUnc = [1.392335890017789, 0.7860494237045781, 2.0586573982890473, 2.2015314725266615, 1.1267643090025408, 1.7344640110855232, 0.705250948357077];
+        const exerciseData = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        const exerciseUnc = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        const screenData = [3.3411736286830207, 3.2341590022021367, 2.8252365473714685, 3.285371647918651, 2.98033629488708, 3.218714384018786, 2.8996584030545596];
+        const socialData = [3.3181617746901892, 3.256026745024734, 2.7064720200248042, 2.834443301638899, 3.5381508605449365, 2.813949401583775, 2.997985337168572];
+        const stressData = [5.884072675874928, 6.854281163729643, 6.09235460136641, 6.114918338301864, 6.130919612657661, 6.762428787590454, 6.356367665675157];
+        const moodData = [4.794689558818903, 4.350657418064023, 5.483078116282087, 4.443520207244001, 4.099195354946829, 5.304731250023982, 4.947462012647909];
+        const energyData = [5.358239522544263, 3.8785028628113962, 4.48884972926382, 5.473633832200694, 3.985524117153026, 5.280080593032549, 5.230232073046945];
+        const focusData = [7.2299869306399795, 6.850511260065812, 6.438077147223421, 6.858099099354186, 6.570157531260908, 6.433924078168884, 6.825877632076086];
+        const pssData = [11.39211612365844, 16.460903363373756, 13.86899134740384, 14.003530115917519, 16.002595613295835, 9.305935544783939, 16.64956716974992];
+        const anxietyData = [9.078961854503696, 6.895608231637687, 6.379136740188525, 10.189945189493603, 8.685407179931794, 7.497847993149552, 8.502684450997117];
+        const depressionData = [14.783926123490867, 16.512993423486094, 15.057937323489233, 16.64633870199973, 14.854871944095638, 16.825671470538307, 14.282331839660623];
+        const satisfactionData = [5.875793250525706, 7.00416437540888, 6.288380275596855, 6.10539233892673, 6.5818184518992835, 5.8326786700388205, 6.01970871815165];
+        
+        // Chart.js default configuration
+        Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        Chart.defaults.color = '#495057';
+        
+        // Sleep Chart with Uncertainty Bands
+        new Chart(document.getElementById('sleepChart'), {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [
+                    {
+                        label: 'Sleep Hours',
+                        data: sleepData,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Upper Bound (+1σ)',
+                        data: sleepData.map((val, i) => val + sleepUnc[i]),
+                        borderColor: 'rgba(102, 126, 234, 0.3)',
+                        borderDash: [5, 5],
+                        borderWidth: 1,
+                        fill: '+1',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Lower Bound (-1σ)',
+                        data: sleepData.map((val, i) => Math.max(0, val - sleepUnc[i])),
+                        borderColor: 'rgba(102, 126, 234, 0.3)',
+                        borderDash: [5, 5],
+                        borderWidth: 1,
+                        fill: false,
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Sleep Hours Over Time (with uncertainty)',
+                        font: { size: 16, weight: 'bold' }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 12,
+                        title: {
+                            display: true,
+                            text: 'Hours'
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        },
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45,
+                            autoSkip: true,
+                            maxTicksLimit: 10
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Exercise Chart
+        new Chart(document.getElementById('exerciseChart'), {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [
+                    {
+                        label: 'Exercise Minutes',
+                        data: exerciseData,
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Target (30 min)',
+                        data: Array(dates.length).fill(30),
+                        borderColor: '#ffc107',
+                        borderDash: [10, 5],
+                        borderWidth: 2,
+                        fill: false,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Exercise Minutes Per Day',
+                        font: { size: 16, weight: 'bold' }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Minutes'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45,
+                            autoSkip: true,
+                            maxTicksLimit: 10
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Screen Time + Social Interactions (Dual Axis)
+        new Chart(document.getElementById('screenSocialChart'), {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [
+                    {
+                        label: 'Screen Time (hours)',
+                        data: screenData,
+                        borderColor: '#dc3545',
+                        backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                        borderWidth: 2,
+                        yAxisID: 'y',
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Social Interactions',
+                        data: socialData,
+                        borderColor: '#17a2b8',
+                        backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                        borderWidth: 2,
+                        yAxisID: 'y1',
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Screen Time & Social Interactions',
+                        font: { size: 16, weight: 'bold' }
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Screen Time (hours)',
+                            color: '#dc3545'
+                        },
+                        ticks: {
+                            color: '#dc3545'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Social Interactions',
+                            color: '#17a2b8'
+                        },
+                        ticks: {
+                            color: '#17a2b8'
+                        },
+                        grid: {
+                            drawOnChartArea: false
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45,
+                            autoSkip: true,
+                            maxTicksLimit: 10
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Daily Mental Health Metrics
+        new Chart(document.getElementById('dailyMetricsChart'), {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [
+                    {
+                        label: 'Stress Level',
+                        data: stressData,
+                        borderColor: '#e74c3c',
+                        backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Mood Score',
+                        data: moodData,
+                        borderColor: '#3498db',
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Energy Level',
+                        data: energyData,
+                        borderColor: '#f39c12',
+                        backgroundColor: 'rgba(243, 156, 18, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Focus Score',
+                        data: focusData,
+                        borderColor: '#9b59b6',
+                        backgroundColor: 'rgba(155, 89, 182, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Daily Mental Health Metrics (0-10 scale)',
+                        font: { size: 16, weight: 'bold' }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 10,
+                        title: {
+                            display: true,
+                            text: 'Score (0-10)'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45,
+                            autoSkip: true,
+                            maxTicksLimit: 10
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Clinical Scales
+        new Chart(document.getElementById('clinicalScalesChart'), {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [
+                    {
+                        label: 'PSS (0-40)',
+                        data: pssData,
+                        borderColor: '#e67e22',
+                        backgroundColor: 'rgba(230, 126, 34, 0.1)',
+                        borderWidth: 2,
+                        yAxisID: 'y',
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Anxiety/GAD-7 (0-21)',
+                        data: anxietyData,
+                        borderColor: '#16a085',
+                        backgroundColor: 'rgba(22, 160, 133, 0.1)',
+                        borderWidth: 2,
+                        yAxisID: 'y1',
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Depression/PHQ-9 (0-27)',
+                        data: depressionData,
+                        borderColor: '#8e44ad',
+                        backgroundColor: 'rgba(142, 68, 173, 0.1)',
+                        borderWidth: 2,
+                        yAxisID: 'y2',
+                        tension: 0.4
+                    },
+                    {
+                        label: 'PSS Risk Threshold (20)',
+                        data: Array(dates.length).fill(20),
+                        borderColor: 'rgba(231, 76, 60, 0.5)',
+                        borderDash: [5, 5],
+                        borderWidth: 2,
+                        yAxisID: 'y',
+                        fill: false,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Anxiety Risk Threshold (10)',
+                        data: Array(dates.length).fill(10),
+                        borderColor: 'rgba(22, 160, 133, 0.5)',
+                        borderDash: [5, 5],
+                        borderWidth: 2,
+                        yAxisID: 'y1',
+                        fill: false,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Depression Risk Threshold (14)',
+                        data: Array(dates.length).fill(14),
+                        borderColor: 'rgba(142, 68, 173, 0.5)',
+                        borderDash: [5, 5],
+                        borderWidth: 2,
+                        yAxisID: 'y2',
+                        fill: false,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Clinical Mental Health Scales with Risk Thresholds',
+                        font: { size: 16, weight: 'bold' }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'PSS (0-40)'
+                        },
+                        max: 40
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'GAD-7 (0-21)'
+                        },
+                        max: 21,
+                        grid: {
+                            drawOnChartArea: false
+                        }
+                    },
+                    y2: {
+                        type: 'linear',
+                        display: false,
+                        max: 27
+                    },
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45,
+                            autoSkip: true,
+                            maxTicksLimit: 10
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

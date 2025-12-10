@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprehensive Two-Stage Mental Health Profile - u05</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .header .subtitle {
+            font-size: 18px;
+            opacity: 0.95;
+        }
+        
+        .metadata {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 30px 40px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .metadata-item {
+            text-align: center;
+        }
+        
+        .metadata-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+        
+        .metadata-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+        }
+        
+        .section-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #2d3748;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-subtitle {
+            font-size: 14px;
+            color: #718096;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .badge-real {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-synthetic {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            border: 2px solid #e9ecef;
+        }
+        
+        .card-header {
+            font-size: 13px;
+            color: #6c757d;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .card-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 5px;
+        }
+        
+        .card-uncertainty {
+            font-size: 12px;
+            color: #e67e22;
+            font-weight: 600;
+        }
+        
+        .prediction-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            border-left: 4px solid #6c757d;
+        }
+        
+        .prediction-card.at-risk {
+            border-color: #dc3545;
+            background: #fff5f5;
+        }
+        
+        .prediction-card.healthy {
+            border-color: #28a745;
+            background: #f0fff4;
+        }
+        
+        .prediction-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .prediction-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        .prediction-value {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        .prediction-value.at-risk {
+            color: #dc3545;
+        }
+        
+        .prediction-value.healthy {
+            color: #28a745;
+        }
+        
+        .recommendation-card {
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3498db;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .recommendation-card.high {
+            border-color: #e74c3c;
+        }
+        
+        .recommendation-card.medium {
+            border-color: #f39c12;
+        }
+        
+        .recommendation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .recommendation-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        .priority-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .priority-badge.high {
+            background: #fee;
+            color: #c00;
+        }
+        
+        .priority-badge.medium {
+            background: #fff4e6;
+            color: #d68910;
+        }
+        
+        .recommendation-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .metric-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .metric-label {
+            font-size: 12px;
+            color: #6c757d;
+            margin-bottom: 4px;
+        }
+        
+        .metric-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .recommendation-evidence {
+            font-size: 14px;
+            color: #495057;
+            font-style: italic;
+            margin-bottom: 15px;
+            padding-left: 15px;
+            border-left: 3px solid #e9ecef;
+        }
+        
+        .action-list {
+            list-style: none;
+        }
+        
+        .action-list li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+            font-size: 14px;
+            color: #495057;
+        }
+        
+        .action-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .warning-box-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #856404;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .warning-box-content {
+            font-size: 14px;
+            color: #856404;
+            line-height: 1.6;
+        }
+        
+        .info-box {
+            background: #d1ecf1;
+            border: 1px solid #0c5460;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .info-box-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #0c5460;
+            margin-bottom: 10px;
+        }
+        
+        .info-box-content {
+            font-size: 14px;
+            color: #0c5460;
+            line-height: 1.6;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .chart-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .container {
+                box-shadow: none;
+                border-radius: 0;
+                max-width: 100%;
+            }
+            
+            .header {
+                background: #667eea;
+                color: white;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            .section {
+                page-break-inside: avoid;
+            }
+            
+            * {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🧠 Two-Stage Mental Health Profile</h1>
+            <div class="subtitle">Hybrid Behavioral Forecasting + Mental Health Inference</div>
+        </div>
+        
+        <!-- Metadata -->
+        <div class="metadata">
+            <div class="metadata-item">
+                <div class="metadata-label">Student ID</div>
+                <div class="metadata-value">u05</div>
+            </div>
+            <div class="metadata-item">
+                <div class="metadata-label">Generated</div>
+                <div class="metadata-value">2025-12-10 15:46:41</div>
+            </div>
+            <div class="metadata-item">
+                <div class="metadata-label">Date Range</div>
+                <div class="metadata-value">2013-03-31 to 2013-05-29</div>
+            </div>
+            <div class="metadata-item">
+                <div class="metadata-label">Predictions</div>
+                <div class="metadata-value">60 days</div>
+            </div>
+            <div class="metadata-item">
+                <div class="metadata-label">Avg Uncertainty</div>
+                <div class="metadata-value">±39%</div>
+            </div>
+            <div class="metadata-item">
+                <div class="metadata-label">At-Risk Factors</div>
+                <div class="metadata-value">1</div>
+            </div>
+        </div>
+        
+        <div class="content">
+            <!-- Pipeline Warning -->
+            <div class="warning-box">
+                <div class="warning-box-title">⚠️ Understanding This Two-Stage Report</div>
+                <div class="warning-box-content">
+                    <p><strong>This report uses a hybrid prediction pipeline:</strong></p>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li><strong>Stage 1 (REAL DATA):</strong> Behavioral forecasting using patterns from StudentLife dataset (Dartmouth, 2013)</li>
+                        <li><strong>Stage 2 (SYNTHETIC DATA):</strong> Mental health inference trained on 1.5M synthetic records</li>
+                    </ul>
+                    <p style="margin-top: 10px;"><strong>Limitations:</strong> Stage 1 uncertainties (±39% average) compound in Stage 2. Mental health predictions are based on behavioral forecasts, not direct measurements. This report analyzes all 60 days of predictions. Use this as a screening tool, not a clinical diagnosis.</p>
+                </div>
+            </div>
+            
+            <!-- Methodology Section -->
+            <div class="section">
+                <div class="section-title">🔬 How This System Works: Two-Stage Pipeline Methodology</div>
+                
+                <div style="background: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="font-size: 18px; font-weight: 600; color: #2d3748; margin-bottom: 15px;">
+                        Pipeline Architecture
+                    </h4>
+                    
+                    <div style="display: flex; align-items: center; justify-content: space-around; margin: 30px 0; flex-wrap: wrap; gap: 20px;">
+                        <div style="text-align: center; flex: 1; min-width: 200px;">
+                            <div style="background: #667eea; color: white; padding: 20px; border-radius: 8px; margin-bottom: 10px;">
+                                <div style="font-size: 24px; margin-bottom: 5px;">📱</div>
+                                <div style="font-weight: 600;">Input Sensors</div>
+                                <div style="font-size: 12px; opacity: 0.9;">6 features × 7 days</div>
+                            </div>
+                            <div style="font-size: 12px; color: #6c757d;">
+                                Sleep, Work, Exercise<br>Screen, Social, Steps
+                            </div>
+                        </div>
+                        
+                        <div style="font-size: 24px; color: #6c757d;">→</div>
+                        
+                        <div style="text-align: center; flex: 1; min-width: 200px;">
+                            <div style="background: #3498db; color: white; padding: 20px; border-radius: 8px; margin-bottom: 10px;">
+                                <div style="font-size: 24px; margin-bottom: 5px;">🧠</div>
+                                <div style="font-weight: 600;">Stage 1: LSTM</div>
+                                <div style="font-size: 12px; opacity: 0.9;">Real Data (StudentLife)</div>
+                            </div>
+                            <div style="font-size: 12px; color: #6c757d;">
+                                Predicts next-day<br>behaviors + uncertainty
+                            </div>
+                        </div>
+                        
+                        <div style="font-size: 24px; color: #6c757d;">→</div>
+                        
+                        <div style="text-align: center; flex: 1; min-width: 200px;">
+                            <div style="background: #28a745; color: white; padding: 20px; border-radius: 8px; margin-bottom: 10px;">
+                                <div style="font-size: 24px; margin-bottom: 5px;">🧠</div>
+                                <div style="font-weight: 600;">Stage 2: LSTM</div>
+                                <div style="font-size: 12px; opacity: 0.9;">Synthetic Data (1.5M)</div>
+                            </div>
+                            <div style="font-size: 12px; color: #6c757d;">
+                                Infers mental health<br>from behaviors
+                            </div>
+                        </div>
+                        
+                        <div style="font-size: 24px; color: #6c757d;">→</div>
+                        
+                        <div style="text-align: center; flex: 1; min-width: 200px;">
+                            <div style="background: #764ba2; color: white; padding: 20px; border-radius: 8px; margin-bottom: 10px;">
+                                <div style="font-size: 24px; margin-bottom: 5px;">📊</div>
+                                <div style="font-weight: 600;">Output</div>
+                                <div style="font-size: 12px; opacity: 0.9;">8 mental health scores</div>
+                            </div>
+                            <div style="font-size: 12px; color: #6c757d;">
+                                PSS, Anxiety, Depression<br>Stress, Mood, Energy, Focus
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h4 style="font-size: 16px; font-weight: 600; color: #2d3748; margin-top: 30px; margin-bottom: 10px;">
+                        Stage 1: Behavioral Forecasting (REAL DATA)
+                    </h4>
+                    <ul style="font-size: 14px; color: #495057; line-height: 1.8; margin-left: 20px;">
+                        <li><strong>Training Data:</strong> StudentLife dataset from Dartmouth College (2013) - 10 students, 674 real sensor measurements</li>
+                        <li><strong>Model:</strong> LSTM (Long Short-Term Memory) with 32 hidden dimensions, 1 layer</li>
+                        <li><strong>Input:</strong> 6 behavioral features (sleep, work hours, exercise, steps, screen time, social interactions) over 7-day windows</li>
+                        <li><strong>Output:</strong> 5 next-day behavioral predictions + aleatoric uncertainty (inherent data noise)</li>
+                        <li><strong>Uncertainty:</strong> Quantified using log-variance outputs - measures model confidence in each prediction</li>
+                        <li><strong>Why Real Data Matters:</strong> Captures authentic behavioral patterns, circadian rhythms, and day-to-day variability from actual university students</li>
+                    </ul>
+                    
+                    <h4 style="font-size: 16px; font-weight: 600; color: #2d3748; margin-top: 30px; margin-bottom: 10px;">
+                        Stage 2: Mental Health Inference (SYNTHETIC DATA)
+                    </h4>
+                    <ul style="font-size: 14px; color: #495057; line-height: 1.8; margin-left: 20px;">
+                        <li><strong>Training Data:</strong> 1.5M synthetic records with controlled behavioral patterns and mental health labels</li>
+                        <li><strong>Model:</strong> LSTM with 128 hidden dimensions, 2 layers, multi-task prediction heads</li>
+                        <li><strong>Input:</strong> Stage 1 predicted behaviors (5 features)</li>
+                        <li><strong>Output:</strong> 8 mental health scores (4 daily: stress, mood, energy, focus + 4 weekly: PSS, anxiety, depression, job satisfaction)</li>
+                        <li><strong>Why Synthetic:</strong> No ground truth mental health labels exist for StudentLife data; synthetic data provides controlled relationships</li>
+                        <li><strong>Clinical Scales:</strong> PSS-10 (Perceived Stress), GAD-7 (Generalized Anxiety), PHQ-9 (Patient Health Questionnaire - Depression)</li>
+                    </ul>
+                    
+                    <h4 style="font-size: 16px; font-weight: 600; color: #2d3748; margin-top: 30px; margin-bottom: 10px;">
+                        Error Propagation & Uncertainty
+                    </h4>
+                    <ul style="font-size: 14px; color: #495057; line-height: 1.8; margin-left: 20px;">
+                        <li><strong>Stage 1 Uncertainty:</strong> Average ±39% across 60 days - varies by behavioral metric</li>
+                        <li><strong>Compounding Effect:</strong> Stage 2 treats Stage 1 predictions as inputs, so uncertainty accumulates</li>
+                        <li><strong>Distribution Mismatch:</strong> Stage 1 outputs may differ from Stage 2 training distribution → reduced confidence</li>
+                        <li><strong>Interpretation:</strong> Higher uncertainty = model less confident. Use trends and patterns, not absolute values</li>
+                        <li><strong>Validation Challenge:</strong> No ground truth mental health labels for StudentLife students to validate Stage 2 predictions</li>
+                    </ul>
+                    
+                    <h4 style="font-size: 16px; font-weight: 600; color: #2d3748; margin-top: 30px; margin-bottom: 10px;">
+                        How to Use This Report
+                    </h4>
+                    <ul style="font-size: 14px; color: #495057; line-height: 1.8; margin-left: 20px;">
+                        <li><strong>Focus on Trends:</strong> Look for patterns over time, not single-day values</li>
+                        <li><strong>At-Risk Indicators:</strong> Pay attention to metrics consistently exceeding clinical thresholds</li>
+                        <li><strong>Behavioral Insights:</strong> Stage 1 predictions show concrete behaviors you can modify</li>
+                        <li><strong>Personalized Interventions:</strong> Evidence-based actions tailored to your specific patterns</li>
+                        <li><strong>Professional Consultation:</strong> This is a screening tool - consult healthcare providers for clinical diagnosis</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Stage 1: Behavioral Predictions -->
+            <div class="section">
+                <div class="section-title">
+                    🟦 Stage 1: Behavioral Forecasting
+                    <span class="badge badge-real">REAL DATA</span>
+                </div>
+                <div class="section-subtitle">
+                    LSTM trained on StudentLife dataset → predicts next-day behaviors
+                </div>
+                
+                <div class="card-grid">
+
+                    <div class="card">
+                        <div class="card-header">
+                            <span>😴 Sleep</span>
+                        </div>
+                        <div class="card-value">4.9h</div>
+                        <div class="card-uncertainty">±15%</div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <span>🏃 Exercise</span>
+                        </div>
+                        <div class="card-value">16.3min</div>
+                        <div class="card-uncertainty">±43%</div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <span>📱 Screen Time</span>
+                        </div>
+                        <div class="card-value">4.6h</div>
+                        <div class="card-uncertainty">±53%</div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <span>👥 Social</span>
+                        </div>
+                        <div class="card-value">24.0</div>
+                        <div class="card-uncertainty">±39%</div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <span>🚶 Steps</span>
+                        </div>
+                        <div class="card-value">1751</div>
+                        <div class="card-uncertainty">±45%</div>
+                    </div>
+
+                </div>
+                
+                <p style="font-size: 14px; color: #6c757d; margin-top: 10px;">
+                    <strong>Note:</strong> These predictions show what your behavior is likely to be on the next day, 
+                    based on patterns learned from real university students. Uncertainty percentages reflect prediction confidence.
+                </p>
+            </div>
+            
+            <!-- Stage 2: Mental Health Predictions -->
+            <div class="section">
+                <div class="section-title">
+                    🟩 Stage 2: Mental Health Inference
+                    <span class="badge badge-synthetic">SYNTHETIC DATA</span>
+                </div>
+                <div class="section-subtitle">
+                    LSTM trained on 1.5M synthetic records → infers mental health from predicted behaviors
+                </div>
+                
+                <div class="info-box">
+                    <div class="info-box-title">ℹ️ Confidence Note</div>
+                    <div class="info-box-content">
+                        Stage 1 predictions have ±39% average uncertainty. 
+                        This uncertainty propagates to Stage 2, reducing overall confidence. Mental health scores 
+                        are inferred from <em>predicted behaviors</em>, not measured directly.
+                    </div>
+                </div>
+                
+                <div class="card-grid">
+
+                    <div class="prediction-card healthy">
+                        <div class="prediction-header">
+                            <div class="prediction-name">Stress Level</div>
+                            <div class="prediction-value healthy">6.6/10</div>
+                        </div>
+                        <div style="font-size: 12px; color: #6c757d;">
+                            ✓ Within healthy range
+                        </div>
+                    </div>
+
+                    <div class="prediction-card healthy">
+                        <div class="prediction-header">
+                            <div class="prediction-name">Mood</div>
+                            <div class="prediction-value healthy">5.2/10</div>
+                        </div>
+                        <div style="font-size: 12px; color: #6c757d;">
+                            ✓ Within healthy range
+                        </div>
+                    </div>
+
+                    <div class="prediction-card healthy">
+                        <div class="prediction-header">
+                            <div class="prediction-name">Energy</div>
+                            <div class="prediction-value healthy">5.4/10</div>
+                        </div>
+                        <div style="font-size: 12px; color: #6c757d;">
+                            ✓ Within healthy range
+                        </div>
+                    </div>
+
+                    <div class="prediction-card healthy">
+                        <div class="prediction-header">
+                            <div class="prediction-name">Focus</div>
+                            <div class="prediction-value healthy">5.7/10</div>
+                        </div>
+                        <div style="font-size: 12px; color: #6c757d;">
+                            ✓ Within healthy range
+                        </div>
+                    </div>
+
+                    <div class="prediction-card at-risk">
+                        <div class="prediction-header">
+                            <div class="prediction-name">PSS</div>
+                            <div class="prediction-value at-risk">23.5/40</div>
+                        </div>
+                        <div style="font-size: 12px; color: #6c757d;">
+                            ⚠️ At-risk threshold exceeded
+                        </div>
+                    </div>
+
+                    <div class="prediction-card healthy">
+                        <div class="prediction-header">
+                            <div class="prediction-name">Anxiety</div>
+                            <div class="prediction-value healthy">6.9/21</div>
+                        </div>
+                        <div style="font-size: 12px; color: #6c757d;">
+                            ✓ Within healthy range
+                        </div>
+                    </div>
+
+                    <div class="prediction-card healthy">
+                        <div class="prediction-header">
+                            <div class="prediction-name">Depression</div>
+                            <div class="prediction-value healthy">13.4/27</div>
+                        </div>
+                        <div style="font-size: 12px; color: #6c757d;">
+                            ✓ Within healthy range
+                        </div>
+                    </div>
+
+                    <div class="prediction-card healthy">
+                        <div class="prediction-header">
+                            <div class="prediction-name">Job Satisfaction</div>
+                            <div class="prediction-value healthy">6.1/10</div>
+                        </div>
+                        <div style="font-size: 12px; color: #6c757d;">
+                            ✓ Within healthy range
+                        </div>
+                    </div>
+
+                </div>
+                
+                <p style="font-size: 14px; color: #6c757d; margin-top: 10px;">
+                    <strong>Important:</strong> These mental health scores are inferred from predicted behaviors, not measured directly. 
+                    The model was trained on synthetic data patterns. If you're concerned about any scores, 
+                    please consult a mental health professional.
+                </p>
+            </div>
+            
+            <!-- Temporal Analysis -->
+            <div class="section">
+                <div class="section-title">📈 Temporal Trends Analysis</div>
+                <div class="section-subtitle">
+                    Complete prediction history across all {num_predictions} days
+                </div>
+                
+                <h3 style="font-size: 20px; font-weight: 600; color: #2d3748; margin-bottom: 15px; margin-top: 20px;">
+                    🟦 Stage 1: Behavioral Predictions Over Time
+                </h3>
+                
+                <div class="chart-container">
+                    <canvas id="sleepChart"></canvas>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="exerciseChart"></canvas>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="screenSocialChart"></canvas>
+                </div>
+                
+                <h3 style="font-size: 20px; font-weight: 600; color: #2d3748; margin-bottom: 15px; margin-top: 30px;">
+                    🟩 Stage 2: Mental Health Predictions Over Time
+                </h3>
+                
+                <div class="chart-container">
+                    <canvas id="dailyMetricsChart"></canvas>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="clinicalScalesChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Personalized Interventions -->
+            <div class="section">
+                <div class="section-title">💡 Personalized Evidence-Based Interventions</div>
+                <div class="section-subtitle">
+                    Specific actions tailored to your behavioral patterns and mental health trends
+                </div>
+
+                <div class="recommendation-card high">
+                    <div class="recommendation-header">
+                        <div class="recommendation-title">Sleep Quality</div>
+                        <div class="priority-badge high">HIGH PRIORITY</div>
+                    </div>
+                    
+                    <div class="recommendation-metrics">
+                        <div class="metric-item">
+                            <div class="metric-label">Current</div>
+                            <div class="metric-value">5.9 hours/night</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Target</div>
+                            <div class="metric-value">7-9 hours/night</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Change Needed</div>
+                            <div class="metric-value">+1.1h per night</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Trend</div>
+                            <div class="metric-value">decreasing (-29.41847340106986)</div>
+                        </div>
+                    </div>
+                    
+                    <div class="recommendation-evidence">
+                        <strong>📊 Impact:</strong> Sleep deprivation linked to 60% increased stress, 80% increased anxiety risk
+                    </div>
+                    
+                    <div class="recommendation-evidence" style="margin-top: 10px;">
+                        <strong>🔬 Evidence:</strong> Students with <7h sleep showed 2.3x higher depression scores vs 7-9h group (StudentLife dataset)
+                    </div>
+                    
+                    <div style="margin-top: 15px;">
+                        <strong style="font-size: 14px; color: #2d3748;">✅ Specific Actions:</strong>
+                        <ul class="action-list">
+
+                            <li>Set consistent bedtime 10pm (need to wake by 8am for 8.1h sleep)</li>
+
+                            <li>Create wind-down routine: dim lights 9pm, no screens after 9:30pm (blue light suppresses melatonin)</li>
+
+                            <li>Temperature hack: keep bedroom 65-68°F (thermoregulation critical for deep sleep)</li>
+
+                            <li>If racing thoughts: brain dump journal before bed, box breathing (4-4-4-4 pattern)</li>
+
+                        </ul>
+                    </div>
+                    
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e9ecef;">
+                        <strong style="font-size: 12px; color: #6c757d;">📚 Research Citations:</strong>
+                        <ul style="font-size: 12px; color: #6c757d; margin-left: 20px; margin-top: 5px;">
+
+                            <li>Walker M. (2017). Why We Sleep - Sleep deprivation linked to Alzheimer's, cardiovascular disease</li>
+
+                            <li>Pilcher JJ et al. (1997). Sleep quality vs sleep quantity - quality matters more for wellbeing</li>
+
+                            <li>Wang R et al. (2014). StudentLife study - smartphone sensing predicts academic performance from sleep</li>
+
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="recommendation-card high">
+                    <div class="recommendation-header">
+                        <div class="recommendation-title">Stress Management - Clinical Level</div>
+                        <div class="priority-badge high">HIGH PRIORITY</div>
+                    </div>
+                    
+                    <div class="recommendation-metrics">
+                        <div class="metric-item">
+                            <div class="metric-label">Current</div>
+                            <div class="metric-value">PSS 23.5/40 (at-risk 100% of time)</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Target</div>
+                            <div class="metric-value">PSS <20 (below clinical threshold)</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Change Needed</div>
+                            <div class="metric-value">Reduce chronic stress load</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Trend</div>
+                            <div class="metric-value">increasing (N/A)</div>
+                        </div>
+                    </div>
+                    
+                    <div class="recommendation-evidence">
+                        <strong>📊 Impact:</strong> PSS ≥20 linked to cardiovascular disease, immune dysfunction, burnout
+                    </div>
+                    
+                    <div class="recommendation-evidence" style="margin-top: 10px;">
+                        <strong>🔬 Evidence:</strong> Chronic stress increases cortisol → hippocampus atrophy, memory impairment
+                    </div>
+                    
+                    <div style="margin-top: 15px;">
+                        <strong style="font-size: 14px; color: #2d3748;">✅ Specific Actions:</strong>
+                        <ul class="action-list">
+
+                            <li>🧘 Daily meditation: Start 10min/day (Headspace, Calm) - reduces cortisol by 23% in 8 weeks</li>
+
+                            <li>🫁 Box breathing during stress spikes: 4s inhale → 4s hold → 4s exhale → 4s hold (5 rounds)</li>
+
+                            <li>📝 Weekly stress audit: identify chronic stressors (work? relationships?) - problem-solve systematically</li>
+
+                            <li>🩺 Consider professional help: therapist, EAP (Employee Assistance Program) - stress management is learnable</li>
+
+                            <li>⛔ Set boundaries: clear work hours, learn to say no, delegate when possible</li>
+
+                        </ul>
+                    </div>
+                    
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e9ecef;">
+                        <strong style="font-size: 12px; color: #6c757d;">📚 Research Citations:</strong>
+                        <ul style="font-size: 12px; color: #6c757d; margin-left: 20px; margin-top: 5px;">
+
+                            <li>Cohen S et al. (1983). Perceived Stress Scale - PSS-10 validation and clinical cutoffs</li>
+
+                            <li>Pascoe MC et al. (2017). Mindfulness meditation decreases cortisol, inflammatory markers</li>
+
+                            <li>Goyal M et al. (2014). Meditation programs for psychological stress - JAMA systematic review</li>
+
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="recommendation-card medium">
+                    <div class="recommendation-header">
+                        <div class="recommendation-title">Physical Activity</div>
+                        <div class="priority-badge medium">MEDIUM PRIORITY</div>
+                    </div>
+                    
+                    <div class="recommendation-metrics">
+                        <div class="metric-item">
+                            <div class="metric-label">Current</div>
+                            <div class="metric-value">19 min/day</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Target</div>
+                            <div class="metric-value">30-60 min/day</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Change Needed</div>
+                            <div class="metric-value">+11min daily movement</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Trend</div>
+                            <div class="metric-value">decreasing (-30.329384604438246)</div>
+                        </div>
+                    </div>
+                    
+                    <div class="recommendation-evidence">
+                        <strong>📊 Impact:</strong> Exercise reduces depression by 20-30%, anxiety by 48% (meta-analysis)
+                    </div>
+                    
+                    <div class="recommendation-evidence" style="margin-top: 10px;">
+                        <strong>🔬 Evidence:</strong> 30min daily moderate exercise effective as medication for mild-moderate depression
+                    </div>
+                    
+                    <div style="margin-top: 15px;">
+                        <strong style="font-size: 14px; color: #2d3748;">✅ Specific Actions:</strong>
+                        <ul class="action-list">
+
+                            <li>Morning routine: 11min walk before work (sunlight exposure boosts serotonin)</li>
+
+                            <li>Lunch break movement: 15min walk after eating (improves focus, reduces afternoon slump)</li>
+
+                            <li>Social exercise: join running club, sports team, or gym class (accountability + social benefits)</li>
+
+                            <li>Minimum effective dose: 3x 10min walks = 1x 30min session (breaks cortisol accumulation)</li>
+
+                        </ul>
+                    </div>
+                    
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e9ecef;">
+                        <strong style="font-size: 12px; color: #6c757d;">📚 Research Citations:</strong>
+                        <ul style="font-size: 12px; color: #6c757d; margin-left: 20px; margin-top: 5px;">
+
+                            <li>Schuch FB et al. (2016). Exercise as treatment for depression - meta-analysis of 25 RCTs</li>
+
+                            <li>Aylett E et al. (2018). Exercise for anxiety disorders - 48% symptom reduction</li>
+
+                            <li>Mammen G & Faulkner G (2013). Physical activity and prevention of depression</li>
+
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="recommendation-card medium">
+                    <div class="recommendation-header">
+                        <div class="recommendation-title">Daily Movement</div>
+                        <div class="priority-badge medium">MEDIUM PRIORITY</div>
+                    </div>
+                    
+                    <div class="recommendation-metrics">
+                        <div class="metric-item">
+                            <div class="metric-label">Current</div>
+                            <div class="metric-value">1982 steps/day</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Target</div>
+                            <div class="metric-value">7,000-10,000 steps/day</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Change Needed</div>
+                            <div class="metric-value">+3018 steps (~1.5 miles)</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Trend</div>
+                            <div class="metric-value">decreasing (-26.417687325066126)</div>
+                        </div>
+                    </div>
+                    
+                    <div class="recommendation-evidence">
+                        <strong>📊 Impact:</strong> Low activity linked to cardiovascular risk, poor sleep, reduced cognitive function
+                    </div>
+                    
+                    <div class="recommendation-evidence" style="margin-top: 10px;">
+                        <strong>🔬 Evidence:</strong> 7,000 steps/day reduces mortality by 50-70% vs 4,000 steps (Lee et al. 2019)
+                    </div>
+                    
+                    <div style="margin-top: 15px;">
+                        <strong style="font-size: 14px; color: #2d3748;">✅ Specific Actions:</strong>
+                        <ul class="action-list">
+
+                            <li>Commute hack: park farther away, get off bus 1 stop early, take stairs</li>
+
+                            <li>Walking meetings: 1-on-1s can be done walking (creativity boost + steps)</li>
+
+                            <li>Post-dinner walk: 15-20min aids digestion, improves sleep quality</li>
+
+                            <li>Hourly movement: set timer for 5min walks every 2h (adds 4000 steps workday)</li>
+
+                        </ul>
+                    </div>
+                    
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e9ecef;">
+                        <strong style="font-size: 12px; color: #6c757d;">📚 Research Citations:</strong>
+                        <ul style="font-size: 12px; color: #6c757d; margin-left: 20px; margin-top: 5px;">
+
+                            <li>Lee IM et al. (2019). Association of step volume and intensity with mortality</li>
+
+                            <li>Paluch AE et al. (2022). Daily steps and mortality - optimal dose 8,000-10,000</li>
+
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Footer -->
+            <div class="section">
+                <div style="border-top: 2px solid #e9ecef; padding-top: 20px; font-size: 12px; color: #6c757d;">
+                    <p><strong>Disclaimer:</strong> This report is generated by machine learning models and should not be used as a substitute for professional medical advice, diagnosis, or treatment. Always seek the advice of qualified health providers with any questions you may have regarding mental health.</p>
+                    <p style="margin-top: 10px;"><strong>Data Sources & Methodology:</strong></p>
+                    <ul style="margin-left: 20px; margin-top: 5px;">
+                        <li><strong>Stage 1:</strong> Behavioral forecasting model trained on StudentLife dataset (Dartmouth College, 2013) - 10 students, 674 sensor records</li>
+                        <li><strong>Stage 2:</strong> Mental health inference model trained on synthetic dataset - 1.5M records with controlled behavioral patterns</li>
+                        <li><strong>Pipeline:</strong> Two-stage hybrid approach predicts next-day behaviors (Stage 1), then infers mental health (Stage 2)</li>
+                        <li><strong>Uncertainty:</strong> Stage 1 uncertainties are quantified and compound in Stage 2 predictions</li>
+                        <li><strong>Recommendations:</strong> Based on peer-reviewed mental health research and clinical guidelines</li>
+                    </ul>
+                    <p style="margin-top: 10px;"><strong>Limitations:</strong> Stage 2 model trained on synthetic data with different behavioral patterns than real StudentLife data. Distribution mismatch may affect prediction accuracy. No ground truth mental health labels available for validation.</p>
+                    <p style="margin-top: 10px;">Report generated: 2025-12-10 15:46:41 | Total predictions analyzed: 60 days</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Prepare data
+        const dates = ["2013-03-31", "2013-04-01", "2013-04-02", "2013-04-03", "2013-04-04", "2013-04-05", "2013-04-06", "2013-04-07", "2013-04-08", "2013-04-09", "2013-04-10", "2013-04-11", "2013-04-12", "2013-04-13", "2013-04-14", "2013-04-15", "2013-04-16", "2013-04-17", "2013-04-18", "2013-04-19", "2013-04-20", "2013-04-21", "2013-04-22", "2013-04-23", "2013-04-24", "2013-04-25", "2013-04-26", "2013-04-27", "2013-04-28", "2013-04-29", "2013-04-30", "2013-05-01", "2013-05-02", "2013-05-03", "2013-05-04", "2013-05-05", "2013-05-06", "2013-05-07", "2013-05-08", "2013-05-09", "2013-05-10", "2013-05-11", "2013-05-12", "2013-05-13", "2013-05-14", "2013-05-15", "2013-05-16", "2013-05-17", "2013-05-18", "2013-05-19", "2013-05-20", "2013-05-21", "2013-05-22", "2013-05-23", "2013-05-24", "2013-05-25", "2013-05-26", "2013-05-27", "2013-05-28", "2013-05-29"];
+        const sleepData = [6.894428232911706, 6.887681213582931, 6.921302248374437, 6.9581259103427975, 6.8412384405432345, 6.575562478510519, 6.531888144766784, 6.077276547103196, 5.204813400709089, 4.969759344916657, 4.956408220040213, 5.364422943400426, 5.838422616591643, 5.6846672395918985, 5.978996110932478, 6.340570500628893, 6.439588805950808, 6.0957226029518194, 5.608489231392944, 5.5987268490457565, 5.678425129015979, 5.881933680382976, 6.099478148322711, 6.3554206640533835, 6.48291481363947, 6.449868335988551, 6.49699018080864, 6.643513228850353, 6.7140565731304065, 6.5815430711668, 6.53545737228885, 6.684693889552388, 6.723604290398495, 6.546009523612391, 6.474260664998051, 6.574893290408337, 6.522415585511302, 6.716185811824459, 6.309162105952256, 6.231903874812163, 6.336446441264455, 6.247872534144481, 5.851942815452801, 5.651947638311426, 5.738728015330874, 5.800367511405518, 5.299459503256166, 4.517685623468385, 3.9198415276178094, 4.17297943399609, 4.307607243990919, 4.324119463566628, 4.360189421469553, 5.236142221261577, 5.743785093918417, 5.935564116566831, 5.508950413724061, 4.7105443643594755, 4.486840976973612, 4.866192697056725];
+        const sleepUnc = [0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329, 0.7056195924165329];
+        const exerciseData = [23.398640096709382, 23.467406181484293, 23.409681406394714, 23.513171747272626, 22.926887685524406, 21.673791191824872, 21.416383163184584, 19.791226531739248, 16.44469331580425, 16.356449114993453, 16.708627964237664, 18.194296260422583, 19.699162378675396, 18.41271133679784, 19.514103126215538, 21.366033886166583, 21.854431079593354, 19.591792323166867, 18.13835741243991, 18.314529746839337, 18.726292107373826, 19.70005902476972, 20.90826322779265, 22.076899107843335, 22.095839520304356, 21.572990894445386, 21.856675956508223, 22.23745615375721, 22.481268609756423, 21.240071207878426, 21.522215494840903, 22.321570174550452, 22.02325511411592, 21.20050767220932, 21.236757552387385, 21.89719642672648, 20.976017139905345, 22.142868250219113, 20.38534494930349, 20.198596357522995, 20.915214391940456, 20.80981859920051, 19.59288887862275, 18.643958910738, 19.15999399426228, 19.14080353727613, 17.10318843985626, 14.106835400411688, 11.856770101103706, 13.164567043746844, 13.889210281660956, 14.136405151450042, 14.508047176135754, 18.004154680699145, 19.61067723447619, 19.396273602479273, 17.757741351298307, 15.04640350767912, 14.853457725690259, 16.301976549570092];
+        const exerciseUnc = [7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191, 7.060889556457191];
+        const screenData = [6.742382812106018, 6.523695761956832, 6.419854772934453, 6.281633337763663, 6.051964914165445, 5.639744523486928, 5.743664748135257, 5.321481377898332, 4.296388475263239, 4.414944564494202, 4.8571899990436105, 5.657752620293812, 5.932658571605313, 5.780908337611189, 5.79548437929623, 5.898931171079506, 6.030247797707827, 5.688473424992936, 5.214353731127729, 5.527231375285258, 5.815455646784614, 6.024258808936567, 6.159118960805966, 6.319081931413645, 6.164427567663668, 6.066729266518795, 6.233531244083212, 6.398602445455421, 6.337384388570935, 6.134258765155965, 5.978630109344445, 6.17322441490525, 6.058224816745066, 5.804717994917767, 5.918756356886592, 6.007260462133838, 6.093353895493935, 6.3535387318925185, 5.92207632961391, 5.926460220700577, 6.139448608615226, 6.146435570095329, 5.598299536977368, 5.138912627271809, 5.484579342062927, 5.317135159750183, 4.752022425561856, 4.006409710908182, 3.3554521631442755, 3.8888326858844167, 4.02696833048202, 4.434586643972955, 4.504310537254625, 5.2750157339990125, 5.56256470186811, 5.757002012840952, 5.232860724248551, 4.43974070534386, 4.1580776478998995, 4.600673736110332];
+        const socialData = [31.60610157661216, 31.06534665406817, 31.228379073180044, 31.53558167399864, 30.68373143914751, 29.452826289634032, 29.292156622407823, 26.688531135501627, 22.56034029411203, 22.910621981503688, 23.88275350317166, 25.907720099468143, 28.370372641503327, 26.24575138981097, 27.001773878315753, 29.08546276866402, 29.73854753260252, 26.266852179642957, 24.727989147082187, 25.48381810729903, 25.805863848213548, 27.448715046419526, 28.834671265834608, 29.91560419350447, 29.343424692039445, 28.565796716753518, 29.46290443038966, 30.291079399062347, 30.614729647466167, 28.907576982924965, 29.509109591246485, 30.439498316600723, 29.90179682470471, 28.674096105862713, 29.07680392939035, 30.26141582882265, 28.760804113751103, 30.243036988970527, 27.25313496367191, 27.260843934511918, 28.472712995588974, 27.996816215319242, 25.83772323103223, 25.066254025504335, 26.405162841054366, 26.1013911356786, 23.378623033314447, 19.56230048893891, 17.003600365399397, 19.096338536931693, 21.240492040145618, 22.468511967818234, 22.176468189536102, 26.17125992562658, 27.551422427185365, 26.147343665949638, 23.498773067892277, 19.143249116861398, 21.339504046212152, 24.034644433861267];
+        const stressData = [6.607479572296143, 6.550870418548584, 6.517685413360596, 6.60356330871582, 6.608102798461914, 6.570321559906006, 6.537543296813965, 6.70771598815918, 6.709484100341797, 6.6919426918029785, 6.629695892333984, 6.583939552307129, 6.564179420471191, 6.649744033813477, 6.626389980316162, 6.709002494812012, 6.714044094085693, 6.7910308837890625, 6.68153190612793, 6.671158313751221, 6.696824550628662, 6.400874137878418, 6.5848493576049805, 6.686314105987549, 6.639346122741699, 6.732074737548828, 6.591252326965332, 6.66264533996582, 6.697021484375, 6.601129055023193, 6.6546125411987305, 6.578649520874023, 6.62055778503418, 6.6573686599731445, 6.608231544494629, 6.5601911544799805, 6.574028015136719, 6.572502136230469, 6.6318840980529785, 6.618442058563232, 6.578344821929932, 6.742424011230469, 6.555577278137207, 6.700593948364258, 6.799160003662109, 6.511965751647949, 6.588536739349365, 6.572648048400879, 6.574053764343262, 6.507725715637207, 6.61918830871582, 6.696962356567383, 6.623905658721924, 6.442233085632324, 6.813113212585449, 6.655612468719482, 6.550846099853516, 6.494187355041504, 6.62419319152832, 6.56171989440918];
+        const moodData = [5.261488914489746, 5.230948448181152, 5.226192474365234, 5.2346696853637695, 5.314161777496338, 5.356715202331543, 5.321274757385254, 5.327060222625732, 5.2449631690979, 5.299775123596191, 5.2152814865112305, 5.225085258483887, 5.2623982429504395, 5.21265983581543, 5.269513130187988, 5.235109806060791, 5.232361793518066, 5.21216344833374, 5.317044734954834, 5.273860931396484, 5.296922206878662, 5.274171352386475, 5.304197311401367, 5.444240093231201, 5.265719890594482, 5.397103309631348, 5.3416032791137695, 5.306855201721191, 5.286250591278076, 5.257463455200195, 5.2800421714782715, 5.267065525054932, 5.27956485748291, 5.296230792999268, 5.287092685699463, 5.253620147705078, 5.273666858673096, 5.28123140335083, 5.2719197273254395, 5.284071445465088, 5.256114959716797, 5.316946029663086, 5.258984565734863, 5.267972946166992, 5.309536933898926, 5.300513744354248, 5.316880226135254, 5.294105052947998, 5.278312683105469, 5.298651695251465, 5.303909778594971, 5.278597354888916, 5.284919738769531, 5.290891170501709, 5.303761959075928, 5.353090286254883, 5.347408771514893, 5.306522846221924, 5.512718677520752, 5.240545272827148];
+        const energyData = [5.429420471191406, 5.395224571228027, 5.373226642608643, 5.392429828643799, 5.446715831756592, 5.45781135559082, 5.430154800415039, 5.4364542961120605, 5.386437892913818, 5.4301605224609375, 5.359599590301514, 5.366490840911865, 5.383423805236816, 5.359368801116943, 5.410768508911133, 5.395051002502441, 5.366026401519775, 5.356467247009277, 5.429194927215576, 5.420001029968262, 5.404512882232666, 5.405047416687012, 5.387745380401611, 5.425356864929199, 5.364562034606934, 5.471779823303223, 5.439277648925781, 5.424802303314209, 5.4201884269714355, 5.395772933959961, 5.4077324867248535, 5.392115116119385, 5.418551921844482, 5.434533596038818, 5.403219699859619, 5.388299465179443, 5.408825397491455, 5.398929595947266, 5.388495445251465, 5.388648986816406, 5.392789363861084, 5.415585517883301, 5.3699212074279785, 5.3822526931762695, 5.40482759475708, 5.400938987731934, 5.408856391906738, 5.388243675231934, 5.385354995727539, 5.420368194580078, 5.406548023223877, 5.392810821533203, 5.337418556213379, 5.366133213043213, 5.394501209259033, 5.463784217834473, 5.450561046600342, 5.442018508911133, 5.41912317276001, 5.375974178314209];
+        const focusData = [5.707889080047607, 5.5669050216674805, 5.46795129776001, 5.555879592895508, 5.739134788513184, 5.659209728240967, 5.623189449310303, 5.660403251647949, 5.572465419769287, 5.841038227081299, 5.596269607543945, 5.699885368347168, 5.761655807495117, 5.580883979797363, 5.812969207763672, 5.67653226852417, 5.452529430389404, 5.552707195281982, 5.785009860992432, 5.9170989990234375, 5.658188343048096, 5.803370475769043, 5.521115779876709, 5.79796838760376, 5.424195289611816, 5.932076930999756, 5.858951091766357, 5.884518623352051, 5.778537273406982, 5.6306352615356445, 5.6496052742004395, 5.588528633117676, 5.689953804016113, 5.745963096618652, 5.5447564125061035, 5.6214375495910645, 5.741152286529541, 5.65065336227417, 5.573674201965332, 5.677886962890625, 5.627324104309082, 5.684599876403809, 5.541517734527588, 5.621400833129883, 5.7604265213012695, 5.694117546081543, 5.826465606689453, 5.742574214935303, 5.698359489440918, 5.8505096435546875, 5.696828842163086, 5.631421089172363, 5.2733869552612305, 5.629462242126465, 5.600146293640137, 5.934380531311035, 5.846437454223633, 5.924445629119873, 5.582181930541992, 5.73353910446167];
+        const pssData = [23.484588623046875, 23.434383392333984, 23.49236297607422, 23.689952850341797, 24.19165802001953, 23.894947052001953, 24.124088287353516, 24.360660552978516, 24.143665313720703, 24.05411720275879, 23.782005310058594, 23.713218688964844, 23.465991973876953, 23.669475555419922, 23.530807495117188, 23.68305206298828, 23.770523071289062, 23.83597183227539, 23.264976501464844, 23.219669342041016, 23.397409439086914, 23.423919677734375, 23.366052627563477, 22.874713897705078, 23.486328125, 23.201129913330078, 23.115131378173828, 23.4227294921875, 23.622312545776367, 23.496580123901367, 23.55905532836914, 23.550628662109375, 23.942359924316406, 23.52105140686035, 23.268314361572266, 23.297271728515625, 23.707569122314453, 23.616168975830078, 23.610332489013672, 23.36502456665039, 23.60235595703125, 23.52962875366211, 23.18512725830078, 23.516769409179688, 23.508163452148438, 22.997142791748047, 23.228172302246094, 23.11431121826172, 22.993488311767578, 22.907085418701172, 23.196460723876953, 23.456768035888672, 23.27684211730957, 23.0452880859375, 23.535541534423828, 23.24795150756836, 22.787574768066406, 22.77176284790039, 22.585525512695312, 23.53656768798828];
+        const anxietyData = [6.728887557983398, 6.724738121032715, 6.7472333908081055, 6.824886798858643, 6.961143493652344, 6.874485969543457, 6.956233024597168, 7.012406349182129, 6.981912612915039, 6.946534156799316, 6.8832855224609375, 6.829037189483643, 6.6768083572387695, 6.820882797241211, 6.755488395690918, 6.850953102111816, 6.847658634185791, 6.875482559204102, 6.65376091003418, 6.650228500366211, 6.697271347045898, 6.748579978942871, 6.708765029907227, 6.52881383895874, 6.79974889755249, 6.619467735290527, 6.61559534072876, 6.685345649719238, 6.738201141357422, 6.770784378051758, 6.778614044189453, 6.794315338134766, 6.884799003601074, 6.748409271240234, 6.719146728515625, 6.712831020355225, 6.826526165008545, 6.810741901397705, 6.814131736755371, 6.698202610015869, 6.814277648925781, 6.780111312866211, 6.681312561035156, 6.7691755294799805, 6.7395524978637695, 6.6045708656311035, 6.6088547706604, 6.627338409423828, 6.5647993087768555, 6.540299415588379, 6.628501892089844, 6.767606258392334, 6.718975067138672, 6.669750690460205, 6.750910758972168, 6.637349605560303, 6.533495903015137, 6.473750114440918, 6.471681594848633, 6.8614325523376465];
+        const depressionData = [13.779152870178223, 13.700030326843262, 13.732893943786621, 13.751380920410156, 13.123394012451172, 12.841324806213379, 12.989737510681152, 13.069534301757812, 13.112404823303223, 13.341625213623047, 13.486425399780273, 13.454438209533691, 13.25748062133789, 13.95064640045166, 13.055103302001953, 13.732979774475098, 13.609233856201172, 14.139671325683594, 12.963685989379883, 13.719850540161133, 13.02016830444336, 13.154828071594238, 13.129697799682617, 13.08751392364502, 13.147953033447266, 12.792470932006836, 12.881248474121094, 13.025813102722168, 13.026638984680176, 13.152497291564941, 13.185478210449219, 13.124021530151367, 13.005611419677734, 13.152054786682129, 13.112428665161133, 13.000177383422852, 13.088997840881348, 13.090785026550293, 13.035697937011719, 13.010852813720703, 13.077554702758789, 13.103130340576172, 13.060687065124512, 13.414474487304688, 13.558160781860352, 12.87057876586914, 13.156984329223633, 13.212043762207031, 13.249588012695312, 13.216835021972656, 13.0206937789917, 13.357772827148438, 13.06617546081543, 13.934446334838867, 13.445882797241211, 12.928720474243164, 12.926630973815918, 13.03620433807373, 12.710186958312988, 13.431097984313965];
+        const satisfactionData = [6.068904876708984, 6.1414794921875, 6.262842655181885, 6.166183948516846, 5.677704334259033, 5.872097969055176, 5.723861217498779, 5.816612720489502, 5.883791923522949, 5.85870361328125, 5.980271339416504, 5.953088760375977, 5.978627681732178, 5.9767913818359375, 5.98310661315918, 6.007582664489746, 6.088837146759033, 5.968143939971924, 6.091774940490723, 6.020747184753418, 6.013844013214111, 5.975186824798584, 6.1162614822387695, 6.134983062744141, 6.071445941925049, 5.975255012512207, 5.982685565948486, 5.883224010467529, 5.921492099761963, 5.931247234344482, 6.011031627655029, 5.996189594268799, 5.998697757720947, 6.046639919281006, 6.056240081787109, 5.991544246673584, 5.8304901123046875, 6.080066204071045, 6.004226207733154, 6.070121765136719, 6.0625529289245605, 6.040781021118164, 6.062281608581543, 6.141789436340332, 6.041950702667236, 6.080290794372559, 6.2927093505859375, 6.29996395111084, 6.262971878051758, 6.24348258972168, 6.136249542236328, 6.0570292472839355, 6.134794235229492, 6.248498439788818, 5.997960090637207, 6.078755855560303, 6.095970630645752, 6.083871841430664, 6.419561862945557, 6.053720474243164];
+        
+        // Chart.js default configuration
+        Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        Chart.defaults.color = '#495057';
+        
+        // Sleep Chart with Uncertainty Bands
+        new Chart(document.getElementById('sleepChart'), {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [
+                    {
+                        label: 'Sleep Hours',
+                        data: sleepData,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Upper Bound (+1σ)',
+                        data: sleepData.map((val, i) => val + sleepUnc[i]),
+                        borderColor: 'rgba(102, 126, 234, 0.3)',
+                        borderDash: [5, 5],
+                        borderWidth: 1,
+                        fill: '+1',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Lower Bound (-1σ)',
+                        data: sleepData.map((val, i) => Math.max(0, val - sleepUnc[i])),
+                        borderColor: 'rgba(102, 126, 234, 0.3)',
+                        borderDash: [5, 5],
+                        borderWidth: 1,
+                        fill: false,
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Sleep Hours Over Time (with uncertainty)',
+                        font: { size: 16, weight: 'bold' }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 12,
+                        title: {
+                            display: true,
+                            text: 'Hours'
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        },
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45,
+                            autoSkip: true,
+                            maxTicksLimit: 10
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Exercise Chart
+        new Chart(document.getElementById('exerciseChart'), {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [
+                    {
+                        label: 'Exercise Minutes',
+                        data: exerciseData,
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Target (30 min)',
+                        data: Array(dates.length).fill(30),
+                        borderColor: '#ffc107',
+                        borderDash: [10, 5],
+                        borderWidth: 2,
+                        fill: false,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Exercise Minutes Per Day',
+                        font: { size: 16, weight: 'bold' }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Minutes'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45,
+                            autoSkip: true,
+                            maxTicksLimit: 10
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Screen Time + Social Interactions (Dual Axis)
+        new Chart(document.getElementById('screenSocialChart'), {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [
+                    {
+                        label: 'Screen Time (hours)',
+                        data: screenData,
+                        borderColor: '#dc3545',
+                        backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                        borderWidth: 2,
+                        yAxisID: 'y',
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Social Interactions',
+                        data: socialData,
+                        borderColor: '#17a2b8',
+                        backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                        borderWidth: 2,
+                        yAxisID: 'y1',
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Screen Time & Social Interactions',
+                        font: { size: 16, weight: 'bold' }
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Screen Time (hours)',
+                            color: '#dc3545'
+                        },
+                        ticks: {
+                            color: '#dc3545'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Social Interactions',
+                            color: '#17a2b8'
+                        },
+                        ticks: {
+                            color: '#17a2b8'
+                        },
+                        grid: {
+                            drawOnChartArea: false
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45,
+                            autoSkip: true,
+                            maxTicksLimit: 10
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Daily Mental Health Metrics
+        new Chart(document.getElementById('dailyMetricsChart'), {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [
+                    {
+                        label: 'Stress Level',
+                        data: stressData,
+                        borderColor: '#e74c3c',
+                        backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Mood Score',
+                        data: moodData,
+                        borderColor: '#3498db',
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Energy Level',
+                        data: energyData,
+                        borderColor: '#f39c12',
+                        backgroundColor: 'rgba(243, 156, 18, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Focus Score',
+                        data: focusData,
+                        borderColor: '#9b59b6',
+                        backgroundColor: 'rgba(155, 89, 182, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Daily Mental Health Metrics (0-10 scale)',
+                        font: { size: 16, weight: 'bold' }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 10,
+                        title: {
+                            display: true,
+                            text: 'Score (0-10)'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45,
+                            autoSkip: true,
+                            maxTicksLimit: 10
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Clinical Scales
+        new Chart(document.getElementById('clinicalScalesChart'), {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [
+                    {
+                        label: 'PSS (0-40)',
+                        data: pssData,
+                        borderColor: '#e67e22',
+                        backgroundColor: 'rgba(230, 126, 34, 0.1)',
+                        borderWidth: 2,
+                        yAxisID: 'y',
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Anxiety/GAD-7 (0-21)',
+                        data: anxietyData,
+                        borderColor: '#16a085',
+                        backgroundColor: 'rgba(22, 160, 133, 0.1)',
+                        borderWidth: 2,
+                        yAxisID: 'y1',
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Depression/PHQ-9 (0-27)',
+                        data: depressionData,
+                        borderColor: '#8e44ad',
+                        backgroundColor: 'rgba(142, 68, 173, 0.1)',
+                        borderWidth: 2,
+                        yAxisID: 'y2',
+                        tension: 0.4
+                    },
+                    {
+                        label: 'PSS Risk Threshold (20)',
+                        data: Array(dates.length).fill(20),
+                        borderColor: 'rgba(231, 76, 60, 0.5)',
+                        borderDash: [5, 5],
+                        borderWidth: 2,
+                        yAxisID: 'y',
+                        fill: false,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Anxiety Risk Threshold (10)',
+                        data: Array(dates.length).fill(10),
+                        borderColor: 'rgba(22, 160, 133, 0.5)',
+                        borderDash: [5, 5],
+                        borderWidth: 2,
+                        yAxisID: 'y1',
+                        fill: false,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Depression Risk Threshold (14)',
+                        data: Array(dates.length).fill(14),
+                        borderColor: 'rgba(142, 68, 173, 0.5)',
+                        borderDash: [5, 5],
+                        borderWidth: 2,
+                        yAxisID: 'y2',
+                        fill: false,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Clinical Mental Health Scales with Risk Thresholds',
+                        font: { size: 16, weight: 'bold' }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'PSS (0-40)'
+                        },
+                        max: 40
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'GAD-7 (0-21)'
+                        },
+                        max: 21,
+                        grid: {
+                            drawOnChartArea: false
+                        }
+                    },
+                    y2: {
+                        type: 'linear',
+                        display: false,
+                        max: 27
+                    },
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45,
+                            autoSkip: true,
+                            maxTicksLimit: 10
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

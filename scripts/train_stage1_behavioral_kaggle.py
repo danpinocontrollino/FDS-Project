@@ -332,6 +332,15 @@ def train_stage1_model():
         print(f"  {col}: μ={df[col].mean():.1f}, σ={df[col].std():.1f}, "
               f"range=[{df[col].min():.1f}, {df[col].max():.1f}]")
     
+    # Save original scalers BEFORE normalization (needed for denormalization later!)
+    target_scaler_mean = df[BEHAVIORAL_TARGETS].mean().values
+    target_scaler_std = df[BEHAVIORAL_TARGETS].std().values
+    target_scaler_std[target_scaler_std == 0] = 1.0
+    
+    print(f"\n✓ Saved original target scalers:")
+    for idx, target in enumerate(BEHAVIORAL_TARGETS):
+        print(f"  {target}: μ={target_scaler_mean[idx]:.2f}, σ={target_scaler_std[idx]:.2f}")
+    
     # Normalize features
     scaler_mean = df[FEATURE_COLS].mean().values
     scaler_std = df[FEATURE_COLS].std().values
@@ -340,13 +349,9 @@ def train_stage1_model():
     df[FEATURE_COLS] = (df[FEATURE_COLS] - scaler_mean) / scaler_std
     
     # Normalize targets too (critical for fair loss calculation!)
-    target_scaler_mean = df[BEHAVIORAL_TARGETS].mean().values
-    target_scaler_std = df[BEHAVIORAL_TARGETS].std().values
-    target_scaler_std[target_scaler_std == 0] = 1.0
-    
     df[BEHAVIORAL_TARGETS] = (df[BEHAVIORAL_TARGETS] - target_scaler_mean) / target_scaler_std
     
-    print(f"\n✓ Normalized features and targets (prevents scale mismatch in loss)")
+    print(f"✓ Normalized features and targets (prevents scale mismatch in loss)")
     
     # Split by student (80/20)
     student_ids_list = df['student_id'].unique()

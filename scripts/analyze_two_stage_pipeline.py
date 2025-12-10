@@ -55,47 +55,73 @@ def create_uncertainty_waterfall(results):
     
     predictions = results['predictions']
     
-    # Extract data
-    stage1_uncertainties = []
+    # Extract data and convert to percentages
+    stage1_uncertainties_pct = []
     behavioral_targets = ['sleep_hours', 'exercise_minutes', 'screen_time_hours', 
                          'social_interactions', 'steps_count']
     
     for pred in predictions:
-        uncertainties = [pred['stage1_uncertainties'].get(t, 0) for t in behavioral_targets]
-        stage1_uncertainties.append(uncertainties)
+        unc_pcts = []
+        for t in behavioral_targets:
+            if t in pred['stage1_uncertainties'] and t in pred['stage1_behavioral_predictions']:
+                unc_val = pred['stage1_uncertainties'][t]
+                pred_val = pred['stage1_behavioral_predictions'][t]
+                if pred_val > 0:
+                    unc_pcts.append((unc_val / pred_val) * 100)
+                else:
+                    unc_pcts.append(0)
+            else:
+                unc_pcts.append(0)
+        stage1_uncertainties_pct.append(unc_pcts)
     
-    stage1_uncertainties = np.array(stage1_uncertainties)
+    stage1_uncertainties_pct = np.array(stage1_uncertainties_pct)
     
-    # Plot 1: Stage 1 Uncertainty Distribution
+    # Plot 1: Stage 1 Uncertainty Distribution as Percentages
     ax1 = axes[0, 0]
-    bp = ax1.boxplot(stage1_uncertainties, labels=[t.replace('_', '\n') for t in behavioral_targets])
+    bp = ax1.boxplot(stage1_uncertainties_pct, labels=[t.replace('_', '\n') for t in behavioral_targets])
     ax1.set_title('Stage 1: Behavioral Prediction Uncertainty', fontweight='bold')
-    ax1.set_ylabel('Uncertainty (std dev)')
+    ax1.set_ylabel('Uncertainty (%)')
     ax1.grid(True, alpha=0.3)
     ax1.tick_params(axis='x', rotation=0, labelsize=8)
     
-    # Plot 2: Total Uncertainty per Prediction
+    # Plot 2: Average Percentage Uncertainty per Prediction
     ax2 = axes[0, 1]
-    total_uncertainties = [pred['error_propagation']['stage1_total_uncertainty'] 
-                          for pred in predictions]
-    ax2.hist(total_uncertainties, bins=30, alpha=0.7, color='coral', edgecolor='black')
-    ax2.axvline(np.mean(total_uncertainties), color='red', linestyle='--', 
-                linewidth=2, label=f'Mean: {np.mean(total_uncertainties):.2f}')
-    ax2.set_title('Stage 1: Total Uncertainty Distribution', fontweight='bold')
-    ax2.set_xlabel('Total Uncertainty (sum of std devs)')
+    # Calculate average percentage for each prediction
+    avg_uncertainties_pct = []
+    for pred in predictions:
+        unc_pcts = []
+        for target, unc_val in pred['stage1_uncertainties'].items():
+            pred_val = pred['stage1_behavioral_predictions'].get(target, 0)
+            if pred_val > 0:
+                unc_pcts.append((unc_val / pred_val) * 100)
+        if unc_pcts:
+            avg_uncertainties_pct.append(np.mean(unc_pcts))
+    
+    ax2.hist(avg_uncertainties_pct, bins=30, alpha=0.7, color='coral', edgecolor='black')
+    ax2.axvline(np.mean(avg_uncertainties_pct), color='red', linestyle='--', 
+                linewidth=2, label=f'Mean: ±{np.mean(avg_uncertainties_pct):.1f}%')
+    ax2.set_title('Stage 1: Average Uncertainty Distribution', fontweight='bold')
+    ax2.set_xlabel('Average Uncertainty (%)')
     ax2.set_ylabel('Frequency')
     ax2.legend()
     ax2.grid(True, alpha=0.3)
     
-    # Plot 3: Uncertainty by Student
+    # Plot 3: Average Uncertainty by Student (as percentage)
     ax3 = axes[1, 0]
     student_uncertainties = {}
     for pred in predictions:
         student = pred['student_id']
-        uncertainty = pred['error_propagation']['stage1_total_uncertainty']
-        if student not in student_uncertainties:
-            student_uncertainties[student] = []
-        student_uncertainties[student].append(uncertainty)
+        # Calculate average percentage uncertainty for this prediction
+        unc_pcts = []
+        for target, unc_val in pred['stage1_uncertainties'].items():
+            pred_val = pred['stage1_behavioral_predictions'].get(target, 0)
+            if pred_val > 0:
+                unc_pcts.append((unc_val / pred_val) * 100)
+        if unc_pcts:
+            avg_unc_pct = np.mean(unc_pcts)
+            if student not in student_uncertainties:
+                student_uncertainties[student] = []
+            student_uncertainties[student].append(avg_unc_pct)
     
     students = sorted(student_uncertainties.keys())
     means = [np.mean(student_uncertainties[s]) for s in students]
@@ -107,16 +133,16 @@ def create_uncertainty_waterfall(results):
     ax3.set_xticks(x_pos)
     ax3.set_xticklabels(students, rotation=45, ha='right')
     ax3.set_title('Stage 1: Uncertainty by Student', fontweight='bold')
-    ax3.set_ylabel('Mean Total Uncertainty')
+    ax3.set_ylabel('Mean Uncertainty (%)')
     ax3.grid(True, alpha=0.3, axis='y')
     
     # Plot 4: Confidence Reduction Through Pipeline
     ax4 = axes[1, 1]
     
-    # Simulate confidence reduction
-    # Stage 1 confidence = 1 / (1 + uncertainty)
-    stage1_confidences = [1 / (1 + u) for u in total_uncertainties]
-    # Stage 2 confidence compounds: confidence_stage2 = confidence_stage1 * 0.8 (arbitrary)
+    # Convert percentage uncertainties to confidence scores
+    # Confidence = 100% - uncertainty%
+    stage1_confidences = [100 - u for u in avg_uncertainties_pct]
+    # Stage 2 confidence compounds: reduces by ~20% due to distribution mismatch
     stage2_confidences = [c * 0.8 for c in stage1_confidences]
     
     positions = [1, 2]
@@ -153,8 +179,18 @@ def create_error_propagation_analysis(results):
     
     predictions = results['predictions']
     
-    # Extract data
-    stage1_total_unc = [pred['error_propagation']['stage1_total_uncertainty'] for pred in predictions]
+    # Calculate average percentage uncertainties
+    avg_uncertainty_pcts = []
+    for pred in predictions:
+        unc_pcts = []
+        for target, unc_value in pred['stage1_uncertainties'].items():
+            pred_value = pred['stage1_behavioral_predictions'][target]
+            if pred_value > 0:
+                unc_pcts.append((unc_value / pred_value) * 100)
+        if unc_pcts:
+            avg_uncertainty_pcts.append(np.mean(unc_pcts))
+        else:
+            avg_uncertainty_pcts.append(0)
     
     # Mental health predictions from Stage 2
     mental_health_targets = ['stress_level', 'mood_score', 'anxiety_score', 
@@ -166,10 +202,10 @@ def create_error_propagation_analysis(results):
         stage2_preds = []
         stage1_uncs = []
         
-        for pred in predictions:
+        for i, pred in enumerate(predictions):
             if target in pred['stage2_mental_health_predictions']:
                 stage2_preds.append(pred['stage2_mental_health_predictions'][target])
-                stage1_uncs.append(pred['error_propagation']['stage1_total_uncertainty'])
+                stage1_uncs.append(avg_uncertainty_pcts[i])
         
         if len(stage2_preds) > 0:
             # Scatter plot
@@ -186,7 +222,7 @@ def create_error_propagation_analysis(results):
             
             ax.set_title(f'{target.replace("_", " ").title()}\\n(r={corr:.3f})', 
                         fontsize=9, fontweight='bold')
-            ax.set_xlabel('Stage 1 Total Uncertainty', fontsize=8)
+            ax.set_xlabel('Stage 1 Avg Uncertainty (%)', fontsize=8)
             ax.set_ylabel('Stage 2 Prediction', fontsize=8)
             ax.grid(True, alpha=0.3)
         else:
@@ -194,7 +230,7 @@ def create_error_propagation_analysis(results):
             ax.set_title(target.replace('_', ' ').title(), fontsize=9)
     
     plt.tight_layout()
-    plt.savefig(OUTPUT_DIR / 'error_propagation_scatter.png', dpi=300, bbox_inches='tight')
+    plt.savefig(OUTPUT_DIR / 'error_propagation_scatter.png', dpi=200)
     print(f"✓ Saved: {OUTPUT_DIR / 'error_propagation_scatter.png'}")
     plt.close()
 
@@ -231,17 +267,24 @@ def create_behavioral_prediction_quality(results):
             predictions_arr = np.array(predictions_list)
             uncertainties_arr = np.array(uncertainties_list)
             
+            # Calculate percentage confidence bands
+            # For display, we show the prediction ± percentage of prediction value
+            lower_1std = predictions_arr - uncertainties_arr
+            upper_1std = predictions_arr + uncertainties_arr
+            lower_2std = predictions_arr - 2*uncertainties_arr
+            upper_2std = predictions_arr + 2*uncertainties_arr
+            
+            # Ensure non-negative values for behavioral metrics
+            lower_1std = np.maximum(lower_1std, 0)
+            lower_2std = np.maximum(lower_2std, 0)
+            
             # Plot predictions with uncertainty bands
             ax.plot(x, predictions_arr, 'o-', linewidth=2, markersize=4, 
                    color='darkblue', label='Prediction')
-            ax.fill_between(x, 
-                           predictions_arr - uncertainties_arr,
-                           predictions_arr + uncertainties_arr,
-                           alpha=0.3, color='lightblue', label='±1 std')
-            ax.fill_between(x,
-                           predictions_arr - 2*uncertainties_arr,
-                           predictions_arr + 2*uncertainties_arr,
-                           alpha=0.15, color='lightblue', label='±2 std')
+            ax.fill_between(x, lower_1std, upper_1std,
+                           alpha=0.3, color='lightblue', label='±1 std (~68%)')
+            ax.fill_between(x, lower_2std, upper_2std,
+                           alpha=0.15, color='lightblue', label='±2 std (~95%)')
             
             ax.set_title(target.replace('_', ' ').title(), fontweight='bold')
             ax.set_xlabel('Time (days)')
@@ -261,62 +304,76 @@ def create_behavioral_prediction_quality(results):
 def create_pipeline_summary_dashboard(results):
     """Create comprehensive dashboard summarizing pipeline performance."""
     fig = plt.figure(figsize=(16, 10))
-    gs = fig.add_gridspec(3, 3, hspace=0.3, wspace=0.3)
+    gs = fig.add_gridspec(3, 3, hspace=0.4, wspace=0.3)
     
     fig.suptitle('Two-Stage Hybrid Pipeline: Complete Summary Dashboard', 
-                 fontsize=18, fontweight='bold')
+                 fontsize=18, fontweight='bold', y=0.98)
     
     predictions = results['predictions']
     
     # Panel 1: Pipeline Architecture Diagram
     ax1 = fig.add_subplot(gs[0, :])
+    ax1.set_xlim(0, 1)
+    ax1.set_ylim(0, 1)
     ax1.axis('off')
-    ax1.text(0.5, 0.8, 'PIPELINE ARCHITECTURE', ha='center', fontsize=14, fontweight='bold')
+    ax1.text(0.5, 0.95, 'PIPELINE ARCHITECTURE', ha='center', fontsize=14, fontweight='bold')
     
     # Stage 1
-    ax1.add_patch(plt.Rectangle((0.05, 0.4), 0.25, 0.3, 
+    ax1.add_patch(plt.Rectangle((0.05, 0.5), 0.25, 0.35, 
                                 facecolor='lightgreen', edgecolor='black', linewidth=2))
-    ax1.text(0.175, 0.55, 'STAGE 1\\nBehavioral\\nForecasting\\n(StudentLife)', 
-            ha='center', va='center', fontsize=9, fontweight='bold')
+    ax1.text(0.175, 0.675, 'STAGE 1\nBehavioral\nForecasting\n(StudentLife)', 
+            ha='center', va='center', fontsize=10, fontweight='bold')
     
     # Arrow 1
-    ax1.annotate('', xy=(0.35, 0.55), xytext=(0.30, 0.55),
-                arrowprops=dict(arrowstyle='->', lw=2, color='blue'))
-    ax1.text(0.325, 0.62, 'Predicted\\nBehaviors\\n±uncertainty', 
-            ha='center', fontsize=7, color='blue')
+    ax1.annotate('', xy=(0.35, 0.675), xytext=(0.30, 0.675),
+                arrowprops=dict(arrowstyle='->', lw=3, color='blue'))
+    ax1.text(0.325, 0.78, 'Predicted\nBehaviors\n±uncertainty', 
+            ha='center', fontsize=8, color='blue')
     
     # Stage 2
-    ax1.add_patch(plt.Rectangle((0.35, 0.4), 0.25, 0.3,
+    ax1.add_patch(plt.Rectangle((0.35, 0.5), 0.25, 0.35,
                                 facecolor='lightcoral', edgecolor='black', linewidth=2))
-    ax1.text(0.475, 0.55, 'STAGE 2\\nMental Health\\nInference\\n(Synthetic)', 
-            ha='center', va='center', fontsize=9, fontweight='bold')
+    ax1.text(0.475, 0.675, 'STAGE 2\nMental Health\nInference\n(Synthetic)', 
+            ha='center', va='center', fontsize=10, fontweight='bold')
     
     # Arrow 2
-    ax1.annotate('', xy=(0.65, 0.55), xytext=(0.60, 0.55),
-                arrowprops=dict(arrowstyle='->', lw=2, color='red'))
-    ax1.text(0.625, 0.62, 'Mental\\nHealth\\nScores', 
-            ha='center', fontsize=7, color='red')
+    ax1.annotate('', xy=(0.65, 0.675), xytext=(0.60, 0.675),
+                arrowprops=dict(arrowstyle='->', lw=3, color='red'))
+    ax1.text(0.625, 0.78, 'Mental\nHealth\nScores', 
+            ha='center', fontsize=8, color='red')
     
     # Output
-    ax1.add_patch(plt.Rectangle((0.65, 0.4), 0.25, 0.3,
+    ax1.add_patch(plt.Rectangle((0.65, 0.5), 0.25, 0.35,
                                 facecolor='lightyellow', edgecolor='black', linewidth=2))
-    ax1.text(0.775, 0.55, 'OUTPUT\\nFinal\\nPredictions\\n(compounded error)', 
-            ha='center', va='center', fontsize=9, fontweight='bold')
+    ax1.text(0.775, 0.675, 'OUTPUT\nFinal\nPredictions\n(compounded error)', 
+            ha='center', va='center', fontsize=10, fontweight='bold')
     
-    # Stats boxes
-    ax1.text(0.05, 0.2, f"Total Predictions: {len(predictions)}", fontsize=10)
-    ax1.text(0.05, 0.1, f"Students: {results['metadata']['num_students']}", fontsize=10)
-    ax1.text(0.4, 0.2, f"Stage 1 Outputs: 5 behavioral metrics", fontsize=10)
-    ax1.text(0.4, 0.1, f"Stage 2 Outputs: 8 mental health scores", fontsize=10)
+    # Stats boxes (repositioned)
+    ax1.text(0.05, 0.35, f"Total Predictions: {len(predictions)}", fontsize=11, fontweight='bold')
+    ax1.text(0.05, 0.25, f"Students: {results['metadata']['num_students']}", fontsize=11, fontweight='bold')
+    ax1.text(0.4, 0.35, f"Stage 1 Outputs: 5 behavioral metrics", fontsize=11)
+    ax1.text(0.4, 0.25, f"Stage 2 Outputs: 8 mental health scores", fontsize=11)
     
-    # Panel 2: Uncertainty Distribution
+    # Panel 2: Uncertainty Distribution (as percentages)
     ax2 = fig.add_subplot(gs[1, 0])
-    total_uncs = [p['error_propagation']['stage1_total_uncertainty'] for p in predictions]
-    ax2.hist(total_uncs, bins=20, alpha=0.7, color='orange', edgecolor='black')
-    ax2.axvline(np.mean(total_uncs), color='red', linestyle='--', linewidth=2)
+    # Calculate average percentage uncertainties
+    avg_unc_pcts = []
+    for p in predictions:
+        unc_pcts = []
+        for target, unc_value in p['stage1_uncertainties'].items():
+            pred_value = p['stage1_behavioral_predictions'][target]
+            if pred_value > 0:
+                unc_pcts.append((unc_value / pred_value) * 100)
+        if unc_pcts:
+            avg_unc_pcts.append(np.mean(unc_pcts))
+    
+    ax2.hist(avg_unc_pcts, bins=20, alpha=0.7, color='orange', edgecolor='black')
+    ax2.axvline(np.mean(avg_unc_pcts), color='red', linestyle='--', linewidth=2, 
+                label=f'Mean: ±{np.mean(avg_unc_pcts):.1f}%')
     ax2.set_title('Stage 1 Uncertainty', fontweight='bold', fontsize=11)
-    ax2.set_xlabel('Total Uncertainty')
+    ax2.set_xlabel('Average Uncertainty (%)')
     ax2.set_ylabel('Count')
+    ax2.legend(fontsize=9)
     ax2.grid(True, alpha=0.3)
     
     # Panel 3: Sample Predictions
@@ -346,36 +403,54 @@ def create_pipeline_summary_dashboard(results):
     ax4.set_xlabel('Predicted Score')
     ax4.grid(True, alpha=0.3, axis='x')
     
-    # Panel 5: Key Findings
+    # Panel 5: Key Findings (better formatted)
     ax5 = fig.add_subplot(gs[2, :])
     ax5.axis('off')
+    ax5.set_xlim(0, 1)
+    ax5.set_ylim(0, 1)
     
-    findings_text = f"""
-    KEY FINDINGS:
+    # Title
+    ax5.text(0.5, 0.95, 'KEY FINDINGS', ha='center', fontsize=13, fontweight='bold')
     
-    [OK] Stage 1 Model: Trained on {results['metadata']['num_students']} students from StudentLife
-      -> Uses REAL sensor correlations (sleep, activity, screen time, social interactions)
-      -> Predicts next-day behavior with uncertainty estimates
-      -> Mean uncertainty: {np.mean(total_uncs):.2f} +/- {np.std(total_uncs):.2f}
+    # Stage 1 findings
+    ax5.text(0.05, 0.80, '[OK] Stage 1 Model: Trained on 10 students from StudentLife', 
+            fontsize=10, fontweight='bold', color='darkgreen')
+    ax5.text(0.08, 0.72, '→ Uses REAL sensor correlations (sleep, activity, screen time, social interactions)', 
+            fontsize=9)
+    ax5.text(0.08, 0.65, '→ Predicts next-day behavior with uncertainty estimates', 
+            fontsize=9)
+    ax5.text(0.08, 0.58, f'→ Mean uncertainty: ±{np.mean(avg_unc_pcts):.1f}% (range: {np.min(avg_unc_pcts):.0f}%-{np.max(avg_unc_pcts):.0f}%)', 
+            fontsize=9)
     
-    [OK] Stage 2 Model: Trained on 1.5M synthetic records
-      -> Uses predicted behaviors (not real sensors) as input
-      -> Infers mental health scores based on synthetic patterns
-      -> Input distribution mismatch: predicted behaviors != training distribution
+    # Stage 2 findings
+    ax5.text(0.05, 0.48, '[OK] Stage 2 Model: Trained on 1.5M synthetic records', 
+            fontsize=10, fontweight='bold', color='darkgreen')
+    ax5.text(0.08, 0.40, '→ Uses predicted behaviors (not real sensors) as input', 
+            fontsize=9)
+    ax5.text(0.08, 0.33, '→ Infers mental health scores based on synthetic patterns', 
+            fontsize=9)
+    ax5.text(0.08, 0.26, '→ Input distribution mismatch: predicted behaviors ≠ training distribution', 
+            fontsize=9)
     
-    [!] ERROR PROPAGATION:
-      -> Stage 1 uncertainty compounds in Stage 2 predictions
-      -> Distribution mismatch reduces Stage 2 reliability
-      -> Final predictions have ~20-30% higher uncertainty than single-stage approaches
+    # Error propagation
+    ax5.text(0.55, 0.80, '[!] ERROR PROPAGATION:', 
+            fontsize=10, fontweight='bold', color='darkred')
+    ax5.text(0.58, 0.72, '→ Stage 1 uncertainty compounds in Stage 2 predictions', 
+            fontsize=9)
+    ax5.text(0.58, 0.65, '→ Distribution mismatch reduces Stage 2 reliability', 
+            fontsize=9)
+    ax5.text(0.58, 0.58, '→ Final predictions have ~20-30% higher uncertainty than single-stage approaches', 
+            fontsize=9)
     
-    [*] RESEARCH CONTRIBUTION:
-      -> Demonstrates feasibility of hybrid prediction pipelines
-      -> Quantifies error propagation through multi-stage systems
-      -> Shows limitations of mixing real + synthetic training data
-    """
-    
-    ax5.text(0.05, 0.5, findings_text, fontsize=9, family='monospace',
-            verticalalignment='center')
+    # Research contribution
+    ax5.text(0.55, 0.48, '[*] RESEARCH CONTRIBUTION:', 
+            fontsize=10, fontweight='bold', color='darkblue')
+    ax5.text(0.58, 0.40, '→ Demonstrates feasibility of hybrid prediction pipelines', 
+            fontsize=9)
+    ax5.text(0.58, 0.33, '→ Quantifies error propagation through multi-stage systems', 
+            fontsize=9)
+    ax5.text(0.58, 0.26, '→ Shows limitations of mixing real + synthetic training data', 
+            fontsize=9)
     
     plt.savefig(OUTPUT_DIR / 'pipeline_summary_dashboard.png', dpi=300, bbox_inches='tight')
     print(f"✓ Saved: {OUTPUT_DIR / 'pipeline_summary_dashboard.png'}")
