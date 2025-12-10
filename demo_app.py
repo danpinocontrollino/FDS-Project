@@ -1397,8 +1397,27 @@ def render_model_comparison_viewer():
         st.markdown(f"### 📅 Timeline for {selected_student}")
         st.markdown(f"*Showing {len(student_comparisons)} days of predictions*")
         
+        # Target selector
+        target_options = {
+            'stress_level': 'Stress Level (0-10)',
+            'mood_score': 'Mood Score (0-10)',
+            'energy_level': 'Energy Level (0-10)',
+            'focus_score': 'Focus Score (0-10)',
+            'perceived_stress_scale': 'Perceived Stress Scale (0-40)',
+            'anxiety_score': 'Anxiety Score (0-21)',
+            'depression_score': 'Depression Score (0-27)',
+            'job_satisfaction': 'Job Satisfaction (0-10)'
+        }
+        
+        selected_target = st.selectbox(
+            "Select Mental Health Target",
+            options=list(target_options.keys()),
+            format_func=lambda x: target_options[x],
+            help="Choose which mental health metric to compare"
+        )
+        
         # Show first few days with predictions
-        st.markdown("#### Sample Predictions")
+        st.markdown(f"#### Sample Predictions: {target_options[selected_target]}")
         
         for i, comp in enumerate(student_comparisons[:5]):
             date = comp['date']
@@ -1406,26 +1425,30 @@ def render_model_comparison_viewer():
             with st.container():
                 st.markdown(f"**Date: {date}**")
                 
-                # Show stress comparison
-                stress_synth = comp['predictions']['stress_level']['synthetic_prediction']
-                stress_real = comp['predictions']['stress_level']['real_prediction']
-                stress_actual = comp['predictions']['stress_level']['actual_value']
+                # Get selected target predictions
+                target_pred = comp['predictions'][selected_target]
+                pred_synth = target_pred['synthetic_prediction']
+                pred_real = target_pred['real_prediction']
+                actual = target_pred['actual_value']
                 
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    st.metric("🔵 Synthetic Model", f"{stress_synth:.1f}", 
-                             delta=f"Error: {comp['predictions']['stress_level']['synthetic_error']:.1f}" if stress_actual else None)
+                    st.metric("🔵 Synthetic Model", f"{pred_synth:.1f}", 
+                             delta=f"Error: {target_pred['synthetic_error']:.1f}" if actual else None)
                 
                 with col2:
-                    st.metric("🟢 Real Model", f"{stress_real:.1f}",
-                             delta=f"Error: {comp['predictions']['stress_level']['real_error']:.1f}" if stress_actual else None)
+                    # Check if real model is stuck on defaults
+                    is_default = abs(pred_real - 5.0) < 0.01 or abs(pred_real - 6.0) < 0.01 or abs(pred_real - 8.0) < 0.01
+                    warning = " ⚠️" if is_default else ""
+                    st.metric(f"🟢 Real Model{warning}", f"{pred_real:.1f}",
+                             delta=f"Error: {target_pred['real_error']:.1f}" if actual else None)
                 
                 with col3:
-                    if stress_actual:
-                        winner = comp['predictions']['stress_level']['winner']
+                    if actual:
+                        winner = target_pred['winner']
                         winner_emoji = "🔵" if winner == 'synthetic' else "🟢"
-                        st.metric(f"⭐ Actual", f"{stress_actual:.1f}", 
+                        st.metric(f"⭐ Actual", f"{actual:.1f}", 
                                  delta=f"{winner_emoji} {winner.capitalize()} wins!")
                     else:
                         st.metric("⭐ Actual", "No data", delta="No ground truth")
@@ -1457,6 +1480,54 @@ def render_model_comparison_viewer():
         - **Interesting**: Despite 2000× less training data, real model performs competitively
         - **Why**: Real data has stronger behavioral correlations than synthetic data
         """)
+        
+        st.warning("""
+        **⚠️ Real Model Limitation Discovered**: The real model outputs constant predictions (5.0, 6.0, 8.0) 
+        because the StudentLife dataset has very sparse mental health labels - most days have NO EMA responses. 
+        The model learned to predict the training set defaults rather than actual patterns.
+        
+        **Key Takeaway**: This demonstrates that **data quality** includes both:
+        1. ✅ Strong behavioral correlations (StudentLife has this)
+        2. ❌ Sufficient ground truth labels (StudentLife lacks this - only 10 days with actual responses!)
+        
+        For a fair comparison, we would need a dataset with both real behavioral sensors AND frequent mental health surveys.
+        """)
+        
+        st.markdown("---")
+        
+        # Confrontation Dashboard Visualizations
+        st.markdown("#### 📊 Confrontation Dashboard")
+        st.markdown("*Visual comparison of model performance*")
+        
+        dashboard_dir = Path("reports/confrontation_dashboard")
+        
+        if dashboard_dir.exists():
+            # Show summary dashboard
+            summary_path = dashboard_dir / "summary_dashboard.png"
+            if summary_path.exists():
+                st.image(str(summary_path), caption="Overall Confrontation Dashboard", use_container_width=True)
+            
+            # Show detailed charts in columns
+            st.markdown("##### Detailed Analysis")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                error_dist_path = dashboard_dir / "error_distribution.png"
+                if error_dist_path.exists():
+                    st.image(str(error_dist_path), caption="Error Distribution Comparison", use_container_width=True)
+            
+            with col2:
+                target_heatmap_path = dashboard_dir / "target_heatmap.png"
+                if target_heatmap_path.exists():
+                    st.image(str(target_heatmap_path), caption="Win Rate by Target", use_container_width=True)
+            
+            # Student breakdown (full width)
+            student_breakdown_path = dashboard_dir / "student_breakdown.png"
+            if student_breakdown_path.exists():
+                st.image(str(student_breakdown_path), caption="Performance by Student", use_container_width=True)
+        else:
+            st.info("💡 Run `python scripts/generate_confrontation_dashboard.py` to create visualizations")
 
 # ============================================================================
 # MAIN APP
