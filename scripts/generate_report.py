@@ -19,7 +19,6 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 # Import from predict_burnout
@@ -790,8 +789,6 @@ def generate_recommendations_html(data: dict, pred_class: int, model, feature_co
     Generate HTML for DATA-DRIVEN recommendations with what-if analysis.
     Same logic as predict_burnout.py but formatted as HTML.
     """
-    import numpy as np
-    
     # Healthy baselines (from low-burnout population)
     healthy_baselines = {
         "stress_level": 4.0,
@@ -1130,7 +1127,6 @@ def generate_action_plan_html(data: dict, pred_class: int) -> str:
     interventions_needed = []
     
     stress = data.get("stress_level", 5)
-    sleep_quality = data.get("sleep_quality", 5)
     exercise = data.get("exercise_minutes", 30)
     work_hours = data.get("work_hours", 8)
     mood = data.get("mood_score", 5)
@@ -1299,9 +1295,6 @@ def generate_weekly_schedule(data: dict, priorities: list) -> list:
     screen_time = data.get("screen_time_hours", 4)
     caffeine = data.get("caffeine_mg", 200)
     steps = data.get("steps_count", 5000)
-    
-    # Build personalized daily tasks based on priorities
-    priority_features = {p["feature"] for p in priorities}
     
     # Morning routine (same every day)
     morning_routine = []
@@ -1739,7 +1732,6 @@ def generate_report(csv_path: str, output_path: str, model_path: str = None) -> 
     
     output_path = Path(output_path)
     output_dir = output_path.parent
-    base_name = output_path.stem
     
     # Generate report for each person
     generated_files = []

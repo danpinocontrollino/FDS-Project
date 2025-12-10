@@ -21,19 +21,16 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import torch
-import torch.nn as nn
 from pathlib import Path
 import json
 import sys
 import plotly.graph_objects as go
-import plotly.express as px
 
 # Add scripts to path
 sys.path.append(str(Path(__file__).parent / "scripts"))
 sys.path.append(str(Path(__file__).parent))  # Add root for model_definitions
 
-# Import explanation engine and model definitions
-from explain_predections import ExplanationEngine
+# Import model definitions
 from model_definitions import MentalHealthPredictor
 
 # ============================================================================
@@ -64,7 +61,6 @@ def create_radar_chart(predictions, thresholds):
     # Prepare data - normalize all values to 0-100 scale for comparison
     categories = []
     values = []
-    colors = []
     
     # Define the metrics to show
     metrics = {
@@ -470,9 +466,8 @@ def predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale, app
 
 def get_color_and_delta(target: str, value: float, thresholds: dict) -> tuple:
     """Get color emoji and delta_color based on target value and thresholds."""
-    threshold_info = thresholds['at_risk_thresholds'].get(target, {})
-    threshold = threshold_info.get('threshold', 10)
-    inverted = threshold_info.get('inverted', False)
+    # Check if target is inverted (higher = better)
+    inverted = target in INVERTED_TARGETS
     
     # Clinical thresholds for color coding
     if target == 'anxiety_score':
@@ -1092,7 +1087,7 @@ def load_studentlife_profiles():
                 profile = json.load(f)
                 student_id = profile.get('student_id', profile_file.stem.replace('profile_', ''))
                 profiles[student_id] = profile
-        except Exception as e:
+        except Exception:
             continue
     
     return profiles
@@ -1168,9 +1163,6 @@ def render_case_studies():
     daily_preds = profile.get('daily_predictions', [])
     
     if daily_preds:
-        # Extract time series data
-        dates = [pred['date'] for pred in daily_preds]
-        
         # Create dataframe for plotting
         plot_data = []
         for pred in daily_preds:
@@ -1685,7 +1677,7 @@ def render_model_comparison_viewer():
                     if actual:
                         winner = target_pred['winner']
                         winner_emoji = "🔵" if winner == 'synthetic' else "🟢"
-                        st.metric(f"⭐ Actual", f"{actual:.1f}", 
+                        st.metric("⭐ Actual", f"{actual:.1f}", 
                                  delta=f"{winner_emoji} {winner.capitalize()} wins!")
                     else:
                         st.metric("⭐ Actual", "No data", delta="No ground truth")
@@ -1871,7 +1863,7 @@ def main():
             healthy_target = 8.0  # Optimal sleep
             progress = min(100, (sleep_current / 9) * 100)  # 9h is upper optimal
             color = "🟢" if sleep_current >= 7 else "🟠" if sleep_current >= 6 else "🔴"
-            st.metric(f"{color} Sleep", f"{sleep_current:.1f}h", f"Target: 7-9h")
+            st.metric(f"{color} Sleep", f"{sleep_current:.1f}h", "Target: 7-9h")
             st.progress(progress / 100)
         
         with col5:
