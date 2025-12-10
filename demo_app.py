@@ -137,30 +137,31 @@ def create_gauge_charts(predictions, thresholds):
     """Create gauge (speedometer) charts for each mental health metric."""
     from plotly.subplots import make_subplots
     
+    # Use the actual keys from predictions (daily targets)
     metrics_config = {
         'stress_level': {
             'max': 10, 
-            'title': '😰 Stress',
+            'title': '😰 Stress Level',
             'ranges': [3, 6, 10],  # green, yellow, red boundaries
-            'colors': ['#00cc96', '#ffd700', '#ef553b']
-        },
-        'anxiety_score': {
-            'max': 21, 
-            'title': '😟 Anxiety',
-            'ranges': [7, 14, 21],
             'colors': ['#00cc96', '#ffd700', '#ef553b']
         },
         'mood_score': {
             'max': 10, 
-            'title': '😊 Mood',
-            'ranges': [4, 7, 10],  # Inverted: red, yellow, green
+            'title': '😊 Mood Score',
+            'ranges': [4, 7, 10],  # Inverted: low mood = bad (red), high = good (green)
             'colors': ['#ef553b', '#ffd700', '#00cc96']
         },
-        'depression_score': {
-            'max': 27, 
-            'title': '😔 Depression',
-            'ranges': [9, 18, 27],
-            'colors': ['#00cc96', '#ffd700', '#ef553b']
+        'energy_level': {
+            'max': 10, 
+            'title': '⚡ Energy Level',
+            'ranges': [4, 7, 10],  # Inverted: low = bad, high = good
+            'colors': ['#ef553b', '#ffd700', '#00cc96']
+        },
+        'focus_score': {
+            'max': 10, 
+            'title': '🎯 Focus Score',
+            'ranges': [4, 7, 10],  # Inverted: low = bad, high = good
+            'colors': ['#ef553b', '#ffd700', '#00cc96']
         },
     }
     
@@ -1822,12 +1823,6 @@ def main():
         
         # Render results
         render_predictions(predictions, thresholds)
-        
-        # Heatmap of behavioral data
-        st.markdown("---")
-        st.subheader("🔥 Your 7-Day Behavioral Pattern")
-        heatmap_fig = create_input_heatmap(behavioral_data, feature_order)
-        st.plotly_chart(heatmap_fig, use_container_width=True)
         
         st.markdown("---")
         render_prediction_explanations(predictions, display_inputs, thresholds)

@@ -622,11 +622,93 @@ HTML_TEMPLATE = """
             font-size: 0.9rem;
         }
         
+        /* 7-Day Behavioral Heatmap */
+        .heatmap-section {
+            margin-top: 20px;
+        }
+        
+        .heatmap-section h2 {
+            margin-bottom: 15px;
+        }
+        
+        .heatmap-intro {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+        
+        .heatmap-container {
+            overflow-x: auto;
+        }
+        
+        .heatmap-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        
+        .heatmap-table th {
+            background: #f8f9fa;
+            padding: 10px 8px;
+            text-align: center;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #dee2e6;
+        }
+        
+        .heatmap-table td {
+            padding: 8px;
+            text-align: center;
+            border-bottom: 1px solid #e9ecef;
+            font-weight: 500;
+        }
+        
+        .heatmap-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .heatmap-feature {
+            text-align: left !important;
+            font-weight: 600;
+            color: #333;
+            padding-left: 15px !important;
+            white-space: nowrap;
+        }
+        
+        /* Risk-based cell colors */
+        .risk-healthy { background: #d4edda; color: #155724; }
+        .risk-mild { background: #fff3cd; color: #856404; }
+        .risk-warning { background: #ffe5cc; color: #a35200; }
+        .risk-high { background: #f8d7da; color: #721c24; }
+        
+        .heatmap-legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+        }
+        
+        .legend-color {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+        }
+        
         @media (max-width: 600px) {
             .header h1 { font-size: 1.8rem; }
             .risk-badge { font-size: 1.2rem; padding: 10px 25px; }
             .emoji { font-size: 3rem; }
             .weekly-schedule { grid-template-columns: 1fr; }
+            .heatmap-table { font-size: 0.75rem; }
+            .heatmap-table th, .heatmap-table td { padding: 5px 3px; }
         }
     </style>
 </head>
@@ -1402,6 +1484,131 @@ def generate_contradictions_html(data: dict) -> str:
     """
 
 
+def generate_heatmap_html(weekly_data: list) -> str:
+    """
+    Generate HTML heatmap showing 7 days of behavioral data.
+    
+    Args:
+        weekly_data: List of 7 dicts, each containing feature values for one day
+    
+    Returns:
+        HTML string with heatmap table
+    """
+    # Features to show in heatmap with healthy ranges (min_healthy, max_healthy)
+    features_config = {
+        'sleep_hours': ('😴 Sleep', 7, 9),
+        'sleep_quality': ('💤 Sleep Quality', 7, 10),
+        'work_hours': ('💼 Work Hours', 6, 9),
+        'exercise_minutes': ('🏃 Exercise', 30, 120),
+        'stress_level': ('😰 Stress', 0, 4),  # Lower is better
+        'mood_score': ('😊 Mood', 7, 10),
+        'energy_level': ('⚡ Energy', 7, 10),
+        'caffeine_mg': ('☕ Caffeine', 0, 300),
+        'screen_time_hours': ('📱 Screen Time', 0, 4),  # Lower is better
+        'steps_count': ('👟 Steps', 7000, 15000),
+        'meetings_count': ('📅 Meetings', 0, 5),  # Lower is better
+    }
+    
+    # Features where lower is better
+    lower_is_better = {'stress_level', 'caffeine_mg', 'screen_time_hours', 'meetings_count', 'work_hours'}
+    
+    def get_risk_class(feature, value):
+        """Determine risk level CSS class based on value."""
+        if feature not in features_config:
+            return 'risk-healthy'
+        
+        _, min_h, max_h = features_config[feature]
+        
+        if feature in lower_is_better:
+            # For features where lower is better
+            if value <= max_h:
+                return 'risk-healthy'
+            elif value <= max_h * 1.3:
+                return 'risk-mild'
+            elif value <= max_h * 1.6:
+                return 'risk-warning'
+            else:
+                return 'risk-high'
+        else:
+            # For features where higher is better
+            if value >= min_h:
+                return 'risk-healthy'
+            elif value >= min_h * 0.7:
+                return 'risk-mild'
+            elif value >= min_h * 0.5:
+                return 'risk-warning'
+            else:
+                return 'risk-high'
+    
+    # Day labels
+    days = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7']
+    
+    # Build table header
+    header_cells = '<th>Behavior</th>' + ''.join(f'<th>{day}</th>' for day in days)
+    
+    # Build table rows
+    rows = []
+    for feature, (label, _, _) in features_config.items():
+        cells = [f'<td class="heatmap-feature">{label}</td>']
+        
+        for day_idx, day_data in enumerate(weekly_data):
+            value = day_data.get(feature, 0)
+            risk_class = get_risk_class(feature, value)
+            
+            # Format value based on feature
+            if feature in ['steps_count']:
+                display_val = f'{value/1000:.1f}k'
+            elif feature in ['caffeine_mg']:
+                display_val = f'{value:.0f}mg'
+            elif feature in ['sleep_hours', 'work_hours', 'screen_time_hours']:
+                display_val = f'{value:.1f}h'
+            elif feature in ['exercise_minutes']:
+                display_val = f'{value:.0f}m'
+            else:
+                display_val = f'{value:.1f}'
+            
+            cells.append(f'<td class="{risk_class}">{display_val}</td>')
+        
+        rows.append('<tr>' + ''.join(cells) + '</tr>')
+    
+    return f"""
+    <div class="card heatmap-section">
+        <h2>🔥 Your 7-Day Behavioral Pattern</h2>
+        <p class="heatmap-intro">See how your daily habits varied throughout the week. Colors indicate how each metric compares to healthy targets.</p>
+        
+        <div class="heatmap-container">
+            <table class="heatmap-table">
+                <thead>
+                    <tr>{header_cells}</tr>
+                </thead>
+                <tbody>
+                    {''.join(rows)}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="heatmap-legend">
+            <div class="legend-item">
+                <div class="legend-color risk-healthy"></div>
+                <span>✅ Healthy</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color risk-mild"></div>
+                <span>🟡 Mild Concern</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color risk-warning"></div>
+                <span>🟠 Warning</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color risk-high"></div>
+                <span>🔴 High Risk</span>
+            </div>
+        </div>
+    </div>
+    """
+
+
 def generate_metrics_html(data: dict) -> str:
     """Generate HTML for metrics grid."""
     metrics = [
@@ -1443,21 +1650,39 @@ def generate_single_report(data: dict, name: str, model, feature_cols: list, out
     sequence = create_weekly_sequence(data, feature_cols)
     pred_class, probs = predict(model, sequence, feature_cols)
     
-    risk = RISK_LEVELS[pred_class]
+    # Handle binary (2-class) vs 3-class models
+    is_binary = len(probs) == 2
+    
+    if is_binary:
+        # Binary model: 0=Low Risk, 1=High Risk
+        # Map to display: show Low and High, set Medium to 0
+        risk_mapping = {0: 0, 1: 2}  # Map class 1 to "high" display
+        display_class = risk_mapping.get(pred_class, pred_class)
+        low_prob = probs[0] * 100
+        med_prob = 0  # No medium class in binary
+        high_prob = probs[1] * 100
+    else:
+        # 3-class model: 0=Low, 1=Medium, 2=High
+        display_class = pred_class
+        low_prob = probs[0] * 100
+        med_prob = probs[1] * 100
+        high_prob = probs[2] * 100
+    
+    risk = RISK_LEVELS[display_class]
     risk_classes = {0: "low", 1: "medium", 2: "high"}
     
     # Generate result card
     result_html = RESULT_CARD_TEMPLATE.replace("{emoji}", risk["emoji"])
     result_html = result_html.replace("{risk_name}", risk["name"])
-    result_html = result_html.replace("{risk_class}", risk_classes[pred_class])
+    result_html = result_html.replace("{risk_class}", risk_classes[display_class])
     result_html = result_html.replace("{confidence:.0f}", f"{probs[pred_class] * 100:.0f}")
     result_html = result_html.replace("{description}", risk["desc"])
-    result_html = result_html.replace("{low_prob:.0f}", f"{probs[0] * 100:.0f}")
-    result_html = result_html.replace("{low_prob}", f"{probs[0] * 100:.0f}")
-    result_html = result_html.replace("{med_prob:.0f}", f"{probs[1] * 100:.0f}")
-    result_html = result_html.replace("{med_prob}", f"{probs[1] * 100:.0f}")
-    result_html = result_html.replace("{high_prob:.0f}", f"{probs[2] * 100:.0f}")
-    result_html = result_html.replace("{high_prob}", f"{probs[2] * 100:.0f}")
+    result_html = result_html.replace("{low_prob:.0f}", f"{low_prob:.0f}")
+    result_html = result_html.replace("{low_prob}", f"{low_prob:.0f}")
+    result_html = result_html.replace("{med_prob:.0f}", f"{med_prob:.0f}")
+    result_html = result_html.replace("{med_prob}", f"{med_prob:.0f}")
+    result_html = result_html.replace("{high_prob:.0f}", f"{high_prob:.0f}")
+    result_html = result_html.replace("{high_prob}", f"{high_prob:.0f}")
     result_html = result_html.replace("{metrics}", generate_metrics_html(data))
     result_html = result_html.replace("{recommendations}", generate_recommendations_html(data, pred_class, model, feature_cols))
     
@@ -1470,10 +1695,20 @@ def generate_single_report(data: dict, name: str, model, feature_cols: list, out
     # Add CVAE AI suggestions (if available and not clearly low risk)
     cvae_html = generate_cvae_suggestions_html(data, pred_class, probs)
     
+    # Add 7-Day Behavioral Heatmap
+    # Convert sequence array back to list of dicts for heatmap
+    weekly_data = []
+    for day_idx in range(len(sequence)):
+        day_dict = {}
+        for feat_idx, feature in enumerate(feature_cols):
+            day_dict[feature] = sequence[day_idx, feat_idx]
+        weekly_data.append(day_dict)
+    heatmap_html = generate_heatmap_html(weekly_data)
+    
     # Add 7-Day Action Plan
     action_plan_html = generate_action_plan_html(data, pred_class)
     
-    result_html = name_html + result_html + contradictions_html + cvae_html + action_plan_html
+    result_html = name_html + result_html + heatmap_html + contradictions_html + cvae_html + action_plan_html
     
     # Generate full HTML
     html = HTML_TEMPLATE.replace("{date}", datetime.now().strftime("%B %d, %Y at %H:%M"))
@@ -1490,7 +1725,7 @@ def generate_report(csv_path: str, output_path: str, model_path: str = None) -> 
     # Load model
     if model_path is None:
         model_path = PROJECT_ROOT / "models/saved/lstm_sequence.pt"
-    model, _, feature_cols = load_model(model_path)
+    model, _, feature_cols, _ = load_model(model_path)
     
     # Parse CSV
     df, _ = parse_google_form_csv(csv_path)
