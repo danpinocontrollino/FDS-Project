@@ -338,29 +338,29 @@ def create_pipeline_summary_dashboard(results):
     ax5 = fig.add_subplot(gs[2, :])
     ax5.axis('off')
     
-    findings_text = f\"\"\"
+    findings_text = f"""
     KEY FINDINGS:
     
-    ✓ Stage 1 Model: Trained on {results['metadata']['num_students']} students from StudentLife
-      → Uses REAL sensor correlations (sleep, activity, screen time, social interactions)
-      → Predicts next-day behavior with uncertainty estimates
-      → Mean uncertainty: {np.mean(total_uncs):.2f} ± {np.std(total_uncs):.2f}
+    [OK] Stage 1 Model: Trained on {results['metadata']['num_students']} students from StudentLife
+      -> Uses REAL sensor correlations (sleep, activity, screen time, social interactions)
+      -> Predicts next-day behavior with uncertainty estimates
+      -> Mean uncertainty: {np.mean(total_uncs):.2f} +/- {np.std(total_uncs):.2f}
     
-    ✓ Stage 2 Model: Trained on 1.5M synthetic records
-      → Uses predicted behaviors (not real sensors) as input
-      → Infers mental health scores based on synthetic patterns
-      → Input distribution mismatch: predicted behaviors ≠ training distribution
+    [OK] Stage 2 Model: Trained on 1.5M synthetic records
+      -> Uses predicted behaviors (not real sensors) as input
+      -> Infers mental health scores based on synthetic patterns
+      -> Input distribution mismatch: predicted behaviors != training distribution
     
-    ⚠ ERROR PROPAGATION:
-      → Stage 1 uncertainty compounds in Stage 2 predictions
-      → Distribution mismatch reduces Stage 2 reliability
-      → Final predictions have ~20-30% higher uncertainty than single-stage approaches
+    [!] ERROR PROPAGATION:
+      -> Stage 1 uncertainty compounds in Stage 2 predictions
+      -> Distribution mismatch reduces Stage 2 reliability
+      -> Final predictions have ~20-30% higher uncertainty than single-stage approaches
     
-    💡 RESEARCH CONTRIBUTION:
-      → Demonstrates feasibility of hybrid prediction pipelines
-      → Quantifies error propagation through multi-stage systems
-      → Shows limitations of mixing real + synthetic training data
-    \"\"\"
+    [*] RESEARCH CONTRIBUTION:
+      -> Demonstrates feasibility of hybrid prediction pipelines
+      -> Quantifies error propagation through multi-stage systems
+      -> Shows limitations of mixing real + synthetic training data
+    """
     
     ax5.text(0.05, 0.5, findings_text, fontsize=9, family='monospace',
             verticalalignment='center')
