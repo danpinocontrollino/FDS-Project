@@ -1,9 +1,7 @@
 #!/bin/bash
-"""
-Post-create hook for dev container
-Runs automatically after container is created
-Installs all dependencies and prepares the environment
-"""
+# Post-create hook for dev container
+# Runs automatically after container is created
+# Installs all dependencies and prepares the environment
 
 set -e
 
