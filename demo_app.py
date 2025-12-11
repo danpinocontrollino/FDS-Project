@@ -1699,8 +1699,8 @@ def render_two_stage_pipeline_demo(model, scaler_mean, scaler_scale, thresholds)
     st.markdown("""
     **Novel Approach**: Cascade real behavioral forecasting with synthetic mental health inference.
     
-    - **Stage 1**: LSTM trained on StudentLife sensors predicts next-day behavior (sleep, exercise, etc.)
-    - **Stage 2**: LSTM trained on synthetic data infers mental health from predicted behaviors
+    - **Stage 1**: GRU (R²=0.48) trained on StudentLife sensors predicts next-day behavior (sleep, exercise, etc.)
+    - **Stage 2**: LSTM (R²=0.98) trained on synthetic data infers mental health from predicted behaviors
     - **Key Question**: How does uncertainty propagate through cascaded predictions?
     """)
     
