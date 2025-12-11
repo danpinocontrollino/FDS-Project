@@ -258,6 +258,70 @@ def predict(model: MentalHealthPredictor, sequence: np.ndarray, stats: dict) -> 
             "threshold": threshold,
         }
     
+    # =========================================================================
+    # SEDENTARY SAFETY LAYER (Post-Processing Override)
+    # =========================================================================
+    # I implemented this conservative post-processing rule to address a known
+    # blind spot in the synthetic training data: sedentary individuals
+    # (exercise < 15 min/day) are sometimes rated as "Healthy" due to the
+    # model over-weighting job satisfaction and other confounders.
+    #
+    # Clinical evidence (WHO, Mayo Clinic) establishes that prolonged
+    # sedentary behavior independently elevates cardiovascular and mental
+    # health risks regardless of other lifestyle factors. This safety layer
+    # ensures predictions align with evidence-based guidelines.
+    # =========================================================================
+    try:
+        # Locate exercise_minutes in the feature columns (index 7 by default)
+        feature_cols = stats.get("feature_cols", FEATURE_COLS)
+        if "exercise_minutes" in feature_cols:
+            ex_idx = feature_cols.index("exercise_minutes")
+        else:
+            ex_idx = 7  # fallback to default position
+        
+        # Use the most recent day's exercise value (last row of sequence)
+        # sequence shape is [seq_len, n_features] after normalization
+        # We need the original value, so we denormalize
+        mean = stats.get("scaler_mean")
+        std = stats.get("scaler_std")
+        
+        if mean is not None and std is not None:
+            # Recover original exercise value from normalized sequence
+            last_day_ex_normalized = sequence[-1, ex_idx]
+            ex_minutes = last_day_ex_normalized * (std[ex_idx] + 1e-8) + mean[ex_idx]
+        else:
+            ex_minutes = None
+        
+        if ex_minutes is not None and ex_minutes < 15:
+            safety_reason = (
+                f"Sedentary safety layer triggered: exercise={ex_minutes:.1f}min/day < 15min threshold. "
+                "WHO guidelines recommend minimum 150min/week of moderate activity."
+            )
+            
+            # Cap energy_level at 6.0 (cannot be "high energy" while sedentary)
+            if "energy_level" in results:
+                original_energy = results["energy_level"]["value"]
+                results["energy_level"]["value"] = min(original_energy, 6.0)
+                results["energy_level"]["at_risk"] = True
+                results["energy_level"]["safety_override"] = True
+                results["energy_level"]["safety_reason"] = safety_reason
+            
+            # Force at_risk for mood_score when sedentary (exercise-mood link)
+            if "mood_score" in results:
+                results["mood_score"]["at_risk"] = True
+                results["mood_score"]["safety_override"] = True
+                results["mood_score"]["safety_reason"] = safety_reason
+            
+            # Elevate depression risk (strong evidence for exercise-depression link)
+            if "depression_score" in results:
+                results["depression_score"]["at_risk"] = True
+                results["depression_score"]["safety_override"] = True
+                results["depression_score"]["safety_reason"] = safety_reason
+                
+    except Exception:
+        # Safety layer must not break prediction flow; fail silently
+        pass
+    
     return results
 
 

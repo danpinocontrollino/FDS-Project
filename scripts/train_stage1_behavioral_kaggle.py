@@ -1,12 +1,40 @@
 """
-STAGE 1: Behavioral Forecasting Model (StudentLife Real Data)
+STAGE 1: BEHAVIORAL FORECASTING MODEL (Real StudentLife Data)
 ==============================================================
-Train on StudentLife sensor data to predict NEXT DAY's behavior.
+Deep Learning for Mental Wellness: Learning Real Behavioral Patterns
 
-Input: 7 days of sensor readings (sleep, activity, screen time, social)
-Output: Day 8 predicted behavior with uncertainty estimates
+This module trains the first stage of our two-stage hybrid pipeline: a
+behavioral forecasting LSTM that learns from *real* sensor correlations
+in the StudentLife dataset.
 
-This model learns from REAL correlations in StudentLife data.
+RESEARCH RATIONALE:
+I designed this model to capture something the synthetic data cannot:
+authentic temporal patterns in human behavior. While synthetic data
+provides abundant labels, the behavioral correlations may not reflect
+how sleep *actually* influences next-day activity in real students.
+
+By training on 10 weeks of real sensor data from 49 Dartmouth students,
+this model learns:
+- How phone lock patterns (proxy for sleep) influence next-day activity
+- Real screen time → social interaction relationships
+- Authentic exercise → sleep quality feedback loops
+
+ARCHITECTURE CHOICES:
+- Small LSTM (32 hidden, 1 layer): Prevents overfitting on sparse data
+- No dropout: Dataset too small for regularization benefits
+- MSE loss: Simple regression targets, no classification head
+- 7-day input window: Captures weekly behavioral rhythms
+
+OUTPUT:
+- Predicted next-day behavioral features (sleep, exercise, screen time, etc.)
+- Uncertainty estimates (currently placeholder, future: Bayesian LSTM)
+
+KNOWN LIMITATIONS:
+- Only 674 training sequences after data cleaning
+- No uncertainty quantification beyond placeholder values
+- StudentLife behavioral patterns may not generalize to other populations
+
+Author: University Project - Mental Health Prediction System
 """
 
 import pandas as pd
@@ -42,7 +70,13 @@ FEATURE_COLS = [
 # ============================================================================
 
 class BehavioralForecastingLSTM(nn.Module):
-    """Simple LSTM for behavioral forecasting (no uncertainty - prevents overfitting)."""
+    """
+    I implement a lightweight LSTM for next-day behavioral forecasting.
+    
+    The architecture is intentionally simple to prevent overfitting on the
+    small StudentLife dataset. In future work, I would extend this to a
+    Bayesian LSTM with dropout-based uncertainty estimation.
+    """
     def __init__(self, input_dim, hidden_dim=32, num_layers=1, targets=None):
         super().__init__()
         self.hidden_dim = hidden_dim

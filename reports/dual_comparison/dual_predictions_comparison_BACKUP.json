@@ -64278,7 +64278,7 @@
     }
   ],
   "_corrections_applied": {
-    "fixed_at": "2025-12-11T15:09:01.612056",
+    "fixed_at": "2025-12-11T15:08:55.712194",
     "reason": "Raw neural network outputs were not clipped to valid target ranges",
     "total_predictions_fixed": 0,
     "out_of_range_synthetic": 0,
