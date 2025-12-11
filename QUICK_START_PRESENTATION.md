@@ -9,7 +9,9 @@
 ## 📦 What You Have (Complete System)
 
 ### Core ML System
-- ✅ **LSTM Multi-Target Model** - 98.5% accuracy, 8 mental health predictions
+- ✅ **Two-Stage Pipeline** - GRU (real data) + LSTM (synthetic) = hybrid approach
+- ✅ **GRU Behavioral Model** - R²=0.48, optimized for sparse StudentLife data
+- ✅ **LSTM Mental Health Model** - 98.5% accuracy, 8 mental health predictions
 - ✅ **Explainable AI** - SHAP values, feature importance, recommendations
 - ✅ **Profile Generator** - Beautiful HTML reports with visualizations
 - ✅ **Streamlit Demo** - Interactive web app (deployed, running)

@@ -35,6 +35,14 @@ sys.path.append(str(Path(__file__).parent / "scripts"))
 from explain_predictions import ExplanationEngine
 from model_definitions import MentalHealthPredictor
 
+# Import two-stage pipeline with GRU
+try:
+    from two_stage_models import TwoStagePipeline, load_pipeline
+    TWO_STAGE_AVAILABLE = True
+except ImportError:
+    TWO_STAGE_AVAILABLE = False
+    print("⚠️  Two-stage models not available - some features disabled")
+
 # ============================================================================
 # CONSTANTS
 # ============================================================================
