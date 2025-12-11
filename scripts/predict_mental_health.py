@@ -174,7 +174,13 @@ class MentalHealthPredictor(nn.Module):
 # ============================================================================
 
 def load_model(model_path: Path = None) -> Tuple[MentalHealthPredictor, dict]:
-    """Load trained mental health model."""
+    """Load a trained mental-health model and return model + metadata.
+
+    I attempt to locate a serialized checkpoint (LSTM preferred, then
+    transformer), restore the model weights, and return a small `stats`
+    dict that contains scaler parameters and feature ordering to ensure
+    consistent preprocessing during inference.
+    """
     if model_path is None:
         # Try LSTM first, then transformer
         model_path = MODEL_DIR / "mental_health_lstm.pt"
@@ -212,10 +218,11 @@ def load_model(model_path: Path = None) -> Tuple[MentalHealthPredictor, dict]:
 # ============================================================================
 
 def predict(model: MentalHealthPredictor, sequence: np.ndarray, stats: dict) -> Dict[str, dict]:
-    """
-    Run prediction on a 7-day sequence.
-    
-    Returns dict mapping target → {value, risk_prob, at_risk}
+    """Run inference on a 7-day sequence and return structured results.
+
+    The returned mapping contains for each target: the continuous
+    `value`, a probabilistic `risk_prob` from the classification head,
+    and a boolean `at_risk` computed using the provided thresholds.
     """
     # Normalize
     mean = stats.get("scaler_mean")
@@ -255,7 +262,12 @@ def predict(model: MentalHealthPredictor, sequence: np.ndarray, stats: dict) -> 
 
 
 def create_sequence_from_data(data: pd.DataFrame, feature_cols: List[str], window: int = 7) -> np.ndarray:
-    """Create a sequence from the last `window` days of data."""
+    """Construct the model input sequence from the most recent `window` days.
+
+    I validate that at least `window` days are present and order features to
+    match the training `feature_cols` to avoid silent feature-misalignment
+    that could invalidate predictions.
+    """
     if len(data) < window:
         raise ValueError(f"Need at least {window} days of data, got {len(data)}")
     

@@ -48,10 +48,12 @@ from generate_two_stage_html import (
 
 # Local uncertainty calculation (SMAPE-based)
 def calculate_avg_uncertainty_pct(prediction: dict) -> float:
-    """Calculate average uncertainty percentage using SMAPE.
-    
-    For mock predictions, we estimate uncertainty from the variance
-    in the heuristic calculations.
+    """Estimate an average uncertainty percentage using a SMAPE-style metric.
+
+    For form-derived or heuristic predictions I estimate uncertainty from
+    behavioral variance and express it as a percent relative to the
+    predicted magnitude; this is intended to produce user-friendly
+    uncertainty annotations in HTML reports.
     """
     # For form-based predictions, uncertainty is estimated from behavioral variance
     if 'stage1_uncertainties' in prediction:

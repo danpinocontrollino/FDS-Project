@@ -74,7 +74,13 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 # ============================================================================
 
 def calculate_avg_uncertainty_pct(prediction: Dict) -> float:
-    """Calculate average Stage 1 uncertainty as percentage."""
+    """Estimate the average Stage 1 uncertainty as a percent (SMAPE-style).
+
+    I compute a robust percent uncertainty by comparing Stage 1 uncertainty
+    bands to the predicted behavioral magnitudes with an epsilon guard. The
+    resulting statistic is intended for visual annotation rather than
+    formal hypothesis testing.
+    """
     unc_pcts = []
     for target, unc_val in prediction['stage1_uncertainties'].items():
         pred_val = prediction['stage1_behavioral_predictions'][target]

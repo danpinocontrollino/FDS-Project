@@ -26,9 +26,16 @@ plt.rcParams['font.size'] = 10
 # ============================================================================
 
 def load_synthetic_data():
-    """Load synthetic Kaggle training data"""
+    """Load the synthetic Kaggle-derived training dataset.
+
+    I use this dataset as a reference distribution for visual comparisons
+    with model outputs; when unavailable, the visualization functions
+    degrade gracefully and annotate the missing reference data.
+    """
     try:
-        df = pd.read_parquet('data/processed/daily_with_burnout.parquet')
+        PROJECT_ROOT = Path(__file__).resolve().parent.parent
+        df_path = PROJECT_ROOT / 'data' / 'processed' / 'daily_with_burnout.parquet'
+        df = pd.read_parquet(df_path)
         print(f"✓ Loaded synthetic data: {df.shape}")
         return df
     except Exception as e:
@@ -37,7 +44,13 @@ def load_synthetic_data():
 
 
 def load_studentlife_data():
-    """Load StudentLife processed data (if exists locally)"""
+    """Load processed StudentLife data when available locally.
+
+    These data provide a real-world comparator for behavioral forecasts.
+    The loader documents the presence/absence of StudentLife inputs in
+    the returned metadata to make provenance explicit in generated
+    figures.
+    """
     try:
         # This would be the output from kaggle_studentlife_extraction.py
         # For now, we'll use the statistics we know from the Kaggle run
@@ -136,7 +149,8 @@ def plot_data_availability():
         ax2.text(i, val + 2, f'{val:.0f}%', ha='center', fontsize=12, fontweight='bold')
     
     plt.tight_layout()
-    output_path = 'reports/comparison_data_availability.png'
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent
+    output_path = PROJECT_ROOT / 'reports' / 'comparison_data_availability.png'
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     print(f"✓ Saved: {output_path}")
     plt.close()
@@ -198,7 +212,8 @@ def plot_feature_variance(df_synthetic):
             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
     
     plt.tight_layout()
-    output_path = 'reports/comparison_feature_variance.png'
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent
+    output_path = PROJECT_ROOT / 'reports' / 'comparison_feature_variance.png'
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     print(f"✓ Saved: {output_path}")
     plt.close()

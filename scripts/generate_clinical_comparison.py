@@ -81,9 +81,22 @@ STRESS_THRESHOLDS = {
 
 
 def load_profile(profile_path: Path) -> Dict[str, Any]:
-    """Load profile JSON."""
+    """Load a profile JSON and perform minimal schema validation.
+
+    I read the profile produced by the reporting pipeline and verify that
+    required top-level keys are present so downstream comparison logic
+    can operate deterministically.
+    """
     with open(profile_path, 'r') as f:
-        return json.load(f)
+        profile = json.load(f)
+
+    # Minimal validation for expected keys
+    required_keys = ['user_id', 'predictions', 'explanations']
+    for k in required_keys:
+        if k not in profile:
+            raise KeyError(f"Profile missing required key: {k}")
+
+    return profile
 
 
 def assess_clinical_risk(behavioral_data: Dict[str, float]) -> Dict[str, Dict]:

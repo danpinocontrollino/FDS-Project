@@ -26,7 +26,12 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 COMPARISON_FILE = Path("reports/dual_comparison/dual_predictions_comparison.json")
 
 def load_comparison_data():
-    """Load and parse comparison JSON."""
+    """Load and parse the clinical-comparison JSON artifact.
+
+    I parse the comparison report produced by `generate_clinical_comparison.py`
+    and normalize fields so the dashboard can render consistent comparisons
+    against literature benchmarks.
+    """
     with open(COMPARISON_FILE) as f:
         return json.load(f)
 

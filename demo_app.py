@@ -1,20 +1,21 @@
 """
-================================================================================
-STREAMLIT INTERACTIVE DEMO - Mental Health Profiling System
-================================================================================
-Real-time interactive demo for live presentations and demonstrations.
+I present an interactive Streamlit demonstration of our multi-target
+mental health profiling system. This demo reproduces the inference pipeline
+used in our experiments, allowing real-time manipulation of the 17 behavioral
+inputs and inspection of the model's predictions, uncertainty estimates, and
+recommendations.
+
+This code prioritizes transparency and reproducibility: inputs map directly to
+the features used during model training, predictions reflect the checkpointed
+model state, and explanations are generated from pre-computed feature-importance
+weights. I explicitly document known limitations in the UI and algorithmic
+assumptions to aid reviewers and replicators.
 
 Run with: streamlit run demo_app.py
 
-Features:
-  - Interactive input sliders for behavioral data
-  - Real-time LSTM predictions
-  - Visual risk assessment
-  - Job-specific recommendations
-  - Professional UI for presentations
-
-Author: FDS Project Team
-================================================================================
+Note: This demo is intended for research dissemination and validation; it is
+not a clinical decision tool. All outputs should be interpreted as probabilistic
+signals that require clinical corroboration.
 """
 
 import streamlit as st
@@ -25,6 +26,7 @@ import torch.nn as nn
 from pathlib import Path
 import json
 import sys
+import subprocess
 
 # Add scripts to path
 sys.path.append(str(Path(__file__).parent / "scripts"))
@@ -59,23 +61,60 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Lightweight UI tweaks: spacing, metric sizing, improved contrast for presentation
+st.markdown(
+    """
+    <style>
+    /* Increase metric number size for readability */
+    .stMetric > div:first-child div[data-testid='stMetricValue'] {
+        font-size: 22px !important;
+        font-weight: 600 !important;
+    }
+    /* Tighter card spacing for dense dashboards */
+    .css-1d391kg { padding: 6px 12px; }
+    /* Improve expander header visibility */
+    .stExpanderHeader { font-weight: 600 !important; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # ============================================================================
 # MODEL LOADING (Simplified from generate_profile.py)
 # ============================================================================
 
 @st.cache_resource
 def load_model_and_config():
-    """Load LSTM model and configuration files."""
+    """Load the LSTM model and its configuration files.
+
+    I resolve project-root-relative paths and validate that the expected
+    metadata (feature ordering, scaler parameters) accompanies the model
+    binary to prevent silent mismatches during interactive exploration.
+    """
+    # Resolve project-root paths robustly: walk upwards until we find expected repo markers
+    candidate = Path(__file__).resolve().parent
+    PROJECT_ROOT = candidate
+    for _ in range(6):
+        if (candidate / "config").exists() and (candidate / "scripts").exists():
+            PROJECT_ROOT = candidate
+            break
+        candidate = candidate.parent
+    else:
+        # Fallback to file parent if markers not found
+        PROJECT_ROOT = Path(__file__).resolve().parent
+
     # Load job categories
-    with open("config/job_categories.json", "r") as f:
+    cfg_job = PROJECT_ROOT / "config" / "job_categories.json"
+    with open(cfg_job, "r") as f:
         job_config = json.load(f)
-    
+
     # Load thresholds
-    with open("config/thresholds.json", "r") as f:
+    cfg_thresh = PROJECT_ROOT / "config" / "thresholds.json"
+    with open(cfg_thresh, "r") as f:
         thresholds = json.load(f)
-    
+
     # Load model (simplified version)
-    model_path = Path("models/saved/mental_health_lstm.pt")
+    model_path = PROJECT_ROOT / "models" / "saved" / "mental_health_lstm.pt"
     
     try:
         checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
@@ -102,21 +141,26 @@ def load_model_and_config():
         scaler_mean = checkpoint.get("scaler_mean", np.zeros(num_features))
         scaler_scale = checkpoint.get("scaler_std", np.ones(num_features))
         
-        return model, scaler_mean, scaler_scale, job_config, thresholds
+        return PROJECT_ROOT, job_config, thresholds, model, scaler_mean, scaler_scale
         
     except Exception as e:
         st.error(f"Error loading model: {e}")
-        return None, None, None, None, None
+        return None, None, None, None, None, None
 
 def predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale, apply_amplification=True):
-    """Run LSTM prediction on behavioral data.
-    
-    Args:
-        model: The trained LSTM model
-        behavioral_data: Input behavioral data array
-        scaler_mean: Mean values for normalization
-        scaler_scale: Scale values for normalization
-        apply_amplification: Whether to apply demo amplification (False for What-If simulator)
+    """Run the trained predictor on a sequence of behavioral inputs.
+
+    I normalize the provided `behavioral_data` using the training-set
+    `scaler_mean` and `scaler_scale`, convert the sequence into a tensor,
+    and evaluate the model in inference mode. For presentation clarity the
+    demo may apply a small, documented "amplification" to emphasize extreme
+    deviations; this is not part of the underlying trained model and can be
+    disabled for counterfactual (What-If) experiments via
+    `apply_amplification=False`.
+
+    The function returns a dictionary mapping each target to a result
+    structure containing `value`, `at_risk_prob`, and optional
+    `safety_override` metadata inserted by conservative post-processing.
     """
     try:
         # Normalize
@@ -243,12 +287,38 @@ def predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale, app
         st.error(f"Prediction error: {e}")
         return None
 
+
+def run_script_blocking(script_rel_path: str, project_root: Path, timeout: int = 600) -> tuple:
+    """Run a Python script relative to `project_root` and return (success, output).
+
+    Uses the current Python interpreter to run the target script and captures
+    stdout/stderr. Designed for synchronous runs with a UI spinner; not for
+    very long background jobs.
+    """
+    script_path = project_root / script_rel_path
+    if not script_path.exists():
+        return False, f"Script not found: {script_path}"
+
+    cmd = [sys.executable, str(script_path)]
+    try:
+        proc = subprocess.run(cmd, cwd=project_root, capture_output=True, text=True, timeout=timeout)
+        output = (proc.stdout or "") + "\n" + (proc.stderr or "")
+        return proc.returncode == 0, output
+    except Exception as e:
+        return False, str(e)
+
 # ============================================================================
 # UI COMPONENTS
 # ============================================================================
 
 def get_color_and_delta(target: str, value: float, thresholds: dict) -> tuple:
-    """Get color emoji and delta_color based on target value and thresholds."""
+    """Return a (emoji, delta_type) tuple for UI coloring.
+
+    I map clinical thresholds to a simple three-state visual signal (green,
+    orange, red) to make risk communication concise during presentations.
+    The mapping encodes conservative clinical cutoffs and treats inverted
+    targets appropriately.
+    """
     threshold_info = thresholds['at_risk_thresholds'].get(target, {})
     threshold = threshold_info.get('threshold', 10)
     inverted = threshold_info.get('inverted', False)
@@ -365,6 +435,7 @@ def render_header():
     """Render application header."""
     st.title("🧠 Mental Health Profiling System")
     st.markdown("### Interactive Demo - Real-Time Predictions")
+    st.caption("Accessible demo: use keyboard navigation and screen readers where available.")
     st.markdown("---")
     
     col1, col2, col3 = st.columns(3)
@@ -376,53 +447,54 @@ def render_header():
         st.metric("Prediction Time", "<100ms", "Real-time")
 
 def render_input_sidebar():
-    """Render input controls in sidebar."""
+    """Render input controls in sidebar (grouped into expanders for research)."""
     st.sidebar.header("📊 Behavioral Inputs")
     st.sidebar.markdown("*Enter 7-day average values:*")
-    
+
     # Sleep
-    st.sidebar.subheader("😴 Sleep")
-    sleep_hours = st.sidebar.slider("Sleep Hours/Night", 3.0, 12.0, 7.0, 0.5)
-    sleep_quality = st.sidebar.slider("Sleep Quality (1-10)", 1.0, 10.0, 7.0, 0.5)
-    
+    with st.sidebar.expander("😴 Sleep", expanded=True):
+        sleep_hours = st.slider("Sleep Hours/Night", 3.0, 12.0, 7.0, 0.5)
+        sleep_quality = st.slider("Sleep Quality (1-10)", 1.0, 10.0, 7.0, 0.5)
+
     # Work
-    st.sidebar.subheader("💼 Work")
-    work_hours = st.sidebar.slider("Work Hours/Day", 0.0, 16.0, 8.0, 0.5)
-    meetings = st.sidebar.slider("Meetings/Day", 0, 15, 3, 1)
-    tasks_completed = st.sidebar.slider("Tasks Completed/Day", 0, 20, 6, 1)
-    work_pressure = st.sidebar.select_slider("Work Pressure", ["low", "medium", "high"], "medium")
-    
+    with st.sidebar.expander("💼 Work", expanded=False):
+        work_hours = st.slider("Work Hours/Day", 0.0, 16.0, 8.0, 0.5)
+        meetings = st.slider("Meetings/Day", 0, 15, 3, 1)
+        tasks_completed = st.slider("Tasks Completed/Day", 0, 20, 6, 1)
+        work_pressure = st.select_slider("Work Pressure", ["low", "medium", "high"], "medium")
+
     # Physical Health
-    st.sidebar.subheader("🏃 Physical Health")
-    exercise_minutes = st.sidebar.slider("Exercise Minutes/Day", 0, 180, 30, 5)
-    caffeine_mg = st.sidebar.slider("Caffeine (mg/day)", 0, 1000, 200, 10)
-    
+    with st.sidebar.expander("🏃 Physical Health", expanded=False):
+        exercise_minutes = st.slider("Exercise Minutes/Day", 0, 180, 30, 5)
+        caffeine_mg = st.slider("Caffeine (mg/day)", 0, 1000, 200, 10)
+
     # Lifestyle
-    st.sidebar.subheader("🌟 Lifestyle")
-    social_interactions = st.sidebar.slider("Social Interactions/Day", 0, 15, 5, 1)
-    outdoor_time = st.sidebar.slider("Outdoor Time (min/day)", 0, 180, 30, 5)
-    diet_quality = st.sidebar.slider("Diet Quality (1-10)", 1.0, 10.0, 7.0, 0.5)
-    screen_time = st.sidebar.slider("Screen Time (hours/day)", 0.0, 18.0, 6.0, 0.5)
-    
+    with st.sidebar.expander("🌟 Lifestyle", expanded=False):
+        social_interactions = st.slider("Social Interactions/Day", 0, 15, 5, 1)
+        outdoor_time = st.slider("Outdoor Time (min/day)", 0, 180, 30, 5)
+        diet_quality = st.slider("Diet Quality (1-10)", 1.0, 10.0, 7.0, 0.5)
+        screen_time = st.slider("Screen Time (hours/day)", 0.0, 18.0, 6.0, 0.5)
+
     # Job Category
-    st.sidebar.subheader("👔 Job Category")
-    job_title = st.sidebar.text_input("Job Title (optional)", "Software Engineer")
-    
+    with st.sidebar.expander("👔 Job Category", expanded=False):
+        job_title = st.text_input("Job Title (optional)", "Software Engineer")
+
     # Advanced/Optional Inputs (collapsed by default)
     with st.sidebar.expander("⚙️ Advanced Inputs (Optional)"):
         st.markdown("*Most users can leave these as defaults*")
-        emails_received = st.slider("Emails Received/Day", 0, 200, 50, 5)
-        commute_minutes = st.slider("Commute Time (min/day)", 0, 120, 20, 5)
-        steps_count = st.slider("Steps/Day", 0, 20000, 5000, 500)
-        alcohol_units = st.slider("Alcohol Units/Week", 0, 20, 0, 1)
+        emails_received = st.slider("Emails Received/Day", 0, 200, 50, 5, help="Number of incoming emails per workday; used as a proxy for workload")
+        commute_minutes = st.slider("Commute Time (min/day)", 0, 120, 20, 5, help="Daily commute time; influences fatigue and stress")
+        steps_count = st.slider("Steps/Day", 0, 20000, 5000, 500, help="Approximate daily steps from phone/wearable")
+        alcohol_units = st.slider("Alcohol Units/Week", 0, 20, 0, 1, help="Standard units per week; influences sleep and mood")
         weather_impact = st.select_slider("Weather Mood Impact", 
                                          options=[-2, -1, 0, 1, 2],
                                          value=0,
-                                         format_func=lambda x: {-2: "Very Negative", -1: "Negative", 0: "Neutral", 1: "Positive", 2: "Very Positive"}[x])
-    
+                                         format_func=lambda x: {-2: "Very Negative", -1: "Negative", 0: "Neutral", 1: "Positive", 2: "Very Positive"}[x],
+                                         help="Self-reported effect of weather on mood: -2 (very negative) → +2 (very positive)")
+
     # Convert work pressure to numeric
     pressure_map = {"low": 3, "medium": 5, "high": 8}
-    
+
     return {
         'sleep_hours': sleep_hours,
         'sleep_quality': sleep_quality,
@@ -841,7 +913,12 @@ def render_risk_assessment(inputs, predictions, thresholds):
             st.info("Building healthy habits...")
 
 def load_studentlife_profiles():
-    """Load StudentLife student profiles if available."""
+    """Load StudentLife-derived student profiles when present.
+
+    I attempt to locate and parse auxiliary StudentLife profile exports to
+    enrich demo scenarios. Missing StudentLife data is treated as
+    non-fatal and the UI falls back to synthetic or example profiles.
+    """
     profile_dir = Path("reports/studentlife_profiles")
     
     if not profile_dir.exists():
@@ -1947,17 +2024,146 @@ def main():
     if 'original_inputs' not in st.session_state:
         st.session_state.original_inputs = None
     
-    # Load model
-    model, scaler_mean, scaler_scale, job_config, thresholds = load_model_and_config()
+    # Load model and config (now returns PROJECT_ROOT first)
+    PROJECT_ROOT, job_config, thresholds, model, scaler_mean, scaler_scale = load_model_and_config()
     
     if model is None:
         st.error("Failed to load model. Please check configuration.")
         st.stop()
     
+    # View selector: Profile vs Research
+    view_mode = st.sidebar.selectbox(
+        "View",
+        ["Profile", "Research"],
+        index=0,
+        help="Choose 'Profile' to generate an individual profile or 'Research' to view research dashboards."
+    )
+
     # Render UI
     render_header()
-    
-    # Get inputs
+
+    # If in Research mode, show a compact research dashboard (no profile controls)
+    if view_mode == "Research":
+        st.markdown("### Research & Analysis")
+
+        # Compute lightweight summary metrics (robust to missing artifacts)
+        two_stage_path = Path("models/saved/two_stage_predictions.json")
+        dual_comp_path = Path("reports/dual_comparison/dual_predictions_comparison.json")
+        viz_dir = Path("reports/two_stage_analysis")
+
+        total_preds = 0
+        num_students = 0
+        avg_unc_pct = None
+
+        if two_stage_path.exists():
+            try:
+                with open(two_stage_path, 'r') as f:
+                    data = json.load(f)
+                entries = data.get('predictions', data)
+                total_preds = len(entries)
+                num_students = len(set(r.get('student_id') for r in entries))
+
+                # estimate avg uncertainty if present
+                unc_list = []
+                for r in entries:
+                    uncs = r.get('stage1_uncertainties', {})
+                    preds = r.get('stage1_behavioral_predictions', {})
+                    for k, u in uncs.items():
+                        denom = max(abs(preds.get(k, 0)), 1e-6)
+                        unc_list.append(abs(u) / denom * 100)
+                if unc_list:
+                    avg_unc_pct = float(np.mean(unc_list))
+            except Exception:
+                total_preds = total_preds or 0
+
+        # Top summary cards
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Two-Stage Predictions", f"{total_preds}")
+        with col2:
+            st.metric("Students in Dataset", f"{num_students}")
+        with col3:
+            st.metric("Avg Stage1 Uncertainty", f"{avg_unc_pct:.1f}%" if avg_unc_pct is not None else "N/A")
+        with col4:
+            charts_ready = viz_dir.exists() and any(viz_dir.iterdir())
+            st.metric("Visuals Available", "Yes" if charts_ready else "No")
+
+        st.markdown("---")
+
+        # Use pre-generated visuals placed in the repository under `reports/`.
+        # Do not run generation scripts from the demo; simply detect and display PNGs.
+        charts_ready = viz_dir.exists() and any(viz_dir.iterdir())
+
+        if not charts_ready:
+            st.warning(
+                "Research visuals not found in `reports/two_stage_analysis`.\n"
+                "Place the pre-generated PNGs in `reports/two_stage_analysis` to display them here."
+            )
+            st.code("ls -la reports/two_stage_analysis || true", language="bash")
+
+        tabs = st.tabs(["Overview", "Two-Stage Pipeline", "Model Comparison", "Case Studies", "Data Quality"])
+
+        # Overview: summary + quick actions
+        with tabs[0]:
+            st.header("Overview")
+            st.markdown("Brief summary of research artifacts and key findings")
+            st.markdown(f"- **Total predictions:** {total_preds}")
+            st.markdown(f"- **Students:** {num_students}")
+            st.markdown(f"- **Avg Stage 1 Uncertainty:** {avg_unc_pct:.1f}%" if avg_unc_pct is not None else "- Avg uncertainty: N/A")
+
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.info("Research visuals are loaded from `reports/two_stage_analysis` when present.")
+            with col_b:
+                st.info("Confrontation visuals are loaded from `reports/confrontation_dashboard` when present.")
+
+            # Show key research overview images (thumbnails) if they exist
+            img1 = Path("reports/two_stage_analysis/pipeline_summary_dashboard.png")
+            img2 = Path("reports/confrontation_dashboard/summary_dashboard.png")
+            img3 = Path("reports/comparison_correlations.png")
+
+            if img1.exists() or img2.exists() or img3.exists():
+                st.markdown("---")
+                st.subheader("Research Snapshot")
+                cols = st.columns(3)
+                images = [img1, img2, img3]
+                captions = [
+                    "Two-Stage Pipeline Summary",
+                    "Confrontation Summary Dashboard",
+                    "Correlation Comparison"
+                ]
+
+                for col, img, cap in zip(cols, images, captions):
+                    with col:
+                        if img.exists():
+                            st.image(str(img), caption=cap, use_container_width=True)
+                        else:
+                            st.write(f"Missing: {img}")
+
+        # Two-Stage Pipeline: detailed explorer
+        with tabs[1]:
+            st.header("Two-Stage Pipeline")
+            render_two_stage_pipeline_demo(model, scaler_mean, scaler_scale, thresholds)
+
+        # Model Comparison
+        with tabs[2]:
+            st.header("Model Comparison")
+            render_model_comparison_viewer()
+
+        # Case Studies
+        with tabs[3]:
+            st.header("Case Studies")
+            render_case_studies()
+
+        # Data Quality
+        with tabs[4]:
+            st.header("Data Quality")
+            render_data_quality_insights()
+
+        # Early exit for research view (no profile controls shown)
+        return
+
+    # Get inputs for Profile view
     inputs = render_input_sidebar()
     
     # Prepare behavioral data (7 days, all same for demo)
@@ -1972,7 +2178,7 @@ def main():
     behavioral_data = np.array([[inputs.get(f, 0) for f in feature_order] for _ in range(7)])
     
     # Predict button
-    if st.sidebar.button("🔮 Generate Profile", type="primary"):
+    if st.sidebar.button("🔮 Generate Profile", type="primary", help="Run the model using current sidebar inputs to generate a profile"):
         with st.spinner("Running LSTM prediction..."):
             predictions = predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale, apply_amplification=False)
         

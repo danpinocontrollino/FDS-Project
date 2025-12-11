@@ -24,8 +24,9 @@ import numpy as np
 # CONFIGURATION
 # ============================================================================
 
-PREDICTIONS_JSON = Path("models/saved/two_stage_predictions.json")
-OUTPUT_DIR = Path("reports/two_stage_html")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PREDICTIONS_JSON = PROJECT_ROOT / "models" / "saved" / "two_stage_predictions.json"
+OUTPUT_DIR = PROJECT_ROOT / "reports" / "two_stage_html"
 
 TARGET_SCALES = {
     "stress_level": 10,

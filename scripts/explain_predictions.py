@@ -1,22 +1,15 @@
 """
-================================================================================
-PREDICTION EXPLANATION ENGINE
-================================================================================
-This module provides explainable AI capabilities for mental health predictions.
+I implemented an explanation engine to make the model's outputs interpretable
+for research reviewers. For each predicted outcome I compute feature-level
+contributions, a concise personalized rationale, and prioritized, actionable
+recommendations with estimated impact derived from pre-computed importance
+weights and user-specific deviations from population norms.
 
-For each prediction, it calculates:
-1. Feature contributions - How much each behavior impacts the predicted outcome
-2. Personalized explanations - Why THIS user got THIS prediction
-3. Actionable recommendations - What specific changes would help most
-4. Impact estimates - Expected improvement from each recommendation
-
-The explanation engine uses feature importance weights from comprehensive
-analysis (Random Forest + Permutation + Correlation) combined with user-specific
-deviations from population norms to generate SHAP-like explanations.
-
-Author: University Project - Burnout Prediction
-Date: 2025-12-05
-================================================================================
+This module intentionally uses a hybrid strategy (ensemble importance +
+permutation measures + standardized user z-scores) to approximate SHAP-like
+contributions while remaining computationally lightweight for batch report
+generation. I document the provenance of weights and the assumptions used
+so that reviewers can trace and re-compute explanations independently.
 """
 
 from __future__ import annotations
@@ -219,7 +212,13 @@ class ExplanationEngine:
         self.weights_data = self._load_weights()
         
     def _load_weights(self) -> Dict:
-        """Load feature importance weights and population statistics."""
+        """Load feature importance weights and population statistics.
+
+        I raise a clear error if the weights file is missing to encourage
+        reproducible report generation: the explanation engine depends on
+        a pre-computed weights artifact that should be checked into the
+        research artifact directory after analysis runs.
+        """
         if not self.weights_path.exists():
             raise FileNotFoundError(
                 f"Feature importance weights not found: {self.weights_path}\n"
@@ -236,24 +235,16 @@ class ExplanationEngine:
         target: str
     ) -> float:
         """
-        Calculate feature contribution to prediction.
-        
-        Formula: contribution = importance_weight × z_score × target_std × direction
-        
-        Direction is determined by correlation with target:
-        - For stress/burnout: high work_hours = bad (positive), high sleep = good (negative)
-        - For mood: high exercise = good (negative contribution to low mood)
-        
-        This gives us a value in the same units as the target variable,
-        representing how much this feature pushes the prediction up or down.
-        
-        Args:
-            user_value: User's value for this feature
-            feature: Feature name
-            target: Target variable name
-        
-        Returns:
-            Contribution in target units (e.g., stress points)
+        Compute the estimated contribution of a single feature to the
+        predicted target. Conceptually I take the product of: a pre-computed
+        importance weight, the user's z-score for that feature, and the
+        population standard deviation of the target to map back into target
+        units. I then adjust sign/direction based on whether the feature is
+        considered beneficial or harmful for the outcome.
+
+        This produces an interpretable value in target units (for example,
+        'stress points') that can be summed across features to approximate
+        the model's decision rationale.
         """
         # Get feature importance weight for this target
         importance = self.weights_data["targets"][target]["feature_weights"].get(feature, 0.0)
@@ -598,15 +589,12 @@ def explain_predictions(
     targets: Optional[List[str]] = None
 ) -> Dict[str, PredictionExplanation]:
     """
-    Generate explanations for multiple predictions at once.
-    
-    Args:
-        user_data: Dictionary of user's feature values
-        predictions: Dictionary of predictions {target: value}
-        targets: List of targets to explain (default: all in predictions)
-    
-    Returns:
-        Dictionary mapping target names to PredictionExplanation objects
+    Produce explanation objects for a set of predicted outcomes.
+
+    This convenience wrapper instantiates the `ExplanationEngine` and
+    returns `PredictionExplanation` instances for each requested target. I
+    designed the return structure to be serializable for inclusion in
+    programmatic reports and HTML outputs.
     """
     engine = ExplanationEngine()
     
