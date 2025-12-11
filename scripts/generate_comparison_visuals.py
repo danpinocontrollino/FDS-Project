@@ -64,8 +64,8 @@ def load_studentlife_data():
 # ============================================================================
 
 STUDENTLIFE_STATS = {
-    'total_records': 674,
-    'students': 10,
+    'total_records': 2783,  # Sequences after preprocessing
+    'students': 49,
     'feature_variance': {
         'sleep_hours': {'variance': 1.97, 'unique': 406},
         'exercise_minutes': {'variance': 198.11, 'unique': 431},
@@ -140,7 +140,7 @@ def plot_data_availability():
     bars = ax2.bar(categories, studentlife_availability, color=colors, alpha=0.7, edgecolor='black')
     ax2.set_ylim(0, 105)
     ax2.set_ylabel('Data Availability (%)', fontsize=12, fontweight='bold')
-    ax2.set_title('StudentLife Dataset\n(674 records, 49 students, 10 weeks)', 
+    ax2.set_title('StudentLife Dataset\n(2,783 sequences, 49 students, 10 weeks)', 
                   fontsize=13, fontweight='bold')
     ax2.axhline(y=100, color='red', linestyle='--', linewidth=1, alpha=0.5, label='100% Coverage')
     ax2.grid(axis='y', alpha=0.3)
@@ -333,7 +333,7 @@ def generate_summary_table():
     
     table_data = [
         ['Metric', 'Synthetic (Kaggle)', 'Real (StudentLife)', 'Implication'],
-        ['Total Records', '1,479,000', '674', 'Synthetic: Large scale\nReal: Limited sample'],
+        ['Total Records', '1,479,000', '2,783', 'Synthetic: Large scale\nReal: 49 students'],
         ['Users/Students', '500,000', '49', 'Synthetic: Population-level\nReal: Single cohort'],
         ['Study Duration', 'Simulated (daily)', '10 weeks (real)', 'Synthetic: Perfect coverage\nReal: Realistic span'],
         ['Behavioral Data', '100% coverage', '85-90% coverage', 'Both excellent'],
@@ -412,8 +412,6 @@ def main():
     print("  - reports/comparison_feature_variance.png")
     print("  - reports/comparison_correlations.png")
     print("  - reports/comparison_summary_table.png")
-    print("\nUse these in your presentation to show synthetic vs real-world trade-offs!")
-
 
 if __name__ == '__main__':
     main()

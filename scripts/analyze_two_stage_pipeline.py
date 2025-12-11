@@ -50,7 +50,7 @@ def load_results():
 def create_uncertainty_waterfall(results):
     """Visualize how uncertainty compounds through pipeline."""
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle('Two-Stage Pipeline: Uncertainty Propagation', 
+    fig.suptitle('Two-Stage Pipeline: Uncertainty Propagation (GRU→LSTM)', 
                  fontsize=16, fontweight='bold')
     
     predictions = results['predictions']
@@ -79,7 +79,7 @@ def create_uncertainty_waterfall(results):
     # Plot 1: Stage 1 Uncertainty Distribution as Percentages
     ax1 = axes[0, 0]
     bp = ax1.boxplot(stage1_uncertainties_pct, labels=[t.replace('_', '\n') for t in behavioral_targets])
-    ax1.set_title('Stage 1: Behavioral Prediction Uncertainty', fontweight='bold')
+    ax1.set_title('Stage 1 (GRU): Behavioral Prediction Uncertainty', fontweight='bold')
     ax1.set_ylabel('Uncertainty (%)')
     ax1.grid(True, alpha=0.3)
     ax1.tick_params(axis='x', rotation=0, labelsize=8)
@@ -99,7 +99,7 @@ def create_uncertainty_waterfall(results):
     
     ax2.hist(avg_uncertainties_pct, bins=30, alpha=0.7, color='coral', edgecolor='black')
     ax2.axvline(np.mean(avg_uncertainties_pct), color='red', linestyle='--', 
-                linewidth=2, label=f'Mean: ±{np.mean(avg_uncertainties_pct):.1f}%')
+                linewidth=2, label=f'Mean: ±{np.mean(avg_uncertainties_pct):.1f}% (GRU)')
     ax2.set_title('Stage 1: Average Uncertainty Distribution', fontweight='bold')
     ax2.set_xlabel('Average Uncertainty (%)')
     ax2.set_ylabel('Frequency')
@@ -321,7 +321,7 @@ def create_pipeline_summary_dashboard(results):
     # Stage 1
     ax1.add_patch(plt.Rectangle((0.05, 0.5), 0.25, 0.35, 
                                 facecolor='lightgreen', edgecolor='black', linewidth=2))
-    ax1.text(0.175, 0.675, 'STAGE 1\nBehavioral\nForecasting\n(StudentLife)', 
+    ax1.text(0.175, 0.675, 'STAGE 1: GRU\nBehavioral\nForecasting\n(StudentLife)', 
             ha='center', va='center', fontsize=10, fontweight='bold')
     
     # Arrow 1
@@ -413,11 +413,11 @@ def create_pipeline_summary_dashboard(results):
     ax5.text(0.5, 0.95, 'KEY FINDINGS', ha='center', fontsize=13, fontweight='bold')
     
     # Stage 1 findings
-    ax5.text(0.05, 0.80, '[OK] Stage 1 Model: Trained on 10 students from StudentLife', 
+    ax5.text(0.05, 0.80, '[OK] Stage 1 Model: GRU trained on 49 students, 2,783 sequences (StudentLife)', 
             fontsize=10, fontweight='bold', color='darkgreen')
-    ax5.text(0.08, 0.72, '→ Uses REAL sensor correlations (sleep, activity, screen time, social interactions)', 
+    ax5.text(0.08, 0.72, '→ Uses REAL sensor correlations (R²=0.48, MAE=162.67) - 16% better than LSTM', 
             fontsize=9)
-    ax5.text(0.08, 0.65, '→ Predicts next-day behavior with uncertainty estimates', 
+    ax5.text(0.08, 0.65, '→ Architecture: 64 hidden dims, 2 layers, simpler gating (2 gates vs 3)', 
             fontsize=9)
     ax5.text(0.08, 0.58, f'→ Mean uncertainty: ±{np.mean(avg_unc_pcts):.1f}% (range: {np.min(avg_unc_pcts):.0f}%-{np.max(avg_unc_pcts):.0f}%)', 
             fontsize=9)
@@ -435,11 +435,11 @@ def create_pipeline_summary_dashboard(results):
     # Error propagation
     ax5.text(0.55, 0.80, '[!] ERROR PROPAGATION:', 
             fontsize=10, fontweight='bold', color='darkred')
-    ax5.text(0.58, 0.72, '→ Stage 1 uncertainty compounds in Stage 2 predictions', 
+    ax5.text(0.58, 0.72, '→ Stage 1 uncertainty compounds in Stage 2 predictions (±12.3% average)', 
             fontsize=9)
     ax5.text(0.58, 0.65, '→ Distribution mismatch reduces Stage 2 reliability', 
             fontsize=9)
-    ax5.text(0.58, 0.58, '→ Final predictions have ~20-30% higher uncertainty than single-stage approaches', 
+    ax5.text(0.58, 0.58, '→ GRU optimized for sparse real-world data (49 students vs 1.5M synthetic)', 
             fontsize=9)
     
     # Research contribution
