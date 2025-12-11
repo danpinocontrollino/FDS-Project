@@ -843,6 +843,23 @@ def detect_contradictions(user_data: pd.DataFrame, predictions: Dict[str, Dict[s
             "recommendation": "Don't assume invincibility. Poor inputs predict future decline even if current outcomes are good. Prevention easier than treatment.",
         })
     
+    # ========================================================================
+    # CAFFEINE PARADOX: High caffeine with good sleep/energy
+    # Detect when self-reported high caffeine intake coexists with good sleep
+    # and high energy/mood predictions — may indicate tolerance or data issue.
+    # ========================================================================
+    try:
+        if avg["caffeine_mg"] > 400 and avg["sleep_hours"] >= 7 and predictions["energy_level"]["value"] > 7:
+            contradictions.append({
+                "type": "caffeine_paradox",
+                "description": f"High caffeine intake ({avg['caffeine_mg']:.0f}mg/day) alongside normal sleep ({avg['sleep_hours']:.1f}h/day) and high energy. Unusual tolerance or measurement error.",
+                "severity": "medium",
+                "explanation": "High caffeine typically disrupts sleep and elevates arousal; sustained high caffeine with good sleep suggests physiological tolerance, masking of sleep debt, or inaccurate reporting.",
+                "recommendation": "Consider an N-of-1 test: reduce caffeine for 7 days and track sleep quality/energy. If tolerance is present, gradual reduction improves baseline sleep architecture.",
+            })
+    except Exception:
+        pass
+
     return contradictions
 
 

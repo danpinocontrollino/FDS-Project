@@ -193,7 +193,50 @@ def predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale, app
                 'value': value,
                 'at_risk_prob': at_risk_prob
             }
-        
+        # ------------------------------------------------------------------
+        # Sedentary Safety Layer
+        # If the most recent day's exercise_minutes is very low, apply a
+        # conservative safety override: cap energy and increase risk flags.
+        # This is only applied for the main profile display (when
+        # apply_amplification=True) and does not affect What-If simulator
+        # runs where apply_amplification=False.
+        # ------------------------------------------------------------------
+        try:
+            if apply_amplification:
+                # feature index for `exercise_minutes` as used by the demo
+                EXERCISE_IDX = 7
+                ex_minutes = None
+                # behavioral_data expected shape: [seq_len, n_features]
+                if hasattr(behavioral_data, "shape") and behavioral_data.shape[0] >= 1:
+                    ex_minutes = float(behavioral_data[-1, EXERCISE_IDX])
+
+                if ex_minutes is not None and ex_minutes < 15:
+                    safety_reason = (
+                        f"Sedentary safety layer: last-day exercise {ex_minutes:.1f}min < 15min"
+                    )
+                    # Cap energy level conservatively
+                    if 'energy_level' in predictions:
+                        prev = predictions['energy_level']['value']
+                        predictions['energy_level']['value'] = min(prev, 6.0)
+                        predictions['energy_level']['at_risk_prob'] = max(
+                            predictions['energy_level'].get('at_risk_prob', 0.5), 0.95
+                        )
+                        predictions['energy_level']['safety_override'] = True
+                        predictions['energy_level']['safety_reason'] = safety_reason
+
+                    # Force higher risk probabilities for daily targets as a
+                    # conservative signal that sedentary behaviour increases risk.
+                    for dtarget in ['stress_level', 'mood_score', 'energy_level', 'focus_score']:
+                        if dtarget in predictions and dtarget != 'energy_level':
+                            predictions[dtarget]['at_risk_prob'] = max(
+                                predictions[dtarget].get('at_risk_prob', 0.5), 0.85
+                            )
+                            predictions[dtarget]['safety_override'] = True
+                            predictions[dtarget]['safety_reason'] = safety_reason
+        except Exception:
+            # Safety layer must not break prediction flow; swallow errors
+            pass
+
         return predictions
         
     except Exception as e:
