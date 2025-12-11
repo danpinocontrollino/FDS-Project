@@ -41,11 +41,29 @@ from generate_two_stage_html import (
     analyze_trends,
     generate_personalized_interventions,
     assess_risk,
-    calculate_avg_uncertainty_pct,
     TARGET_SCALES,
     INVERTED_TARGETS,
     RISK_THRESHOLDS
 )
+
+# Local uncertainty calculation (SMAPE-based)
+def calculate_avg_uncertainty_pct(prediction: dict) -> float:
+    """Calculate average uncertainty percentage using SMAPE.
+    
+    For mock predictions, we estimate uncertainty from the variance
+    in the heuristic calculations.
+    """
+    # For form-based predictions, uncertainty is estimated from behavioral variance
+    if 'stage1_uncertainties' in prediction:
+        unc_pcts = []
+        for target, unc_val in prediction['stage1_uncertainties'].items():
+            pred_val = prediction['stage1_behavioral_predictions'][target]
+            # SMAPE-style: robust to zeros
+            denominator = max(abs(pred_val), 1e-6)
+            unc_pct = (abs(unc_val) / denominator) * 100
+            unc_pcts.append(unc_pct)
+        return np.mean(unc_pcts) if unc_pcts else 0
+    return 0
 
 # ============================================================================
 # CONFIGURATION

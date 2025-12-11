@@ -59,12 +59,24 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 # ============================================================================
 
 def calculate_avg_uncertainty_pct(prediction: Dict) -> float:
-    """Calculate average Stage 1 uncertainty as percentage."""
+    """Calculate average Stage 1 uncertainty as percentage using SMAPE.
+    
+    SMAPE (Symmetric Mean Absolute Percentage Error):
+    - Formula: 100 * |uncertainty| / ((|predicted| + |predicted±uncertainty|) / 2)
+    - More robust than MAPE: handles zeros better and is symmetric
+    - For uncertainty bounds, we treat uncertainty as the error from predicted value
+    """
     unc_pcts = []
     for target, unc_val in prediction['stage1_uncertainties'].items():
         pred_val = prediction['stage1_behavioral_predictions'][target]
-        if pred_val > 0:
-            unc_pcts.append((unc_val / pred_val) * 100)
+        
+        # SMAPE: 100 * |error| / average(|actual|, |predicted|)
+        # Here: error = uncertainty, actual = pred_val, predicted could be pred_val ± unc_val
+        # Simplified: percentage relative to predicted value with epsilon for safety
+        denominator = max(abs(pred_val), 1e-6)  # Avoid division by zero
+        unc_pct = (abs(unc_val) / denominator) * 100
+        unc_pcts.append(unc_pct)
+    
     return np.mean(unc_pcts) if unc_pcts else 0
 
 

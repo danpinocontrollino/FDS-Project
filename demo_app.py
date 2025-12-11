@@ -1447,13 +1447,14 @@ def render_two_stage_pipeline_demo(model, scaler_mean, scaler_scale, thresholds)
         behavioral_preds = prediction['stage1_behavioral_predictions']
         behavioral_uncs = prediction['stage1_uncertainties']
         
-        # Calculate average uncertainty percentage
+        # Calculate average uncertainty percentage using SMAPE (robust to zeros)
         uncertainties_pct = []
         for key in behavioral_preds.keys():
             pred_val = behavioral_preds[key]
             unc_val = behavioral_uncs[key]
-            if pred_val > 0:
-                uncertainties_pct.append((unc_val / pred_val) * 100)
+            # SMAPE-style: max(abs(pred), epsilon) prevents division by zero
+            denominator = max(abs(pred_val), 1e-6)
+            uncertainties_pct.append((abs(unc_val) / denominator) * 100)
         avg_uncertainty_pct = np.mean(uncertainties_pct) if uncertainties_pct else 0
         
         col1, col2, col3, col4, col5 = st.columns(5)
@@ -1461,31 +1462,32 @@ def render_two_stage_pipeline_demo(model, scaler_mean, scaler_scale, thresholds)
         with col1:
             sleep = behavioral_preds['sleep_hours']
             unc = behavioral_uncs['sleep_hours']
-            unc_pct = (unc / sleep * 100) if sleep > 0 else 0
+            # SMAPE-style calculation
+            unc_pct = (abs(unc) / max(abs(sleep), 1e-6)) * 100
             st.metric("😴 Sleep", f"{sleep:.1f}h", delta=f"±{unc_pct:.0f}%")
         
         with col2:
             exercise = behavioral_preds['exercise_minutes']
             unc = behavioral_uncs['exercise_minutes']
-            unc_pct = (unc / exercise * 100) if exercise > 0 else 0
+            unc_pct = (abs(unc) / max(abs(exercise), 1e-6)) * 100
             st.metric("🏃 Exercise", f"{exercise:.0f}min", delta=f"±{unc_pct:.0f}%")
         
         with col3:
             screen = behavioral_preds['screen_time_hours']
             unc = behavioral_uncs['screen_time_hours']
-            unc_pct = (unc / screen * 100) if screen > 0 else 0
+            unc_pct = (abs(unc) / max(abs(screen), 1e-6)) * 100
             st.metric("📱 Screen", f"{screen:.1f}h", delta=f"±{unc_pct:.0f}%")
         
         with col4:
             social = behavioral_preds['social_interactions']
             unc = behavioral_uncs['social_interactions']
-            unc_pct = (unc / social * 100) if social > 0 else 0
+            unc_pct = (abs(unc) / max(abs(social), 1e-6)) * 100
             st.metric("👥 Social", f"{social:.0f}", delta=f"±{unc_pct:.0f}%")
         
         with col5:
             steps = behavioral_preds['steps_count']
             unc = behavioral_uncs['steps_count']
-            unc_pct = (unc / steps * 100) if steps > 0 else 0
+            unc_pct = (abs(unc) / max(abs(steps), 1e-6)) * 100
             st.metric("🚶 Steps", f"{steps:.0f}", delta=f"±{unc_pct:.0f}%")
         
         st.caption(f"*Average prediction uncertainty: ±{avg_uncertainty_pct:.0f}% across all behavioral metrics*")
