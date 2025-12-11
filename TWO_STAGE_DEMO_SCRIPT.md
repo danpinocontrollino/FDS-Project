@@ -1,7 +1,7 @@
 # Two-Stage Pipeline: Presentation Script
 
 ## 🎯 Core Message
-**"We built a hybrid pipeline that combines REAL behavioral patterns from StudentLife sensors with SYNTHETIC mental health inference, and explicitly tracks how uncertainty propagates through cascaded predictions."**
+**"We built a hybrid pipeline that combines REAL behavioral patterns from StudentLife sensors with SYNTHETIC mental health inference using optimal architectures for each: GRU for sparse real data (R²=0.48) and LSTM for synthetic multi-task learning (R²=0.98). We explicitly track how uncertainty propagates through cascaded predictions."**
 
 ---
 
@@ -17,11 +17,11 @@
 
 > "Our two-stage pipeline works like this:
 > 
-> **Stage 1**: An LSTM trained on StudentLife sensors predicts tomorrow's behavior - sleep, exercise, screen time, social interactions, steps. This uses REAL behavioral patterns from college students.
+> **Stage 1**: A GRU (Gated Recurrent Unit) trained on StudentLife sensors predicts tomorrow's behavior - sleep, exercise, screen time, social interactions, steps. This uses REAL behavioral patterns from 49 college students. GRU achieved R²=0.48, outperforming LSTM by 16% on uncertainty metrics.
 > 
-> **Stage 2**: Our synthetic LSTM takes those predicted behaviors and infers mental health states - stress, mood, anxiety, depression, etc. This uses the 1.5M sample synthetic model.
+> **Stage 2**: Our synthetic LSTM takes those predicted behaviors and infers mental health states - stress, mood, anxiety, depression, etc. This uses the 1.5M sample synthetic model with R²=0.98.
 > 
-> The key innovation? We explicitly track how uncertainty flows through this cascade."
+> The key innovation? We explicitly track how uncertainty flows through this cascade. Stage 1's ±12.3% average uncertainty compounds into Stage 2's predictions."
 
 ### Part 3: Live Exploration (2-3 minutes)
 *Click "Explore Two-Stage Pipeline Results"*
