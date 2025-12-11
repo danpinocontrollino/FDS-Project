@@ -38,10 +38,11 @@ StudentLife Sensors → [Stage 1: Behavioral Forecasting] → Predicted Behavior
 
 ### Training Scripts
 1. **`scripts/train_stage1_behavioral_kaggle.py`** (377 lines)
-   - Trains LSTM on StudentLife data
+   - Trains GRU on StudentLife data (49 students, 2,783 sequences)
    - Outputs behavioral predictions with uncertainty
-   - Model: `BehavioralForecastingLSTM` (64 hidden dims, 2 layers)
+   - Model: `GRUModel` (64 hidden dims, 2 layers)
    - Loss: Negative Log-Likelihood (captures uncertainty)
+   - Performance: R²=0.48, MAE=162.67
 
 2. **`scripts/run_two_stage_pipeline_kaggle.py`** (458 lines)
    - Loads both Stage 1 and Stage 2 models
@@ -217,7 +218,7 @@ Outputs (in `reports/two_stage_analysis/`):
 ## Troubleshooting
 
 ### Issue: Stage 1 model not loading
-**Solution:** Ensure `train_stage1_behavioral_kaggle.py` defines `BehavioralForecastingLSTM` class before loading checkpoint
+**Solution:** Ensure `train_stage1_behavioral_kaggle.py` defines `GRUModel` class (or loads from `two_stage_models.py`) before loading checkpoint
 
 ### Issue: Stage 2 expects different features
 **Solution:** Pipeline constructs Stage 2 input by filling missing features with means from past 6 days

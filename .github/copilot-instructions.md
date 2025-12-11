@@ -1,23 +1,32 @@
 # Mental Health Profiling System - AI Agent Instructions
 
 ## Project Overview
-Deep learning system for predicting mental health outcomes from behavioral data. Built for FDS university project, uses PyTorch LSTM/Transformer models on 1.5M+ synthetic Kaggle records. Main system: **generate_profile.py** (3,665 lines) - parses Google Form CSVs, predicts 8 mental health outcomes, generates HTML reports with interventions.
+Deep learning system for predicting mental health outcomes from behavioral data. Built for FDS university project. **Two architectures:**
+1. **Single-Stage (Original):** LSTM/Transformer on 1.5M+ synthetic Kaggle records → **generate_profile.py** (3,665 lines) parses Google Form CSVs, predicts 8 outcomes, generates HTML reports
+2. **Two-Stage Hybrid (NEW):** GRU (StudentLife real data) → LSTM (synthetic data) → **two_stage_models.py** combines real behavioral patterns with synthetic mental health inference
 
 ## Architecture & Data Flow
 
-### Core Pipeline
+### Single-Stage Pipeline (Original)
 ```
-Google Form CSV → parse_google_form_csv() → LSTM/Transformer → 8 predictions → HTML/JSON reports
+Google Form CSV → parse_google_form_csv() → Stage 2 LSTM/Transformer → 8 predictions → HTML/JSON reports
+```
+
+### Two-Stage Hybrid Pipeline (NEW)
+```
+Real Sensors → Stage 1 GRU (behavioral forecast) → Stage 2 LSTM (mental health inference) → 8 predictions with uncertainty
 ```
 
 **Key Components:**
 - **Input:** 17 behavioral features × 7 days (sleep, work hours, exercise, caffeine, screen time, etc.)
-- **Models:** `models/saved/mental_health_lstm.pt` - multi-task LSTM with 8 prediction heads
+- **Stage 1 Model:** `models/saved/best_behavioral_model.pt` - GRU (64 hidden, 2 layers) trained on StudentLife (R²=0.48, 49 students, 2,783 sequences)
+- **Stage 2 Model:** `models/saved/mental_health_lstm.pt` - multi-task LSTM (128 hidden, 2 layers) with 8 prediction heads trained on synthetic data (R²=0.98)
 - **Targets:** 4 daily (stress, mood, energy, focus) + 4 weekly (PSS, anxiety, depression, job_satisfaction)
 - **Config:** `config/job_categories.json`, `config/thresholds.json` - job mappings & clinical thresholds
 
 ### Critical Files
-- **Model Definition:** `scripts/model_definitions.py` - `MentalHealthPredictor` class (LSTM/GRU/Transformer encoders)
+- **Two-Stage Pipeline:** `scripts/two_stage_models.py` - `GRUModel` (Stage 1), `MentalHealthPredictor` (Stage 2 LSTM), `TwoStagePipeline` orchestrator
+- **Model Definition:** `scripts/model_definitions.py` - `MentalHealthPredictor` class (LSTM/GRU/Transformer encoders for single-stage)
 - **Profiling Engine:** `scripts/generate_profile.py` - end-to-end profile generation (parsing → prediction → HTML)
 - **Explanation Engine:** `scripts/explain_predictions.py` - SHAP-like feature contributions, recommendations
 - **History Manager:** `scripts/history_manager.py` - file-based daily tracking (`data/user_history/{user_id}/YYYY-MM-DD.json`)
