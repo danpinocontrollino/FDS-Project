@@ -57,6 +57,17 @@
       "action_value": 6.0
     }
   },
+  "amplification": {
+    "default_factor": 1.0,
+    "bins": [
+      { "threshold": 1.0, "factor": 1.0 },
+      { "threshold": 1.5, "factor": 1.2 },
+      { "threshold": 2.0, "factor": 1.4 },
+      { "threshold": 2.5, "factor": 1.6 },
+      { "threshold": 3.0, "factor": 1.8 }
+    ],
+    "inverted_target_midpoint_behavior": "midpoint_scale"
+  },
   "inverted_targets": [
     "mood_score",
     "energy_level",

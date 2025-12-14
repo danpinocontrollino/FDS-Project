@@ -356,20 +356,26 @@ def predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale, app
             if apply_amplification:
                 # Calculate extremity factor for demo amplification
                 z_scores = np.abs(normalized[-1])  # Last timestep
-                extremity = np.mean(z_scores)  # Average deviation from normal
-                
-                # Moderate amplification for demo purposes
-                if extremity > 2.5:
-                    amplification = 1.8
-                elif extremity > 2.0:
-                    amplification = 1.6
-                elif extremity > 1.5:
-                    amplification = 1.4
-                elif extremity > 1.0:
-                    amplification = 1.2
-                else:
-                    amplification = 1.0
-                
+                extremity = float(np.mean(z_scores))  # Average deviation from normal
+
+                # Load amplification bins from config if available
+                amp_cfg = (GLOBAL_THRESHOLDS or {}).get('amplification', {})
+                bins = amp_cfg.get('bins', [])
+                default_factor = float(amp_cfg.get('default_factor', 1.0))
+
+                # Determine amplification factor from bins (bins expected sorted by threshold asc.)
+                amplification = default_factor
+                try:
+                    for b in bins:
+                        th = float(b.get('threshold', 0))
+                        fac = float(b.get('factor', default_factor))
+                        if extremity > th:
+                            amplification = fac
+                        else:
+                            break
+                except Exception:
+                    amplification = default_factor
+
                 # For inverted targets (mood, energy), amplify distance from midpoint
                 if target in INVERTED_TARGETS:
                     midpoint = max_scale / 2.0
@@ -377,7 +383,7 @@ def predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale, app
                     value = midpoint + (deviation * amplification)
                     value = np.clip(value, 1.0, max_scale)
                 else:
-                    # For normal targets (stress, anxiety), amplify high values
+                    # For normal targets (stress, anxiety), amplify high/low values
                     lowpoint = max_scale * 0.25
                     highpoint = max_scale * 0.75
                     if raw_value > highpoint:
