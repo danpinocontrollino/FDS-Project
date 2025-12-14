@@ -33,7 +33,9 @@ import torch.nn as nn
 # CONFIGURATION
 # ============================================================================
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+from utils import get_project_root
+
+PROJECT_ROOT = get_project_root()
 MODEL_DIR = PROJECT_ROOT / "models" / "saved"
 RAW_DIR = PROJECT_ROOT / "data" / "raw"
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"

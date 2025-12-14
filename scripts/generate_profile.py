@@ -33,6 +33,9 @@ import pandas as pd
 import torch
 import torch.nn as nn
 
+# Robust project utilities
+from utils import get_project_root, get_config_path, get_model_path
+
 # Import explanation engine and model definitions
 from explain_predictions import ExplanationEngine, PredictionExplanation
 from model_definitions import MentalHealthPredictor
@@ -47,7 +50,7 @@ warnings.filterwarnings("ignore")
 # ============================================================================
 
 # Robust project paths (resolve relative to repository, not CWD)
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = get_project_root()
 MODEL_DIR = PROJECT_ROOT / "models" / "saved"
 OUTPUT_DIR = PROJECT_ROOT / "reports"
 DEFAULT_MODEL = MODEL_DIR / "mental_health_lstm.pt"

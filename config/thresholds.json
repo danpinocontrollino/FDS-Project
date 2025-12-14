@@ -41,6 +41,12 @@
       "inverted": true
     }
   },
+  "safety_thresholds": {
+    "sedentary_minutes_min": 15,
+    "caffeine_mg_max": 400,
+    "caffeine_sleep_quality_min": 7.5,
+    "energy_cap_sedentary": 6.0
+  },
   "inverted_targets": [
     "mood_score",
     "energy_level",

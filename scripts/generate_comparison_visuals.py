@@ -16,6 +16,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
 
+# Project utilities
+from utils import get_project_root
+
 # Set style
 sns.set_style("whitegrid")
 plt.rcParams['figure.figsize'] = (12, 6)
@@ -33,7 +36,7 @@ def load_synthetic_data():
     degrade gracefully and annotate the missing reference data.
     """
     try:
-        PROJECT_ROOT = Path(__file__).resolve().parent.parent
+        PROJECT_ROOT = get_project_root()
         df_path = PROJECT_ROOT / 'data' / 'processed' / 'daily_with_burnout.parquet'
         df = pd.read_parquet(df_path)
         print(f"✓ Loaded synthetic data: {df.shape}")
@@ -149,7 +152,7 @@ def plot_data_availability():
         ax2.text(i, val + 2, f'{val:.0f}%', ha='center', fontsize=12, fontweight='bold')
     
     plt.tight_layout()
-    PROJECT_ROOT = Path(__file__).resolve().parent.parent
+    PROJECT_ROOT = get_project_root()
     output_path = PROJECT_ROOT / 'reports' / 'comparison_data_availability.png'
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     print(f"✓ Saved: {output_path}")
@@ -212,7 +215,7 @@ def plot_feature_variance(df_synthetic):
             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
     
     plt.tight_layout()
-    PROJECT_ROOT = Path(__file__).resolve().parent.parent
+    PROJECT_ROOT = get_project_root()
     output_path = PROJECT_ROOT / 'reports' / 'comparison_feature_variance.png'
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     print(f"✓ Saved: {output_path}")

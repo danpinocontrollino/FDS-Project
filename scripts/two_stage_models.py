@@ -291,8 +291,14 @@ class TwoStagePipeline:
 # HELPER FUNCTIONS
 # ============================================================================
 
-def load_pipeline(gru_path='models/saved/best_behavioral_model.pt',
-                 lstm_path='models/saved/mental_health_lstm.pt'):
+from utils import get_project_root, get_model_path
+
+def load_pipeline(gru_path=None, lstm_path=None):
+    # Resolve default paths through project helper
+    if gru_path is None:
+        gru_path = str(get_project_root() / 'models' / 'saved' / 'best_behavioral_model.pt')
+    if lstm_path is None:
+        lstm_path = str(get_project_root() / 'models' / 'saved' / 'mental_health_lstm.pt')
     """
     Convenience function to load the two-stage pipeline
     

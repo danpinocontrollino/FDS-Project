@@ -66,7 +66,8 @@ from sklearn.preprocessing import StandardScaler
 
 PROCESSED_DIR = Path("data/processed")
 RAW_DIR = Path("data/raw")
-MODEL_DIR = Path("models/saved")
+from utils import get_project_root, get_model_path
+MODEL_DIR = get_project_root() / "models" / "saved"
 
 DAILY_PATH = PROCESSED_DIR / "daily_with_burnout.parquet"
 

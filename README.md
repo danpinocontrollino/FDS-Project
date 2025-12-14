@@ -23,6 +23,15 @@ pip install -r requirements.txt
 streamlit run demo_app.py
 ```
 
+## 🧪 Reproduction
+1. **Setup:** `pip install -r requirements.txt`
+2. **Demo:** `streamlit run demo_app.py`
+3. **Research:** See `reports/two_stage_analysis/` for pre-generated uncertainty plots.
+
+## ⚠️ Disclaimer
+This software provides **statistical inferences** based on synthetic and aggregate patterns. It is **not a diagnostic tool**. The "Sedentary Safety Layer" manually adjusts scores based on clinical heuristics (see `config/thresholds.json`).
+
+
 ### Generate Profile from CSV
 ```bash
 python scripts/generate_profile.py \

@@ -24,7 +24,9 @@ import numpy as np
 # CONFIGURATION
 # ============================================================================
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+from utils import get_project_root
+
+PROJECT_ROOT = get_project_root()
 PREDICTIONS_JSON = PROJECT_ROOT / "models" / "saved" / "two_stage_predictions.json"
 OUTPUT_DIR = PROJECT_ROOT / "reports" / "two_stage_html"
 

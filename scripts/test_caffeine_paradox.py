@@ -3,7 +3,8 @@ from pathlib import Path
 import pandas as pd
 
 # Ensure project root on path
-sys.path.append(str(Path(__file__).resolve().parent.parent))
+from utils import get_project_root
+sys.path.append(str(get_project_root()))
 from scripts.generate_profile import detect_contradictions
 
 

@@ -5,7 +5,8 @@ import torch
 
 # Ensure project root is on sys.path so demo_app can be imported when this
 # test is run from the scripts/ directory
-sys.path.append(str(Path(__file__).resolve().parent.parent))
+from utils import get_project_root
+sys.path.append(str(get_project_root()))
 from demo_app import predict_mental_health
 
 class MockModel:

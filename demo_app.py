@@ -31,6 +31,12 @@ import subprocess
 # Add scripts to path
 sys.path.append(str(Path(__file__).parent / "scripts"))
 
+# Project utilities (robust project-root helpers)
+from utils import get_project_root, get_config_path, get_model_path
+
+# Global holder for loaded thresholds (set in load_model_and_config)
+GLOBAL_THRESHOLDS = None
+
 # Import explanation engine and model definitions
 from explain_predictions import ExplanationEngine
 from model_definitions import MentalHealthPredictor
@@ -180,16 +186,10 @@ def load_model_and_config():
     metadata (feature ordering, scaler parameters) accompanies the model
     binary to prevent silent mismatches during interactive exploration.
     """
-    # Resolve project-root paths robustly: walk upwards until we find expected repo markers
-    candidate = Path(__file__).resolve().parent
-    PROJECT_ROOT = candidate
-    for _ in range(6):
-        if (candidate / "config").exists() and (candidate / "scripts").exists():
-            PROJECT_ROOT = candidate
-            break
-        candidate = candidate.parent
-    else:
-        # Fallback to file parent if markers not found
+    # Resolve project-root using centralized helper (searches for config/thresholds.json)
+    try:
+        PROJECT_ROOT = get_project_root()
+    except Exception:
         PROJECT_ROOT = Path(__file__).resolve().parent
 
     # Load job categories
@@ -201,6 +201,13 @@ def load_model_and_config():
     cfg_thresh = PROJECT_ROOT / "config" / "thresholds.json"
     with open(cfg_thresh, "r") as f:
         thresholds = json.load(f)
+
+    # Expose thresholds globally for other helpers (e.g., safety layer)
+    try:
+        global GLOBAL_THRESHOLDS
+        GLOBAL_THRESHOLDS = thresholds
+    except Exception:
+        pass
 
     # Load model (simplified version)
     model_path = PROJECT_ROOT / "models" / "saved" / "mental_health_lstm.pt"
@@ -384,16 +391,23 @@ def predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale, app
                 if hasattr(behavioral_data, "shape") and behavioral_data.shape[0] >= 1:
                     ex_minutes = float(behavioral_data[-1, EXERCISE_IDX])
 
-                if ex_minutes is not None and ex_minutes < 15:
+                # Use configured safety thresholds if available
+                safety_cfg = (GLOBAL_THRESHOLDS or {}).get('safety_thresholds', {})
+                sedentary_min = float(safety_cfg.get('sedentary_minutes_min', 15))
+                energy_cap = float(safety_cfg.get('energy_cap_sedentary', 6.0))
+                other_force_prob = float(safety_cfg.get('sedentary_force_other_prob', 0.85))
+                energy_force_prob = float(safety_cfg.get('sedentary_force_energy_prob', 0.95))
+
+                if ex_minutes is not None and ex_minutes < sedentary_min:
                     safety_reason = (
-                        f"Sedentary safety layer: last-day exercise {ex_minutes:.1f}min < 15min"
+                        f"Sedentary safety layer: last-day exercise {ex_minutes:.1f}min < {sedentary_min}min"
                     )
                     # Cap energy level conservatively
                     if 'energy_level' in predictions:
                         prev = predictions['energy_level']['value']
-                        predictions['energy_level']['value'] = min(prev, 6.0)
+                        predictions['energy_level']['value'] = min(prev, energy_cap)
                         predictions['energy_level']['at_risk_prob'] = max(
-                            predictions['energy_level'].get('at_risk_prob', 0.5), 0.95
+                            predictions['energy_level'].get('at_risk_prob', 0.5), energy_force_prob
                         )
                         predictions['energy_level']['safety_override'] = True
                         predictions['energy_level']['safety_reason'] = safety_reason
@@ -403,7 +417,7 @@ def predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale, app
                     for dtarget in ['stress_level', 'mood_score', 'energy_level', 'focus_score']:
                         if dtarget in predictions and dtarget != 'energy_level':
                             predictions[dtarget]['at_risk_prob'] = max(
-                                predictions[dtarget].get('at_risk_prob', 0.5), 0.85
+                                predictions[dtarget].get('at_risk_prob', 0.5), other_force_prob
                             )
                             predictions[dtarget]['safety_override'] = True
                             predictions[dtarget]['safety_reason'] = safety_reason
@@ -2280,9 +2294,29 @@ def main():
     if 'original_inputs' not in st.session_state:
         st.session_state.original_inputs = None
     
+    # Disclaimer: require explicit acknowledgement before loading models
+    if 'ack_disclaimer' not in st.session_state:
+        st.session_state['ack_disclaimer'] = False
+
+    if not st.session_state['ack_disclaimer']:
+        with st.sidebar.expander('⚠️ Demo Disclaimer (Required)', expanded=True):
+            st.markdown(
+                """
+                **This research demo is NOT a clinical tool.** Do not input real PII or
+                sensitive personal health data. Outputs are probabilistic and for
+                research/educational use only.
+                """
+            )
+            agree = st.checkbox("I understand this is a demo and will not input real sensitive data.")
+            if agree:
+                st.session_state['ack_disclaimer'] = True
+                st.experimental_rerun()
+            else:
+                st.stop()
+
     # Load model and config (now returns PROJECT_ROOT first)
     PROJECT_ROOT, job_config, thresholds, model, scaler_mean, scaler_scale = load_model_and_config()
-    
+
     if model is None:
         st.error("Failed to load model. Please check configuration.")
         st.stop()
@@ -2378,23 +2412,32 @@ def main():
             img2 = Path("reports/confrontation_dashboard/summary_dashboard.png")
             img3 = Path("reports/comparison_correlations.png")
 
-            if img1.exists() or img2.exists() or img3.exists():
-                st.markdown("---")
-                st.subheader("Research Snapshot")
-                cols = st.columns(3)
-                images = [img1, img2, img3]
-                captions = [
-                    "Two-Stage Pipeline Summary",
-                    "Confrontation Summary Dashboard",
-                    "Correlation Comparison"
-                ]
+            show_images = st.button("Show Research Images")
+            if 'show_research_images' not in st.session_state:
+                st.session_state['show_research_images'] = False
+            if show_images:
+                st.session_state['show_research_images'] = True
 
-                for col, img, cap in zip(cols, images, captions):
-                    with col:
-                        if img.exists():
-                            st.image(str(img), caption=cap, use_container_width=True)
-                        else:
-                            st.write(f"Missing: {img}")
+            if st.session_state['show_research_images']:
+                if img1.exists() or img2.exists() or img3.exists():
+                    st.markdown("---")
+                    st.subheader("Research Snapshot")
+                    cols = st.columns(3)
+                    images = [img1, img2, img3]
+                    captions = [
+                        "Two-Stage Pipeline Summary",
+                        "Confrontation Summary Dashboard",
+                        "Correlation Comparison"
+                    ]
+
+                    for col, img, cap in zip(cols, images, captions):
+                        with col:
+                            if img.exists():
+                                st.image(str(img), caption=cap, use_container_width=True)
+                            else:
+                                st.write(f"Missing: {img}")
+                else:
+                    st.info("No research images found in reports directories.")
 
         # Two-Stage Pipeline: detailed explorer
         with tabs[1]:
@@ -2576,8 +2619,8 @@ def main():
         col1, col2 = st.columns(2)
         with col1:
             st.image("https://via.placeholder.com/300x200?text=Stage+2+LSTM", caption="Multi-Task LSTM Model (Stage 2: Mental Health Inference)")
-        wif __name__ == "__main__":
-ith col2:
+        with col2:
             st.image("https://via.placeholder.com/300x200?text=Training+Data", caption="1.5M+ Training Records")
 
-    main()
+    if __name__ == "__main__":
+        main()

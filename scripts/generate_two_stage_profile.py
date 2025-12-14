@@ -45,7 +45,8 @@ warnings.filterwarnings("ignore")
 # CONFIGURATION
 # ============================================================================
 
-MODEL_DIR = Path("models/saved")
+from utils import get_project_root, get_model_path
+MODEL_DIR = get_project_root() / "models" / "saved"
 OUTPUT_DIR = Path("reports/two_stage_profiles")
 STAGE1_MODEL = MODEL_DIR / "stage1_behavioral_forecasting.pt"
 STAGE2_MODEL = MODEL_DIR / "mental_health_lstm.pt"

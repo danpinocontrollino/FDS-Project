@@ -47,7 +47,9 @@ warnings.filterwarnings("ignore")
 # ============================================================================
 
 # Robust project paths (resolve relative to repository, not CWD)
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+from utils import get_project_root
+
+PROJECT_ROOT = get_project_root()
 MODEL_DIR = PROJECT_ROOT / "models" / "saved"
 OUTPUT_DIR = PROJECT_ROOT / "reports"
 DEFAULT_MODEL = MODEL_DIR / "mental_health_lstm.pt"

@@ -33,7 +33,9 @@ import torch.nn as nn
 # CONFIGURATION
 # ============================================================================
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+from utils import get_project_root, get_config_path, get_model_path
+
+PROJECT_ROOT = get_project_root()
 MODEL_DIR = PROJECT_ROOT / "models" / "saved"
 RAW_DIR = PROJECT_ROOT / "data" / "raw"
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
@@ -272,6 +274,23 @@ def predict(model: MentalHealthPredictor, sequence: np.ndarray, stats: dict) -> 
     # ensures predictions align with evidence-based guidelines.
     # =========================================================================
     try:
+        # Load safety thresholds from config if available
+        cfg_path = PROJECT_ROOT / "config" / "thresholds.json"
+        safety_cfg = {}
+        if cfg_path.exists():
+            try:
+                import json
+
+                with open(cfg_path, "r") as f:
+                    cfg_all = json.load(f)
+                    safety_cfg = cfg_all.get("safety_thresholds", {})
+            except Exception:
+                safety_cfg = {}
+        else:
+            safety_cfg = {}
+
+        sedentary_min = float(safety_cfg.get("sedentary_minutes_min", 15))
+        energy_cap_cfg = float(safety_cfg.get("energy_cap_sedentary", 6.0))
         # Locate exercise_minutes in the feature columns (index 7 by default)
         feature_cols = stats.get("feature_cols", FEATURE_COLS)
         if "exercise_minutes" in feature_cols:
@@ -292,26 +311,26 @@ def predict(model: MentalHealthPredictor, sequence: np.ndarray, stats: dict) -> 
         else:
             ex_minutes = None
         
-        if ex_minutes is not None and ex_minutes < 15:
+        if ex_minutes is not None and ex_minutes < sedentary_min:
             safety_reason = (
-                f"Sedentary safety layer triggered: exercise={ex_minutes:.1f}min/day < 15min threshold. "
+                f"Sedentary safety layer triggered: exercise={ex_minutes:.1f}min/day < {sedentary_min}min threshold. "
                 "WHO guidelines recommend minimum 150min/week of moderate activity."
             )
-            
-            # Cap energy_level at 6.0 (cannot be "high energy" while sedentary)
+
+            # Cap energy_level at configured cap (cannot be "high energy" while sedentary)
             if "energy_level" in results:
                 original_energy = results["energy_level"]["value"]
-                results["energy_level"]["value"] = min(original_energy, 6.0)
+                results["energy_level"]["value"] = min(original_energy, energy_cap_cfg)
                 results["energy_level"]["at_risk"] = True
                 results["energy_level"]["safety_override"] = True
                 results["energy_level"]["safety_reason"] = safety_reason
-            
+
             # Force at_risk for mood_score when sedentary (exercise-mood link)
             if "mood_score" in results:
                 results["mood_score"]["at_risk"] = True
                 results["mood_score"]["safety_override"] = True
                 results["mood_score"]["safety_reason"] = safety_reason
-            
+
             # Elevate depression risk (strong evidence for exercise-depression link)
             if "depression_score" in results:
                 results["depression_score"]["at_risk"] = True

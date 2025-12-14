@@ -2,8 +2,8 @@
 # FDS Project - University
 
 # Core Deep Learning
-torch==2.1.0
-torchvision==0.16.0
+torch==2.2.0
+torchvision==0.17.0
 
 # Data Processing
 pandas==2.1.3
