@@ -1,4 +1,10 @@
 {
+  "safety_thresholds": {
+    "sedentary_minutes_min": 15,
+    "caffeine_mg_max": 400,
+    "caffeine_sleep_quality_min": 7.5,
+    "energy_cap_sedentary": 6.0
+  },
   "at_risk_thresholds": {
     "perceived_stress_scale": {
       "threshold": 20,
@@ -40,6 +46,27 @@
       "description": "Focus <4 indicates poor concentration (1-10 scale)",
       "inverted": true
     }
+  },
+  "safety_overrides": {
+    "sedentary_energy_cap": {
+      "condition_feature": "exercise_minutes",
+      "condition_operator": "lt",
+      "condition_value": 20,
+      "target_metric": "energy_level",
+      "action": "cap",
+      "action_value": 6.0
+    }
+  },
+  "amplification": {
+    "default_factor": 1.0,
+    "bins": [
+      { "threshold": 1.0, "factor": 1.0 },
+      { "threshold": 1.5, "factor": 1.2 },
+      { "threshold": 2.0, "factor": 1.4 },
+      { "threshold": 2.5, "factor": 1.6 },
+      { "threshold": 3.0, "factor": 1.8 }
+    ],
+    "inverted_target_midpoint_behavior": "midpoint_scale"
   },
   "inverted_targets": [
     "mood_score",

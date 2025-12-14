@@ -28,10 +28,25 @@ import json
 import sys
 import subprocess
 
-# Add scripts to path
-sys.path.append(str(Path(__file__).parent / "scripts"))
+# Robust project-root helpers and import path setup
+from scripts.utils import get_project_root, add_project_root_to_sys_path
 
-# Import model definition
+# Ensure project root is on sys.path for reliable imports
+add_project_root_to_sys_path()
+
+# Base dir for file operations
+BASE_DIR = get_project_root()
+CONFIG_DIR = BASE_DIR / "config"
+MODEL_DIR = BASE_DIR / "models" / "saved"
+MODEL_PATH = BASE_DIR / "models" / "saved" / "mental_health_lstm.pt"
+
+# Global holder for loaded thresholds (set in load_model_and_config)
+GLOBAL_THRESHOLDS = None
+# Global feature name -> index mapping (populated in load_model_and_config)
+GLOBAL_FEATURE_INDEX = {}
+
+# Import explanation engine and model definitions
+from explain_predictions import ExplanationEngine
 from model_definitions import MentalHealthPredictor
 
 # Import two-stage pipeline with GRU
@@ -179,30 +194,31 @@ def load_model_and_config():
     metadata (feature ordering, scaler parameters) accompanies the model
     binary to prevent silent mismatches during interactive exploration.
     """
-    # Resolve project-root paths robustly: walk upwards until we find expected repo markers
-    candidate = Path(__file__).resolve().parent
-    PROJECT_ROOT = candidate
-    for _ in range(6):
-        if (candidate / "config").exists() and (candidate / "scripts").exists():
-            PROJECT_ROOT = candidate
-            break
-        candidate = candidate.parent
-    else:
-        # Fallback to file parent if markers not found
+    # Resolve project-root using centralized helper (searches for config/thresholds.json)
+    try:
+        PROJECT_ROOT = get_project_root()
+    except Exception:
         PROJECT_ROOT = Path(__file__).resolve().parent
 
-    # Load job categories
-    cfg_job = PROJECT_ROOT / "config" / "job_categories.json"
+    # Load job categories (project-root relative via CONFIG_DIR)
+    cfg_job = CONFIG_DIR / "job_categories.json"
     with open(cfg_job, "r") as f:
         job_config = json.load(f)
 
     # Load thresholds
-    cfg_thresh = PROJECT_ROOT / "config" / "thresholds.json"
+    cfg_thresh = CONFIG_DIR / "thresholds.json"
     with open(cfg_thresh, "r") as f:
         thresholds = json.load(f)
 
+    # Expose thresholds globally for other helpers (e.g., safety layer)
+    try:
+        global GLOBAL_THRESHOLDS
+        GLOBAL_THRESHOLDS = thresholds
+    except Exception:
+        pass
+
     # Load model (simplified version)
-    model_path = PROJECT_ROOT / "models" / "saved" / "mental_health_lstm.pt"
+    model_path = MODEL_DIR / "mental_health_lstm.pt"
     
     try:
         checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
@@ -228,6 +244,14 @@ def load_model_and_config():
         
         scaler_mean = checkpoint.get("scaler_mean", np.zeros(num_features))
         scaler_scale = checkpoint.get("scaler_std", np.ones(num_features))
+
+        # Populate global feature name -> index map for safety rules
+        feature_cols = checkpoint.get('feature_cols', []) or []
+        try:
+            global GLOBAL_FEATURE_INDEX
+            GLOBAL_FEATURE_INDEX = {name: idx for idx, name in enumerate(feature_cols)}
+        except Exception:
+            GLOBAL_FEATURE_INDEX = {}
         
         # Scaling Integrity Verification:
         # I load the exact mean/std arrays computed during training to ensure
@@ -389,16 +413,23 @@ def predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale, app
                 if hasattr(behavioral_data, "shape") and behavioral_data.shape[0] >= 1:
                     ex_minutes = float(behavioral_data[-1, EXERCISE_IDX])
 
-                if ex_minutes is not None and ex_minutes < 15:
+                # Use configured safety thresholds if available
+                safety_cfg = (GLOBAL_THRESHOLDS or {}).get('safety_thresholds', {})
+                sedentary_min = float(safety_cfg.get('sedentary_minutes_min', 15))
+                energy_cap = float(safety_cfg.get('energy_cap_sedentary', 6.0))
+                other_force_prob = float(safety_cfg.get('sedentary_force_other_prob', 0.85))
+                energy_force_prob = float(safety_cfg.get('sedentary_force_energy_prob', 0.95))
+
+                if ex_minutes is not None and ex_minutes < sedentary_min:
                     safety_reason = (
-                        f"Sedentary safety layer: last-day exercise {ex_minutes:.1f}min < 15min"
+                        f"Sedentary safety layer: last-day exercise {ex_minutes:.1f}min < {sedentary_min}min"
                     )
                     # Cap energy level conservatively
                     if 'energy_level' in predictions:
                         prev = predictions['energy_level']['value']
-                        predictions['energy_level']['value'] = min(prev, 6.0)
+                        predictions['energy_level']['value'] = min(prev, energy_cap)
                         predictions['energy_level']['at_risk_prob'] = max(
-                            predictions['energy_level'].get('at_risk_prob', 0.5), 0.95
+                            predictions['energy_level'].get('at_risk_prob', 0.5), energy_force_prob
                         )
                         predictions['energy_level']['safety_override'] = True
                         predictions['energy_level']['safety_reason'] = safety_reason
@@ -408,12 +439,162 @@ def predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale, app
                     for dtarget in ['stress_level', 'mood_score', 'energy_level', 'focus_score']:
                         if dtarget in predictions and dtarget != 'energy_level':
                             predictions[dtarget]['at_risk_prob'] = max(
-                                predictions[dtarget].get('at_risk_prob', 0.5), 0.85
+                                predictions[dtarget].get('at_risk_prob', 0.5), other_force_prob
                             )
                             predictions[dtarget]['safety_override'] = True
                             predictions[dtarget]['safety_reason'] = safety_reason
         except Exception:
             # Safety layer must not break prediction flow; swallow errors
+            pass
+
+        # ------------------------------------------------------------------
+        # Generic Clinical Safety Overrides Engine
+        # Applies rules declared in `thresholds.json` -> `safety_overrides`.
+        # Supports simple conditions (lt, le, gt, ge, eq) and actions like
+        # 'cap' which limits a target's reported value.
+        # ------------------------------------------------------------------
+        try:
+            safety_overrides = (GLOBAL_THRESHOLDS or {}).get('safety_overrides', {})
+            for name, rule in safety_overrides.items():
+                # Read rule components
+                cond_feat = rule.get('condition_feature')
+                cond_op = rule.get('condition_operator', 'lt')
+                cond_val = float(rule.get('condition_value', 0))
+                target_metric = rule.get('target_metric')
+                action = rule.get('action')
+                action_val = float(rule.get('action_value', 0)) if rule.get('action_value') is not None else None
+
+                # Map feature name -> index (fallback to known defaults)
+                feat_idx = GLOBAL_FEATURE_INDEX.get(cond_feat)
+                if feat_idx is None:
+                    # Common fallback mapping (keeps compatibility with older demos)
+                    fallback = {'exercise_minutes': 7}
+                    feat_idx = fallback.get(cond_feat)
+
+                if feat_idx is None:
+                    continue
+
+                # Read the most recent day's value conservatively (last row)
+                if hasattr(behavioral_data, 'shape') and behavioral_data.shape[1] > feat_idx:
+                    try:
+                        feat_value = float(behavioral_data[-1, feat_idx])
+                    except Exception:
+                        feat_value = None
+                else:
+                    feat_value = None
+
+                if feat_value is None:
+                    continue
+
+                # Evaluate condition
+                cond_met = False
+                if cond_op == 'lt' and feat_value < cond_val:
+                    cond_met = True
+                elif cond_op == 'le' and feat_value <= cond_val:
+                    cond_met = True
+                elif cond_op == 'gt' and feat_value > cond_val:
+                    cond_met = True
+                elif cond_op == 'ge' and feat_value >= cond_val:
+                    cond_met = True
+                elif cond_op == 'eq' and feat_value == cond_val:
+                    cond_met = True
+
+                if not cond_met:
+                    continue
+
+                # Apply action
+                if action == 'cap' and target_metric in predictions and action_val is not None:
+                    prev = predictions[target_metric]['value']
+                    # Only reduce values (conservative)
+                    predictions[target_metric]['value'] = min(prev, action_val)
+                    predictions[target_metric]['safety_override'] = True
+                    predictions[target_metric]['safety_reason'] = (
+                        f"Safety override {name}: {cond_feat} {cond_op} {cond_val} -> {action} {action_val}"
+                    )
+        except Exception:
+            # Safety engine must not break prediction flow
+            pass
+
+        # --- SAFETY LAYER: Clinical Overrides (explicit, urgent fixes) ---
+        try:
+            # Determine indices (prefer feature-name mapping if available)
+            ex_idx = GLOBAL_FEATURE_INDEX.get('exercise_minutes', 7)
+            caf_idx = GLOBAL_FEATURE_INDEX.get('caffeine_mg', 9)
+
+            # Use the first day's values conservatively (index 0)
+            if hasattr(behavioral_data, 'shape') and behavioral_data.shape[1] > max(ex_idx, caf_idx):
+                try:
+                    first_ex = float(behavioral_data[0, ex_idx])
+                except Exception:
+                    first_ex = None
+                try:
+                    first_caf = float(behavioral_data[0, caf_idx])
+                except Exception:
+                    first_caf = None
+
+                # Sedentary cap: if exercise < configured threshold, cap energy
+                sedentary_min = (GLOBAL_THRESHOLDS or {}).get('safety_thresholds', {}).get('sedentary_minutes_min', 15)
+                energy_cap = (GLOBAL_THRESHOLDS or {}).get('safety_thresholds', {}).get('energy_cap_sedentary', 6.0)
+                if first_ex is not None and first_ex < float(sedentary_min):
+                    if 'energy_level' in predictions and predictions['energy_level']['value'] > float(energy_cap):
+                        predictions['energy_level']['value'] = float(energy_cap)
+                        predictions['energy_level']['safety_override'] = True
+                        predictions['energy_level']['safety_reason'] = (
+                            f"Sedentary safety cap applied: first-day exercise {first_ex:.1f}min < {sedentary_min}min"
+                        )
+
+                # Caffeine paradox: if caffeine high, ensure anxiety not artificially low
+                caffeine_max = (GLOBAL_THRESHOLDS or {}).get('safety_thresholds', {}).get('caffeine_mg_max', 400)
+                anxiety_min = (GLOBAL_THRESHOLDS or {}).get('safety_thresholds', {}).get('anxiety_min_when_high_caffeine', 4.0)
+                if first_caf is not None and first_caf > float(caffeine_max):
+                    if 'anxiety_score' in predictions and predictions['anxiety_score']['value'] < float(anxiety_min):
+                        predictions['anxiety_score']['value'] = float(anxiety_min)
+                        predictions['anxiety_score']['safety_override'] = True
+                        predictions['anxiety_score']['safety_reason'] = (
+                            f"Caffeine safety applied: caffeine {first_caf:.0f}mg > {caffeine_max}mg"
+                        )
+        except Exception:
+            pass
+
+        # --- ADDITIONAL AVERAGE-BASED SAFETY CHECKS ---
+        try:
+            seq = behavioral_data
+            # If a batch dimension exists (1, days, features), remove it
+            if hasattr(seq, 'ndim') and seq.ndim == 3:
+                seq = seq[0]
+
+            # Only proceed if we have a 2D array [days, features]
+            if hasattr(seq, 'shape') and len(seq.shape) == 2:
+                sleep_idx = GLOBAL_FEATURE_INDEX.get('sleep_quality', 1)
+                # compute averages across the sequence
+                avg_exercise = float(np.mean(seq[:, ex_idx]))
+                avg_caffeine = float(np.mean(seq[:, caf_idx]))
+                avg_sleep_qual = float(np.mean(seq[:, sleep_idx]))
+
+                sedentary_min = (GLOBAL_THRESHOLDS or {}).get('safety_thresholds', {}).get('sedentary_minutes_min', 15)
+                energy_cap = (GLOBAL_THRESHOLDS or {}).get('safety_thresholds', {}).get('energy_cap_sedentary', 6.0)
+                caffeine_max = (GLOBAL_THRESHOLDS or {}).get('safety_thresholds', {}).get('caffeine_mg_max', 400)
+                caffeine_sleep_qmin = (GLOBAL_THRESHOLDS or {}).get('safety_thresholds', {}).get('caffeine_sleep_quality_min', 7.5)
+                anxiety_min = (GLOBAL_THRESHOLDS or {}).get('safety_thresholds', {}).get('anxiety_min_when_high_caffeine', 4.0)
+
+                # Sedentary cap based on sequence average
+                if avg_exercise < float(sedentary_min):
+                    if 'energy_level' in predictions and predictions['energy_level']['value'] > float(energy_cap):
+                        predictions['energy_level']['value'] = float(energy_cap)
+                        predictions['energy_level']['safety_override'] = True
+                        predictions['energy_level']['safety_reason'] = (
+                            f"Sedentary safety cap applied (avg): avg_exercise {avg_exercise:.1f}min < {sedentary_min}min"
+                        )
+
+                # Caffeine paradox using averages
+                if avg_caffeine > float(caffeine_max) and avg_sleep_qual > float(caffeine_sleep_qmin):
+                    if 'anxiety_score' in predictions and predictions['anxiety_score']['value'] < float(anxiety_min):
+                        predictions['anxiety_score']['value'] = float(anxiety_min)
+                        predictions['anxiety_score']['safety_override'] = True
+                        predictions['anxiety_score']['safety_reason'] = (
+                            f"Caffeine safety applied (avg): avg_caffeine {avg_caffeine:.0f}mg > {caffeine_max}mg"
+                        )
+        except Exception:
             pass
 
         return predictions
@@ -922,11 +1103,13 @@ def render_what_if_simulator(predictions, inputs, model, scaler_mean, scaler_sca
             target_options,
             format_func=lambda x: x.replace('_', ' ').title()
         )
-        
+
         if selected_target in predictions:
             current_value = predictions[selected_target]['value']
-            max_scale = TARGET_SCALES.get(selected_target, 10)
-            st.info(f"Current: **{current_value:.1f}/{max_scale}**")
+            # Normalize for display (ensure consistent 1-10 units)
+            norm_current = normalize_to_1_10(current_value, selected_target)
+            max_scale = 10.0
+            st.info(f"Current: **{norm_current:.2f}/{max_scale}**")
     
     with col2:
         # Select behavior to modify
@@ -1072,27 +1255,35 @@ def render_what_if_simulator(predictions, inputs, model, scaler_mean, scaler_sca
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                st.metric("Current", f"{current_value:.2f}", help="Based on current behaviors")
+                # Show normalized current value
+                norm_current = normalize_to_1_10(current_value, selected_target)
+                st.metric("Current", f"{norm_current:.2f}/10", help="Based on current behaviors")
             
             with col2:
                 # Determine if change is good or bad
+                # Normalize both current and new predictions before showing delta
+                norm_current = normalize_to_1_10(current_value, selected_target)
+                norm_new = normalize_to_1_10(new_value, selected_target)
+                norm_change = norm_new - norm_current
+
                 is_inverted = selected_target in INVERTED_TARGETS
-                is_improvement = (prediction_change > 0 and is_inverted) or (prediction_change < 0 and not is_inverted)
+                is_improvement = (norm_change > 0 and is_inverted) or (norm_change < 0 and not is_inverted)
                 delta_color = "normal" if is_improvement else "inverse"
-                
-                st.metric("New Prediction", f"{new_value:.2f}", 
-                         delta=f"{prediction_change:+.2f}",
+
+                st.metric("New Prediction", f"{norm_new:.2f}/10", 
+                         delta=f"{norm_change:+.2f}",
                          delta_color=delta_color)
             
             with col3:
-                impact_magnitude = abs(prediction_change)
+                # Use normalized change to compute impact magnitude
+                impact_magnitude = abs(norm_change)
                 if impact_magnitude < 0.5:
                     impact_label = "Minimal"
                 elif impact_magnitude < 1.5:
                     impact_label = "Moderate"
                 else:
                     impact_label = "Significant"
-                st.metric("Impact", impact_label, delta=f"{prediction_change:+.2f} pts")
+                st.metric("Impact", impact_label, delta=f"{norm_change:+.2f} pts")
             
             # Visual feedback
             st.markdown("")
@@ -2285,9 +2476,29 @@ def main():
     if 'original_inputs' not in st.session_state:
         st.session_state.original_inputs = None
     
+    # Disclaimer: require explicit acknowledgement before loading models
+    if 'ack_disclaimer' not in st.session_state:
+        st.session_state['ack_disclaimer'] = False
+
+    if not st.session_state['ack_disclaimer']:
+        with st.sidebar.expander('⚠️ Demo Disclaimer (Required)', expanded=True):
+            st.markdown(
+                """
+                **This research demo is NOT a clinical tool.** Do not input real PII or
+                sensitive personal health data. Outputs are probabilistic and for
+                research/educational use only.
+                """
+            )
+            agree = st.checkbox("I understand this is a demo and will not input real sensitive data.")
+            if agree:
+                st.session_state['ack_disclaimer'] = True
+                st.experimental_rerun()
+            else:
+                st.stop()
+
     # Load model and config (now returns PROJECT_ROOT first)
     PROJECT_ROOT, job_config, thresholds, model, scaler_mean, scaler_scale = load_model_and_config()
-    
+
     if model is None:
         st.error("Failed to load model. Please check configuration.")
         st.stop()
@@ -2383,23 +2594,32 @@ def main():
             img2 = Path("reports/confrontation_dashboard/summary_dashboard.png")
             img3 = Path("reports/comparison_correlations.png")
 
-            if img1.exists() or img2.exists() or img3.exists():
-                st.markdown("---")
-                st.subheader("Research Snapshot")
-                cols = st.columns(3)
-                images = [img1, img2, img3]
-                captions = [
-                    "Two-Stage Pipeline Summary",
-                    "Confrontation Summary Dashboard",
-                    "Correlation Comparison"
-                ]
+            show_images = st.button("Show Research Images")
+            if 'show_research_images' not in st.session_state:
+                st.session_state['show_research_images'] = False
+            if show_images:
+                st.session_state['show_research_images'] = True
 
-                for col, img, cap in zip(cols, images, captions):
-                    with col:
-                        if img.exists():
-                            st.image(str(img), caption=cap, use_container_width=True)
-                        else:
-                            st.write(f"Missing: {img}")
+            if st.session_state['show_research_images']:
+                if img1.exists() or img2.exists() or img3.exists():
+                    st.markdown("---")
+                    st.subheader("Research Snapshot")
+                    cols = st.columns(3)
+                    images = [img1, img2, img3]
+                    captions = [
+                        "Two-Stage Pipeline Summary",
+                        "Confrontation Summary Dashboard",
+                        "Correlation Comparison"
+                    ]
+
+                    for col, img, cap in zip(cols, images, captions):
+                        with col:
+                            if img.exists():
+                                st.image(str(img), caption=cap, use_container_width=True)
+                            else:
+                                st.write(f"Missing: {img}")
+                else:
+                    st.info("No research images found in reports directories.")
 
         # Two-Stage Pipeline: detailed explorer
         with tabs[1]:
@@ -2482,6 +2702,16 @@ def main():
                 "🛡️ **Safety Layer Active**: Some predictions were adjusted based on "
                 "evidence-based safety rules. See the affected metrics below for details."
             )
+            # Show detailed reasons for safety overrides per metric
+            with st.expander("View safety overrides details", expanded=False):
+                for t, p in safety_overrides:
+                    reason = p.get('safety_reason') or p.get('override') or 'Adjusted by safety layer'
+                    val = p.get('value')
+                    try:
+                        val_str = f" — New value: {float(val):.1f}"
+                    except Exception:
+                        val_str = ""
+                    st.markdown(f"- **{t}**: {reason}{val_str}")
         
         # Render results
         render_predictions(predictions, thresholds)
@@ -2568,9 +2798,9 @@ def main():
         st.markdown("""
         1. **Input**: Enter 7-day average behavioral data (sleep, work, exercise, etc.)
         2. **Model**: Stage 2 LSTM with 2 layers (128 hidden dims) processes the sequence
-        3. **Output**: 8 mental health predictions in <100ms
-        4. **Analysis**: Automatic risk assessment and personalized advice
-        
+        3. **Output**: 8  risk assessment and personalized advice
+        mental health predictions in <100ms
+        4. **Analysis**: Automatic
         **Model Performance:**
         - Job Satisfaction: 98.5% accuracy
         - Depression: 98% accuracy
@@ -2584,5 +2814,5 @@ def main():
         with col2:
             st.image("https://via.placeholder.com/300x200?text=Training+Data", caption="1.5M+ Training Records")
 
-if __name__ == "__main__":
-    main()
+    if __name__ == "__main__":
+        main()

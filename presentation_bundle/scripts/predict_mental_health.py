@@ -33,7 +33,7 @@ import torch.nn as nn
 # CONFIGURATION
 # ============================================================================
 
-from utils import get_project_root
+from utils import get_project_root, get_config_path, get_model_path
 
 PROJECT_ROOT = get_project_root()
 MODEL_DIR = PROJECT_ROOT / "models" / "saved"
@@ -79,6 +79,31 @@ TARGET_LABELS = {
     "depression_score": "Depression Score",
     "job_satisfaction": "Job Satisfaction",
 }
+
+# Original target ranges used for normalization to 1-10
+TARGET_RANGES = {
+    "stress_level": (0, 10),
+    "mood_score": (0, 10),
+    "energy_level": (0, 10),
+    "focus_score": (0, 10),
+    "perceived_stress_scale": (0, 40),
+    "anxiety_score": (0, 21),
+    "depression_score": (0, 27),
+    "job_satisfaction": (0, 10),
+}
+
+
+def normalize_to_1_10(value: float, target: str) -> float:
+    """Normalize a raw prediction to a 1-10 scale using TARGET_RANGES."""
+    min_val, max_val = TARGET_RANGES.get(target, (0, 10))
+    try:
+        clamped = max(min_val, min(max_val, float(value)))
+    except Exception:
+        return 5.5
+    if max_val == min_val:
+        return 5.5
+    normalized = 1.0 + (clamped - min_val) / (max_val - min_val) * 9.0
+    return round(normalized, 2)
 
 
 # ============================================================================
@@ -244,20 +269,34 @@ def predict(model: MentalHealthPredictor, sequence: np.ndarray, stats: dict) -> 
     
     for target in stats.get("targets", ALL_TARGETS):
         reg_pred, cls_logit = outputs[target]
-        value = reg_pred.item()
+        value_raw = reg_pred.item()
+
+        # --- NORMALIZATION FIX ---
+        # Force raw regression value to 0-10 scale for consistency
+        # with Demo/Reports (clamps values that exceed expected ranges).
+        value_raw = max(0.0, min(10.0, value_raw))
+        # -------------------------
+
         risk_prob = torch.sigmoid(cls_logit).item()
-        
-        threshold = thresholds.get(target, 5)
+
+        # Normalize the raw prediction to 1-10 for consistent reporting
+        value = normalize_to_1_10(value_raw, target)
+
+        # Also normalize threshold for comparison (if available)
+        threshold_raw = thresholds.get(target, 5)
+        norm_threshold = normalize_to_1_10(threshold_raw, target)
+
         if target in INVERTED_TARGETS:
-            at_risk = value <= threshold
+            at_risk = value <= norm_threshold
         else:
-            at_risk = value >= threshold
-        
+            at_risk = value >= norm_threshold
+
         results[target] = {
             "value": value,
+            "raw_value": value_raw,
             "risk_prob": risk_prob,
             "at_risk": at_risk,
-            "threshold": threshold,
+            "threshold": norm_threshold,
         }
     
     # =========================================================================
@@ -274,6 +313,23 @@ def predict(model: MentalHealthPredictor, sequence: np.ndarray, stats: dict) -> 
     # ensures predictions align with evidence-based guidelines.
     # =========================================================================
     try:
+        # Load safety thresholds from config if available
+        cfg_path = PROJECT_ROOT / "config" / "thresholds.json"
+        safety_cfg = {}
+        if cfg_path.exists():
+            try:
+                import json
+
+                with open(cfg_path, "r") as f:
+                    cfg_all = json.load(f)
+                    safety_cfg = cfg_all.get("safety_thresholds", {})
+            except Exception:
+                safety_cfg = {}
+        else:
+            safety_cfg = {}
+
+        sedentary_min = float(safety_cfg.get("sedentary_minutes_min", 15))
+        energy_cap_cfg = float(safety_cfg.get("energy_cap_sedentary", 6.0))
         # Locate exercise_minutes in the feature columns (index 7 by default)
         feature_cols = stats.get("feature_cols", FEATURE_COLS)
         if "exercise_minutes" in feature_cols:
@@ -294,26 +350,26 @@ def predict(model: MentalHealthPredictor, sequence: np.ndarray, stats: dict) -> 
         else:
             ex_minutes = None
         
-        if ex_minutes is not None and ex_minutes < 15:
+        if ex_minutes is not None and ex_minutes < sedentary_min:
             safety_reason = (
-                f"Sedentary safety layer triggered: exercise={ex_minutes:.1f}min/day < 15min threshold. "
+                f"Sedentary safety layer triggered: exercise={ex_minutes:.1f}min/day < {sedentary_min}min threshold. "
                 "WHO guidelines recommend minimum 150min/week of moderate activity."
             )
-            
-            # Cap energy_level at 6.0 (cannot be "high energy" while sedentary)
+
+            # Cap energy_level at configured cap (cannot be "high energy" while sedentary)
             if "energy_level" in results:
                 original_energy = results["energy_level"]["value"]
-                results["energy_level"]["value"] = min(original_energy, 6.0)
+                results["energy_level"]["value"] = min(original_energy, energy_cap_cfg)
                 results["energy_level"]["at_risk"] = True
                 results["energy_level"]["safety_override"] = True
                 results["energy_level"]["safety_reason"] = safety_reason
-            
+
             # Force at_risk for mood_score when sedentary (exercise-mood link)
             if "mood_score" in results:
                 results["mood_score"]["at_risk"] = True
                 results["mood_score"]["safety_override"] = True
                 results["mood_score"]["safety_reason"] = safety_reason
-            
+
             # Elevate depression risk (strong evidence for exercise-depression link)
             if "depression_score" in results:
                 results["depression_score"]["at_risk"] = True
@@ -325,6 +381,79 @@ def predict(model: MentalHealthPredictor, sequence: np.ndarray, stats: dict) -> 
         pass
     
     return results
+
+
+def predict_mental_health(model, input_seq, input_features_dict, config_path=None):
+    """
+    Predicts mental health scores with Safety Layer and 0-10 Normalization.
+    """
+    import json
+    from scripts.utils import get_project_root
+
+    # 1. Load Safety Config
+    cfg_path = config_path or (get_project_root() / "config" / "thresholds.json")
+    try:
+        with open(cfg_path, 'r') as f:
+            thresholds = json.load(f).get("safety_thresholds", {})
+    except Exception:
+        thresholds = {}
+
+    # 2. Run Model Inference
+    model.eval()
+    with torch.no_grad():
+        raw_preds = model(input_seq)
+
+    final_preds = {}
+
+    # 3. Process & Normalize Outputs (0-10 Scale)
+    for k, v in raw_preds.items():
+        # Handle tensor or tuple outputs
+        if isinstance(v, tuple) or isinstance(v, list):
+            reg = v[0]
+            val = reg.item() if hasattr(reg, 'item') else float(reg)
+        elif hasattr(v, 'item'):
+            val = v.item()
+        else:
+            try:
+                val = float(v)
+            except Exception:
+                val = 0.0
+
+        # NORMALIZATION: Force value between 0.0 and 10.0
+        val = max(0.0, min(10.0, val))
+        final_preds[k] = val
+
+    # 4. SAFETY LAYER (The "Sedentary Blind Spot" Fix)
+    # Check if user is sedentary (avg exercise < threshold)
+    try:
+        avg_exercise = np.mean(input_features_dict.get('exercise_minutes', [30]))
+    except Exception:
+        avg_exercise = 30
+
+    if avg_exercise < thresholds.get("sedentary_minutes_min", 15):
+        # Cap 'energy_level' if it's too high
+        cap_val = thresholds.get("energy_cap_sedentary", 6.0)
+        if final_preds.get('energy_level', 0) > cap_val:
+            final_preds['energy_level'] = cap_val
+
+    # 5. SAFETY LAYER (The "Caffeine Paradox")
+    try:
+        avg_caffeine = np.mean(input_features_dict.get('caffeine_mg', [0]))
+    except Exception:
+        avg_caffeine = 0
+    try:
+        avg_sleep_qual = np.mean(input_features_dict.get('sleep_quality', [5]))
+    except Exception:
+        avg_sleep_qual = 5
+
+    if (avg_caffeine > thresholds.get("caffeine_mg_max", 400) and 
+        avg_sleep_qual > thresholds.get("caffeine_sleep_quality_min", 7.5)):
+        # Ensure Anxiety isn't too low (perfect)
+        floor_val = thresholds.get("anxiety_floor_caffeine", 4.0)
+        if final_preds.get('anxiety_score', 10) < floor_val:
+            final_preds['anxiety_score'] = floor_val
+
+    return final_preds
 
 
 def create_sequence_from_data(data: pd.DataFrame, feature_cols: List[str], window: int = 7) -> np.ndarray:

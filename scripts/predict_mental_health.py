@@ -270,6 +270,13 @@ def predict(model: MentalHealthPredictor, sequence: np.ndarray, stats: dict) -> 
     for target in stats.get("targets", ALL_TARGETS):
         reg_pred, cls_logit = outputs[target]
         value_raw = reg_pred.item()
+
+        # --- NORMALIZATION FIX ---
+        # Force raw regression value to 0-10 scale for consistency
+        # with Demo/Reports (clamps values that exceed expected ranges).
+        value_raw = max(0.0, min(10.0, value_raw))
+        # -------------------------
+
         risk_prob = torch.sigmoid(cls_logit).item()
 
         # Normalize the raw prediction to 1-10 for consistent reporting
