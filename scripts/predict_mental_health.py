@@ -344,6 +344,79 @@ def predict(model: MentalHealthPredictor, sequence: np.ndarray, stats: dict) -> 
     return results
 
 
+def predict_mental_health(model, input_seq, input_features_dict, config_path=None):
+    """
+    Predicts mental health scores with Safety Layer and 0-10 Normalization.
+    """
+    import json
+    from scripts.utils import get_project_root
+
+    # 1. Load Safety Config
+    cfg_path = config_path or (get_project_root() / "config" / "thresholds.json")
+    try:
+        with open(cfg_path, 'r') as f:
+            thresholds = json.load(f).get("safety_thresholds", {})
+    except Exception:
+        thresholds = {}
+
+    # 2. Run Model Inference
+    model.eval()
+    with torch.no_grad():
+        raw_preds = model(input_seq)
+
+    final_preds = {}
+
+    # 3. Process & Normalize Outputs (0-10 Scale)
+    for k, v in raw_preds.items():
+        # Handle tensor or tuple outputs
+        if isinstance(v, tuple) or isinstance(v, list):
+            reg = v[0]
+            val = reg.item() if hasattr(reg, 'item') else float(reg)
+        elif hasattr(v, 'item'):
+            val = v.item()
+        else:
+            try:
+                val = float(v)
+            except Exception:
+                val = 0.0
+
+        # NORMALIZATION: Force value between 0.0 and 10.0
+        val = max(0.0, min(10.0, val))
+        final_preds[k] = val
+
+    # 4. SAFETY LAYER (The "Sedentary Blind Spot" Fix)
+    # Check if user is sedentary (avg exercise < threshold)
+    try:
+        avg_exercise = np.mean(input_features_dict.get('exercise_minutes', [30]))
+    except Exception:
+        avg_exercise = 30
+
+    if avg_exercise < thresholds.get("sedentary_minutes_min", 15):
+        # Cap 'energy_level' if it's too high
+        cap_val = thresholds.get("energy_cap_sedentary", 6.0)
+        if final_preds.get('energy_level', 0) > cap_val:
+            final_preds['energy_level'] = cap_val
+
+    # 5. SAFETY LAYER (The "Caffeine Paradox")
+    try:
+        avg_caffeine = np.mean(input_features_dict.get('caffeine_mg', [0]))
+    except Exception:
+        avg_caffeine = 0
+    try:
+        avg_sleep_qual = np.mean(input_features_dict.get('sleep_quality', [5]))
+    except Exception:
+        avg_sleep_qual = 5
+
+    if (avg_caffeine > thresholds.get("caffeine_mg_max", 400) and 
+        avg_sleep_qual > thresholds.get("caffeine_sleep_quality_min", 7.5)):
+        # Ensure Anxiety isn't too low (perfect)
+        floor_val = thresholds.get("anxiety_floor_caffeine", 4.0)
+        if final_preds.get('anxiety_score', 10) < floor_val:
+            final_preds['anxiety_score'] = floor_val
+
+    return final_preds
+
+
 def create_sequence_from_data(data: pd.DataFrame, feature_cols: List[str], window: int = 7) -> np.ndarray:
     """Construct the model input sequence from the most recent `window` days.
 
