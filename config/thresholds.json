@@ -1,4 +1,10 @@
 {
+  "safety_thresholds": {
+    "sedentary_minutes_min": 15,
+    "caffeine_mg_max": 400,
+    "caffeine_sleep_quality_min": 7.5,
+    "energy_cap_sedentary": 6.0
+  },
   "at_risk_thresholds": {
     "perceived_stress_scale": {
       "threshold": 20,
@@ -40,12 +46,6 @@
       "description": "Focus <4 indicates poor concentration (1-10 scale)",
       "inverted": true
     }
-  },
-  "safety_thresholds": {
-    "sedentary_minutes_min": 15,
-    "caffeine_mg_max": 400,
-    "caffeine_sleep_quality_min": 7.5,
-    "energy_cap_sedentary": 6.0
   },
   "safety_overrides": {
     "sedentary_energy_cap": {
