@@ -28,22 +28,16 @@ import json
 import sys
 import subprocess
 
-# Robustly find project root (where config/ exists)
-current_file = Path(__file__).resolve()
-project_root = current_file.parent
-if not (project_root / "config").exists():
-    # Fallback if script is run from a subdirectory
-    project_root = current_file.parent.parent
+# Robust project-root helpers and import path setup
+from scripts.utils import get_project_root, add_project_root_to_sys_path
 
-# Add scripts to path (project-root-relative)
-sys.path.append(str(project_root / "scripts"))
+# Ensure project root is on sys.path for reliable imports
+add_project_root_to_sys_path()
 
-# Config and model dirs (used throughout the demo)
-CONFIG_DIR = project_root / "config"
-MODEL_DIR = project_root / "models" / "saved"
-
-# Project utilities (robust project-root helpers)
-from utils import get_project_root, get_config_path, get_model_path
+# Base dir for file operations
+BASE_DIR = get_project_root()
+CONFIG_DIR = BASE_DIR / "config"
+MODEL_DIR = BASE_DIR / "models" / "saved"
 
 # Global holder for loaded thresholds (set in load_model_and_config)
 GLOBAL_THRESHOLDS = None
@@ -518,6 +512,47 @@ def predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale, app
                     )
         except Exception:
             # Safety engine must not break prediction flow
+            pass
+
+        # --- SAFETY LAYER: Clinical Overrides (explicit, urgent fixes) ---
+        try:
+            # Determine indices (prefer feature-name mapping if available)
+            ex_idx = GLOBAL_FEATURE_INDEX.get('exercise_minutes', 7)
+            caf_idx = GLOBAL_FEATURE_INDEX.get('caffeine_mg', 9)
+
+            # Use the first day's values conservatively (index 0)
+            if hasattr(behavioral_data, 'shape') and behavioral_data.shape[1] > max(ex_idx, caf_idx):
+                try:
+                    first_ex = float(behavioral_data[0, ex_idx])
+                except Exception:
+                    first_ex = None
+                try:
+                    first_caf = float(behavioral_data[0, caf_idx])
+                except Exception:
+                    first_caf = None
+
+                # Sedentary cap: if exercise < configured threshold, cap energy
+                sedentary_min = (GLOBAL_THRESHOLDS or {}).get('safety_thresholds', {}).get('sedentary_minutes_min', 15)
+                energy_cap = (GLOBAL_THRESHOLDS or {}).get('safety_thresholds', {}).get('energy_cap_sedentary', 6.0)
+                if first_ex is not None and first_ex < float(sedentary_min):
+                    if 'energy_level' in predictions and predictions['energy_level']['value'] > float(energy_cap):
+                        predictions['energy_level']['value'] = float(energy_cap)
+                        predictions['energy_level']['safety_override'] = True
+                        predictions['energy_level']['safety_reason'] = (
+                            f"Sedentary safety cap applied: first-day exercise {first_ex:.1f}min < {sedentary_min}min"
+                        )
+
+                # Caffeine paradox: if caffeine high, ensure anxiety not artificially low
+                caffeine_max = (GLOBAL_THRESHOLDS or {}).get('safety_thresholds', {}).get('caffeine_mg_max', 400)
+                anxiety_min = (GLOBAL_THRESHOLDS or {}).get('safety_thresholds', {}).get('anxiety_min_when_high_caffeine', 4.0)
+                if first_caf is not None and first_caf > float(caffeine_max):
+                    if 'anxiety_score' in predictions and predictions['anxiety_score']['value'] < float(anxiety_min):
+                        predictions['anxiety_score']['value'] = float(anxiety_min)
+                        predictions['anxiety_score']['safety_override'] = True
+                        predictions['anxiety_score']['safety_reason'] = (
+                            f"Caffeine safety applied: caffeine {first_caf:.0f}mg > {caffeine_max}mg"
+                        )
+        except Exception:
             pass
 
         return predictions
