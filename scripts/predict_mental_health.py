@@ -80,6 +80,31 @@ TARGET_LABELS = {
     "job_satisfaction": "Job Satisfaction",
 }
 
+# Original target ranges used for normalization to 1-10
+TARGET_RANGES = {
+    "stress_level": (0, 10),
+    "mood_score": (0, 10),
+    "energy_level": (0, 10),
+    "focus_score": (0, 10),
+    "perceived_stress_scale": (0, 40),
+    "anxiety_score": (0, 21),
+    "depression_score": (0, 27),
+    "job_satisfaction": (0, 10),
+}
+
+
+def normalize_to_1_10(value: float, target: str) -> float:
+    """Normalize a raw prediction to a 1-10 scale using TARGET_RANGES."""
+    min_val, max_val = TARGET_RANGES.get(target, (0, 10))
+    try:
+        clamped = max(min_val, min(max_val, float(value)))
+    except Exception:
+        return 5.5
+    if max_val == min_val:
+        return 5.5
+    normalized = 1.0 + (clamped - min_val) / (max_val - min_val) * 9.0
+    return round(normalized, 2)
+
 
 # ============================================================================
 # MODEL ARCHITECTURE (must match training)
@@ -244,20 +269,27 @@ def predict(model: MentalHealthPredictor, sequence: np.ndarray, stats: dict) -> 
     
     for target in stats.get("targets", ALL_TARGETS):
         reg_pred, cls_logit = outputs[target]
-        value = reg_pred.item()
+        value_raw = reg_pred.item()
         risk_prob = torch.sigmoid(cls_logit).item()
-        
-        threshold = thresholds.get(target, 5)
+
+        # Normalize the raw prediction to 1-10 for consistent reporting
+        value = normalize_to_1_10(value_raw, target)
+
+        # Also normalize threshold for comparison (if available)
+        threshold_raw = thresholds.get(target, 5)
+        norm_threshold = normalize_to_1_10(threshold_raw, target)
+
         if target in INVERTED_TARGETS:
-            at_risk = value <= threshold
+            at_risk = value <= norm_threshold
         else:
-            at_risk = value >= threshold
-        
+            at_risk = value >= norm_threshold
+
         results[target] = {
             "value": value,
+            "raw_value": value_raw,
             "risk_prob": risk_prob,
             "at_risk": at_risk,
-            "threshold": threshold,
+            "threshold": norm_threshold,
         }
     
     # =========================================================================
