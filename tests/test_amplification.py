@@ -8,7 +8,8 @@ from demo_app import predict_mental_health
 import demo_app
 
 # Ensure demo reads amplification config
-cfg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "thresholds.json")
+from scripts.utils import get_config_path
+cfg_path = get_config_path() / "thresholds.json"
 with open(cfg_path, "r") as f:
     demo_app.GLOBAL_THRESHOLDS = json.load(f)
 

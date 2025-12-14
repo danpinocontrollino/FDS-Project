@@ -3,6 +3,14 @@ np = pytest.importorskip("numpy")
 torch = pytest.importorskip("torch")
 
 from demo_app import predict_mental_health
+from scripts.utils import get_config_path
+import json
+
+# Ensure thresholds are available for safety layer
+cfg_path = get_config_path() / "thresholds.json"
+with open(cfg_path, "r") as f:
+    import demo_app
+    demo_app.GLOBAL_THRESHOLDS = json.load(f)
 
 # Mock Model
 class MockModel(torch.nn.Module):
