@@ -47,6 +47,16 @@
     "caffeine_sleep_quality_min": 7.5,
     "energy_cap_sedentary": 6.0
   },
+  "safety_overrides": {
+    "sedentary_energy_cap": {
+      "condition_feature": "exercise_minutes",
+      "condition_operator": "lt",
+      "condition_value": 20,
+      "target_metric": "energy_level",
+      "action": "cap",
+      "action_value": 6.0
+    }
+  },
   "inverted_targets": [
     "mood_score",
     "energy_level",

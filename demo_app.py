@@ -28,8 +28,19 @@ import json
 import sys
 import subprocess
 
-# Add scripts to path
-sys.path.append(str(Path(__file__).parent / "scripts"))
+# Robustly find project root (where config/ exists)
+current_file = Path(__file__).resolve()
+project_root = current_file.parent
+if not (project_root / "config").exists():
+    # Fallback if script is run from a subdirectory
+    project_root = current_file.parent.parent
+
+# Add scripts to path (project-root-relative)
+sys.path.append(str(project_root / "scripts"))
+
+# Config and model dirs (used throughout the demo)
+CONFIG_DIR = project_root / "config"
+MODEL_DIR = project_root / "models" / "saved"
 
 # Project utilities (robust project-root helpers)
 from utils import get_project_root, get_config_path, get_model_path
@@ -192,13 +203,13 @@ def load_model_and_config():
     except Exception:
         PROJECT_ROOT = Path(__file__).resolve().parent
 
-    # Load job categories
-    cfg_job = PROJECT_ROOT / "config" / "job_categories.json"
+    # Load job categories (project-root relative via CONFIG_DIR)
+    cfg_job = CONFIG_DIR / "job_categories.json"
     with open(cfg_job, "r") as f:
         job_config = json.load(f)
 
     # Load thresholds
-    cfg_thresh = PROJECT_ROOT / "config" / "thresholds.json"
+    cfg_thresh = CONFIG_DIR / "thresholds.json"
     with open(cfg_thresh, "r") as f:
         thresholds = json.load(f)
 
@@ -210,7 +221,7 @@ def load_model_and_config():
         pass
 
     # Load model (simplified version)
-    model_path = PROJECT_ROOT / "models" / "saved" / "mental_health_lstm.pt"
+    model_path = MODEL_DIR / "mental_health_lstm.pt"
     
     try:
         checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
@@ -423,6 +434,28 @@ def predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale, app
                             predictions[dtarget]['safety_reason'] = safety_reason
         except Exception:
             # Safety layer must not break prediction flow; swallow errors
+            pass
+
+        # ------------------------------------------------------------------
+        # Additional explicit Clinical Safety Override (always-applied)
+        # This enforces a conservative cap on `energy_level` for clearly
+        # sedentary recent inputs (hard-coded index 7 for `exercise_minutes`).
+        # This is an extra guard to prevent misleading high-energy outputs
+        # when the behavioral data indicate near-zero activity.
+        # ------------------------------------------------------------------
+        try:
+            EXERCISE_IDX = 7
+            if hasattr(behavioral_data, 'shape') and behavioral_data.shape[1] > EXERCISE_IDX:
+                # Use the first day's value (0) as a conservative check
+                first_ex = float(behavioral_data[0, EXERCISE_IDX])
+                if first_ex < 20:
+                    if 'energy_level' in predictions and predictions['energy_level']['value'] > 6.0:
+                        predictions['energy_level']['value'] = 6.0
+                        predictions['energy_level']['override'] = "Capped due to sedentary lifestyle"
+                        predictions['energy_level']['safety_reason'] = (
+                            f"Explicit sedentary cap: first-day exercise {first_ex:.1f}min < 20min"
+                        )
+        except Exception:
             pass
 
         return predictions
