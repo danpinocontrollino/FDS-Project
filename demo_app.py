@@ -38,6 +38,7 @@ add_project_root_to_sys_path()
 BASE_DIR = get_project_root()
 CONFIG_DIR = BASE_DIR / "config"
 MODEL_DIR = BASE_DIR / "models" / "saved"
+MODEL_PATH = BASE_DIR / "models" / "saved" / "mental_health_lstm.pt"
 
 # Global holder for loaded thresholds (set in load_model_and_config)
 GLOBAL_THRESHOLDS = None
