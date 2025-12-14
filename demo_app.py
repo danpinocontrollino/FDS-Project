@@ -2691,6 +2691,16 @@ def main():
                 "🛡️ **Safety Layer Active**: Some predictions were adjusted based on "
                 "evidence-based safety rules. See the affected metrics below for details."
             )
+            # Show detailed reasons for safety overrides per metric
+            with st.expander("View safety overrides details", expanded=False):
+                for t, p in safety_overrides:
+                    reason = p.get('safety_reason') or p.get('override') or 'Adjusted by safety layer'
+                    val = p.get('value')
+                    try:
+                        val_str = f" — New value: {float(val):.1f}"
+                    except Exception:
+                        val_str = ""
+                    st.markdown(f"- **{t}**: {reason}{val_str}")
         
         # Render results
         render_predictions(predictions, thresholds)
