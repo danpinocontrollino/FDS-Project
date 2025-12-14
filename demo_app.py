@@ -47,6 +47,8 @@ from utils import get_project_root, get_config_path, get_model_path
 
 # Global holder for loaded thresholds (set in load_model_and_config)
 GLOBAL_THRESHOLDS = None
+# Global feature name -> index mapping (populated in load_model_and_config)
+GLOBAL_FEATURE_INDEX = {}
 
 # Import explanation engine and model definitions
 from explain_predictions import ExplanationEngine
@@ -247,6 +249,14 @@ def load_model_and_config():
         
         scaler_mean = checkpoint.get("scaler_mean", np.zeros(num_features))
         scaler_scale = checkpoint.get("scaler_std", np.ones(num_features))
+
+        # Populate global feature name -> index map for safety rules
+        feature_cols = checkpoint.get('feature_cols', []) or []
+        try:
+            global GLOBAL_FEATURE_INDEX
+            GLOBAL_FEATURE_INDEX = {name: idx for idx, name in enumerate(feature_cols)}
+        except Exception:
+            GLOBAL_FEATURE_INDEX = {}
         
         # Scaling Integrity Verification:
         # I load the exact mean/std arrays computed during training to ensure
@@ -437,25 +447,71 @@ def predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale, app
             pass
 
         # ------------------------------------------------------------------
-        # Additional explicit Clinical Safety Override (always-applied)
-        # This enforces a conservative cap on `energy_level` for clearly
-        # sedentary recent inputs (hard-coded index 7 for `exercise_minutes`).
-        # This is an extra guard to prevent misleading high-energy outputs
-        # when the behavioral data indicate near-zero activity.
+        # Generic Clinical Safety Overrides Engine
+        # Applies rules declared in `thresholds.json` -> `safety_overrides`.
+        # Supports simple conditions (lt, le, gt, ge, eq) and actions like
+        # 'cap' which limits a target's reported value.
         # ------------------------------------------------------------------
         try:
-            EXERCISE_IDX = 7
-            if hasattr(behavioral_data, 'shape') and behavioral_data.shape[1] > EXERCISE_IDX:
-                # Use the first day's value (0) as a conservative check
-                first_ex = float(behavioral_data[0, EXERCISE_IDX])
-                if first_ex < 20:
-                    if 'energy_level' in predictions and predictions['energy_level']['value'] > 6.0:
-                        predictions['energy_level']['value'] = 6.0
-                        predictions['energy_level']['override'] = "Capped due to sedentary lifestyle"
-                        predictions['energy_level']['safety_reason'] = (
-                            f"Explicit sedentary cap: first-day exercise {first_ex:.1f}min < 20min"
-                        )
+            safety_overrides = (GLOBAL_THRESHOLDS or {}).get('safety_overrides', {})
+            for name, rule in safety_overrides.items():
+                # Read rule components
+                cond_feat = rule.get('condition_feature')
+                cond_op = rule.get('condition_operator', 'lt')
+                cond_val = float(rule.get('condition_value', 0))
+                target_metric = rule.get('target_metric')
+                action = rule.get('action')
+                action_val = float(rule.get('action_value', 0)) if rule.get('action_value') is not None else None
+
+                # Map feature name -> index (fallback to known defaults)
+                feat_idx = GLOBAL_FEATURE_INDEX.get(cond_feat)
+                if feat_idx is None:
+                    # Common fallback mapping (keeps compatibility with older demos)
+                    fallback = {'exercise_minutes': 7}
+                    feat_idx = fallback.get(cond_feat)
+
+                if feat_idx is None:
+                    continue
+
+                # Read the most recent day's value conservatively (last row)
+                if hasattr(behavioral_data, 'shape') and behavioral_data.shape[1] > feat_idx:
+                    try:
+                        feat_value = float(behavioral_data[-1, feat_idx])
+                    except Exception:
+                        feat_value = None
+                else:
+                    feat_value = None
+
+                if feat_value is None:
+                    continue
+
+                # Evaluate condition
+                cond_met = False
+                if cond_op == 'lt' and feat_value < cond_val:
+                    cond_met = True
+                elif cond_op == 'le' and feat_value <= cond_val:
+                    cond_met = True
+                elif cond_op == 'gt' and feat_value > cond_val:
+                    cond_met = True
+                elif cond_op == 'ge' and feat_value >= cond_val:
+                    cond_met = True
+                elif cond_op == 'eq' and feat_value == cond_val:
+                    cond_met = True
+
+                if not cond_met:
+                    continue
+
+                # Apply action
+                if action == 'cap' and target_metric in predictions and action_val is not None:
+                    prev = predictions[target_metric]['value']
+                    # Only reduce values (conservative)
+                    predictions[target_metric]['value'] = min(prev, action_val)
+                    predictions[target_metric]['safety_override'] = True
+                    predictions[target_metric]['safety_reason'] = (
+                        f"Safety override {name}: {cond_feat} {cond_op} {cond_val} -> {action} {action_val}"
+                    )
         except Exception:
+            # Safety engine must not break prediction flow
             pass
 
         return predictions
