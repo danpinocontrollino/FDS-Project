@@ -555,6 +555,47 @@ def predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale, app
         except Exception:
             pass
 
+        # --- ADDITIONAL AVERAGE-BASED SAFETY CHECKS ---
+        try:
+            seq = behavioral_data
+            # If a batch dimension exists (1, days, features), remove it
+            if hasattr(seq, 'ndim') and seq.ndim == 3:
+                seq = seq[0]
+
+            # Only proceed if we have a 2D array [days, features]
+            if hasattr(seq, 'shape') and len(seq.shape) == 2:
+                sleep_idx = GLOBAL_FEATURE_INDEX.get('sleep_quality', 1)
+                # compute averages across the sequence
+                avg_exercise = float(np.mean(seq[:, ex_idx]))
+                avg_caffeine = float(np.mean(seq[:, caf_idx]))
+                avg_sleep_qual = float(np.mean(seq[:, sleep_idx]))
+
+                sedentary_min = (GLOBAL_THRESHOLDS or {}).get('safety_thresholds', {}).get('sedentary_minutes_min', 15)
+                energy_cap = (GLOBAL_THRESHOLDS or {}).get('safety_thresholds', {}).get('energy_cap_sedentary', 6.0)
+                caffeine_max = (GLOBAL_THRESHOLDS or {}).get('safety_thresholds', {}).get('caffeine_mg_max', 400)
+                caffeine_sleep_qmin = (GLOBAL_THRESHOLDS or {}).get('safety_thresholds', {}).get('caffeine_sleep_quality_min', 7.5)
+                anxiety_min = (GLOBAL_THRESHOLDS or {}).get('safety_thresholds', {}).get('anxiety_min_when_high_caffeine', 4.0)
+
+                # Sedentary cap based on sequence average
+                if avg_exercise < float(sedentary_min):
+                    if 'energy_level' in predictions and predictions['energy_level']['value'] > float(energy_cap):
+                        predictions['energy_level']['value'] = float(energy_cap)
+                        predictions['energy_level']['safety_override'] = True
+                        predictions['energy_level']['safety_reason'] = (
+                            f"Sedentary safety cap applied (avg): avg_exercise {avg_exercise:.1f}min < {sedentary_min}min"
+                        )
+
+                # Caffeine paradox using averages
+                if avg_caffeine > float(caffeine_max) and avg_sleep_qual > float(caffeine_sleep_qmin):
+                    if 'anxiety_score' in predictions and predictions['anxiety_score']['value'] < float(anxiety_min):
+                        predictions['anxiety_score']['value'] = float(anxiety_min)
+                        predictions['anxiety_score']['safety_override'] = True
+                        predictions['anxiety_score']['safety_reason'] = (
+                            f"Caffeine safety applied (avg): avg_caffeine {avg_caffeine:.0f}mg > {caffeine_max}mg"
+                        )
+        except Exception:
+            pass
+
         return predictions
         
     except Exception as e:
