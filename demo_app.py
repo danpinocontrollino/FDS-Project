@@ -2563,9 +2563,9 @@ def main():
         st.markdown("""
         1. **Input**: Enter 7-day average behavioral data (sleep, work, exercise, etc.)
         2. **Model**: Stage 2 LSTM with 2 layers (128 hidden dims) processes the sequence
-        3. **Output**: 8 mental health predictions in <100ms
-        4. **Analysis**: Automatic risk assessment and personalized advice
-        
+        3. **Output**: 8  risk assessment and personalized advice
+        mental health predictions in <100ms
+        4. **Analysis**: Automatic
         **Model Performance:**
         - Job Satisfaction: 98.5% accuracy
         - Depression: 98% accuracy
@@ -2576,8 +2576,8 @@ def main():
         col1, col2 = st.columns(2)
         with col1:
             st.image("https://via.placeholder.com/300x200?text=Stage+2+LSTM", caption="Multi-Task LSTM Model (Stage 2: Mental Health Inference)")
-        with col2:
+        wif __name__ == "__main__":
+ith col2:
             st.image("https://via.placeholder.com/300x200?text=Training+Data", caption="1.5M+ Training Records")
 
-if __name__ == "__main__":
     main()
