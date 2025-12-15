@@ -19,6 +19,7 @@ signals that require clinical corroboration.
 """
 
 import streamlit as st
+st.write("DEBUG: demo loaded")
 import pandas as pd
 import numpy as np
 import torch
@@ -45,17 +46,26 @@ GLOBAL_THRESHOLDS = None
 # Global feature name -> index mapping (populated in load_model_and_config)
 GLOBAL_FEATURE_INDEX = {}
 
-# Import explanation engine and model definitions
-from explain_predictions import ExplanationEngine
-from model_definitions import MentalHealthPredictor
-
-# Import two-stage pipeline with GRU
+# Import model definitions (try package path first, fall back to top-level module)
 try:
-    from two_stage_models import TwoStagePipeline, load_pipeline
+    from scripts.model_definitions import MentalHealthPredictor
+except Exception:
+    try:
+        from model_definitions import MentalHealthPredictor
+    except Exception:
+        MentalHealthPredictor = None
+
+# Import two-stage pipeline with GRU (try package path then fallback)
+try:
+    from scripts.two_stage_models import TwoStagePipeline, load_pipeline
     TWO_STAGE_AVAILABLE = True
-except ImportError:
-    TWO_STAGE_AVAILABLE = False
-    print("⚠️  Two-stage models not available - some features disabled")
+except Exception:
+    try:
+        from two_stage_models import TwoStagePipeline, load_pipeline
+        TWO_STAGE_AVAILABLE = True
+    except Exception:
+        TWO_STAGE_AVAILABLE = False
+        print("⚠️  Two-stage models not available - some features disabled")
 
 # ============================================================================
 # CONSTANTS
@@ -2479,22 +2489,47 @@ def main():
     # Disclaimer: require explicit acknowledgement before loading models
     if 'ack_disclaimer' not in st.session_state:
         st.session_state['ack_disclaimer'] = False
+        # Development bypass: set environment variable `DEMO_SKIP_DISCLAIMER=1`
+        # to automatically accept the demo disclaimer when running locally.
+        try:
+            if os.environ.get('DEMO_SKIP_DISCLAIMER', '0') == '1':
+                st.session_state['ack_disclaimer'] = True
+        except Exception:
+            pass
 
     if not st.session_state['ack_disclaimer']:
-        with st.sidebar.expander('⚠️ Demo Disclaimer (Required)', expanded=True):
-            st.markdown(
-                """
-                **This research demo is NOT a clinical tool.** Do not input real PII or
-                sensitive personal health data. Outputs are probabilistic and for
-                research/educational use only.
-                """
-            )
-            agree = st.checkbox("I understand this is a demo and will not input real sensitive data.")
-            if agree:
-                st.session_state['ack_disclaimer'] = True
-                st.experimental_rerun()
-            else:
-                st.stop()
+        # Sidebar expander (preferred UI)
+        agree_side = False
+        try:
+            with st.sidebar.expander('⚠️ Demo Disclaimer (Required)', expanded=True):
+                st.markdown(
+                    """
+                    **This research demo is NOT a clinical tool.** Do not input real PII or
+                    sensitive personal health data. Outputs are probabilistic and for
+                    research/educational use only.
+                    """
+                )
+                agree_side = st.checkbox("I understand this is a demo and will not input real sensitive data.", key="agree_sidebar")
+        except Exception:
+            agree_side = False
+
+        # Fallback: show checkbox in main body when sidebar is hidden or not rendered
+        st.markdown("---")
+        st.info("If the sidebar is not visible, use the checkbox below to continue the demo.")
+        agree_main = st.checkbox("I understand this is a demo and will not input real sensitive data.", key="agree_main")
+
+        # Development bypass via environment variable
+        bypass = False
+        try:
+            bypass = os.environ.get('DEMO_SKIP_DISCLAIMER', '0') == '1'
+        except Exception:
+            bypass = False
+
+        if bypass or agree_side or agree_main:
+            st.session_state['ack_disclaimer'] = True
+            st.experimental_rerun()
+        else:
+            st.stop()
 
     # Load model and config (now returns PROJECT_ROOT first)
     PROJECT_ROOT, job_config, thresholds, model, scaler_mean, scaler_scale = load_model_and_config()
