@@ -1,0 +1,19 @@
+# Python/virtualenv artifacts
+.venv/
+venv/
+env/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# pytest
+.pytest_cache/
+
+# Editor directories
+.vscode/
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
