@@ -1,98 +1,82 @@
+*** Begin Patch
 # FDS Project – Deep Learning for Daily Mental Wellness
 
-This repository contains the code for our **Foundations of Data Science** final project.
+This `presentation_bundle` contains a focused, runnable subset of the full FDS project used for demos and presentations. The goal of the project is to predict per-day mental-wellness indicators from behavioural and time-series data and to provide HTML profile reports and an interactive demo.
 
-We use the **Work-Life Balance Synthetic Daily Wellness Dataset** (Kaggle) to predict
-daily mental wellness indicators of workers from their work–life patterns and
-recent history, using deep learning models (LSTM and Transformer).
+## Summary (precise)
 
-**🎯 Key Achievement:** 98.5% accuracy on job satisfaction prediction (vs 89.3% baseline)
+- Goal: given daily features (sleep, working hours, breaks, exercise, screen time, app usage, etc.) predict wellness indicators (stress, mood, job satisfaction) for the same day and short-term future using tabular and sequence models (ML baselines, LSTM/GRU/Transformer).
+- Deliverables in this bundle: an interactive Streamlit demo (`demo_app.py`), profile/report generation scripts, example reports in `reports/`, and minimal configs to reproduce the demo.
 
-> 📊 **Research Context:** Our results align with state-of-the-art synthetic data studies (94-99% accuracy) and represent a theoretical upper bound compared to real-world wearable studies (70-82%). See [External Benchmarks & Related Work](docs/EXTERNAL_BENCHMARKS.md) for detailed comparison with clinical and ML research.
+## What we will need (software & hardware)
 
----
+- Python 3.10 or newer.
+- A virtual environment (`venv` or `conda`) is recommended.
+- Install Python dependencies from `requirements.txt` (present in this bundle). Core packages used:
+   - `numpy`, `pandas`, `scikit-learn` – data processing and baselines
+   - `torch` (or `tensorflow`) – for LSTM/GRU/training (GPU optional but recommended for speed)
+   - `streamlit` – interactive demo UI
+   - `jinja2` / `beautifulsoup4` or similar – HTML report generation
+- Optional: CUDA-capable GPU + matching `torch` build to speed model training and evaluation.
 
-## 🚀 Quick Start
+## Data (what we will use and where to put it)
 
-### Interactive Demo (Recommended)
+- Source dataset: "Work-Life Balance Synthetic Daily Wellness Dataset" (Kaggle). This repository does not include the CSVs.
+- Place CSVs under `data/raw/` (create this directory). Expected pattern: `data/raw/*.csv` or `data/raw/<user>_7day.csv` for demo profiles.
+- A small sample or single-user CSV (7-day window) is sufficient to run the demo and generate example reports.
+
+## Configuration files
+
+- `config/job_categories.json` — mapping used by the report generator.
+- `config/thresholds.json` — numeric thresholds used to turn scores into flags/actions.
+
+Keep these files next to the bundle or in the same `presentation_bundle/config/` folder. The demo reads these configs at runtime.
+
+## How to run (quick, exact commands)
+
+1) Create and activate a virtual environment
+
 ```bash
-# Install dependencies
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-
-# Run interactive Streamlit demo
-streamlit run demo_app.py
 ```
 
-### Generate Profile from CSV
+2) Prepare data (example)
+
 ```bash
-python scripts/generate_profile.py \
-  --csv data/martina_7day.csv \
-  --all-users \
-  --html \
-  --output-dir reports/profiles
+mkdir -p data/raw
+# copy or download one CSV to data/raw/, e.g. data/raw/martina_7day.csv
 ```
 
-### View Example Reports
-Open any file in `reports/examples/`:
-- `teacher_profile.html` - Education sector example
-- `software_engineer_profile.html` - Knowledge worker example  
-- `creative_professional_profile.html` - Film producer example
+3) Run interactive demo (Streamlit)
 
----
+```bash
+streamlit run demo_app.py --server.port 8501
+```
 
-## 1. Project Overview
+4) Generate a single HTML profile from CSV (non-interactive)
 
-**Goal.**
+```bash
+python scripts/generate_profile.py --csv data/raw/martina_7day.csv --html --output-dir reports/profiles
+```
 
-Given daily information about workers (sleep, working hours, breaks, exercise,
-screen time, etc.), we want to:
+## Reproducibility & training
 
-1. **Predict daily mental wellness scores** (e.g., stress, mood, burnout risk)
-   from the features of a single day (tabular ML).
-2. **Use time series models (LSTM/GRU)** to predict the wellness of tomorrow
-   from the last *N* days of behaviour.
-3. Optionally, learn a compact representation of behaviour patterns with an
-   **autoencoder** and explore clusters of worker profiles.
+- Training scripts (if present) use deterministic seeds in the top of each script; check `scripts/` for exact commands.
+- To retrain models end-to-end you will need the full dataset and sufficient compute; use `scripts/train_*` entry points and monitor GPU memory.
 
-We treat this as a **deep learning project on tabular + time-series data**, with
-classical ML baselines for comparison.
+## Files of interest in this bundle
 
----
+- `demo_app.py` — Streamlit demo and entry point for interactive exploration.
+- `scripts/generate_profile.py` — single-user HTML profile generator.
+- `reports/` — example generated HTML reports and assets.
+- `requirements.txt` — Python dependencies.
 
-## 2. Dataset
+## Notes & next steps for collaborators
 
-We use the Kaggle dataset:
+- Add a small sample CSV to `data/raw/` for quick demo runs.
+- If you want reproducible exact experiments, add a `run_experiment.sh` wrapper that pins seeds and logs config files.
+- For presentation, prefer running the demo on a machine with a stable Python environment or build a lightweight Docker image.
 
-> **Work-Life Balance Synthetic Daily Wellness Dataset**  
-> by Wafaa El-Husseini  
-> https://www.kaggle.com/datasets/wafaaelhusseini/worklife-balance-synthetic-daily-wellness-dataset
-
-The dataset is **synthetic**, which avoids privacy issues but preserves realistic
-relationships between work habits and wellness indicators.
-
-We do **not** store the CSV files in this repository.  
-Instead, each collaborator downloads the data locally using the Kaggle API
-(see below).
-
----
-
-## 3. Repository Structure
-
-```text
-FDS-Project/
-  ├── data/
-  │   └── raw/                  # (ignored by git) Kaggle CSV files go here
-  ├── notebooks/
-  │   ├── 01_eda.ipynb          # exploratory data analysis
-  │   ├── 02_baseline_models.ipynb
-  │   ├── 03_deep_mlp.ipynb
-  │   └── 04_lstm_timeseries.ipynb
-  ├── scripts/
-  │   └── download_data.py      # Kaggle download script
-  ├── models/                   # (optional) saved model definitions / weights
-  ├── docs/
-  │   ├── EXTERNAL_BENCHMARKS.md  # Research comparison & validation
-  │   └── COMPLETE_PROJECT_EXPLANATION.md
-  ├── .gitignore
-  ├── README.md
-  └── requirements.txt          # (to be added)
+If you want, I can also: (a) add a sample `requirements.txt` tuned for CPU-only demo runs, (b) commit these changes, or (c) create a minimal `Dockerfile` to run the Streamlit demo.
