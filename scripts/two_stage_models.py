@@ -110,23 +110,25 @@ class TwoStagePipeline:
         
         # Load GRU model (Stage 1)
         print("Loading Stage 1: GRU behavioral model...")
-        self.gru_checkpoint = torch.load(gru_checkpoint_path, weights_only=False)
-        self.gru_model = self._build_gru_model()
-        self.gru_model.eval()
+        self.gru_checkpoint = torch.load(gru_checkpoint_path, map_location='cpu', weights_only=False)
         print(f"  ✓ GRU loaded: {self.gru_checkpoint.get('model_name', 'GRU')}")
         print(f"    R²={self.gru_checkpoint.get('cv_results', {}).get('r2_mean', 0):.4f}")
-        
+
         # Load LSTM model (Stage 2)
         print("\nLoading Stage 2: LSTM mental health model...")
-        self.lstm_checkpoint = torch.load(lstm_checkpoint_path, weights_only=False)
+        self.lstm_checkpoint = torch.load(lstm_checkpoint_path, map_location='cpu', weights_only=False)
+
+        # Feature mappings (populate before model construction)
+        self.behavioral_features = self.gru_checkpoint.get('feature_cols', [])  # 6 features
+        self.mental_features = self.lstm_checkpoint.get('feature_cols', [])     # 17 features
+        self.targets = self.lstm_checkpoint.get('targets', [])                  # 8 targets
+
+        # Build model architectures
+        self.gru_model = self._build_gru_model()
+        self.gru_model.eval()
         self.lstm_model = self._build_lstm_model()
         self.lstm_model.eval()
-        print(f"  ✓ LSTM loaded: 8 prediction heads")
-        
-        # Feature mappings
-        self.behavioral_features = self.gru_checkpoint['feature_cols']  # 6 features
-        self.mental_features = self.lstm_checkpoint['feature_cols']     # 17 features
-        self.targets = self.lstm_checkpoint['targets']                  # 8 targets
+        print(f"  ✓ LSTM loaded: {len(self.targets)} prediction heads")
         
         print(f"\n📊 Pipeline ready:")
         print(f"  Stage 1: {len(self.behavioral_features)} behavioral features")

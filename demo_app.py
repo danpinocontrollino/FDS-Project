@@ -275,6 +275,30 @@ def load_model_and_config():
                 except Exception as e:
                     # Non-fatal: continue to attempt single-model load below
                     st.warning(f"Could not initialize two-stage pipeline: {e}")
+                    # Fallback: attempt to load GRU checkpoint and build a lightweight
+                    # two-stage pipeline here (GRU -> use existing LSTM loader below).
+                    try:
+                        from scripts.two_stage_models import GRUModel
+                        # Load GRU checkpoint safely on CPU
+                        gru_ckpt = torch.load(str(gru_candidate), map_location='cpu')
+                        gru_kwargs = gru_ckpt.get('model_kwargs', {})
+                        gru_model = GRUModel(**gru_kwargs)
+                        gru_model.load_state_dict(gru_ckpt['model_state'])
+                        gru_model.eval()
+
+                        # Save fallback pipeline info to globals; LSTM model will be
+                        # loaded later by the normal single-model path and attached here.
+                        TWO_STAGE_PIPELINE = {
+                            'type': 'fallback',
+                            'gru_model': gru_model,
+                            'gru_checkpoint': gru_ckpt,
+                            'gru_path': str(gru_candidate),
+                            'lstm_path': str(lstm_candidate)
+                        }
+                        globals()['TWO_STAGE_PIPELINE'] = TWO_STAGE_PIPELINE
+                        # continue to single-model loader which will attach LSTM parts
+                    except Exception:
+                        pass
     except Exception:
         # Keep load tolerant to any issues here
         pass
@@ -327,6 +351,20 @@ def load_model_and_config():
             scaler_mean = np.zeros(num_features)
             scaler_scale = np.ones(num_features)
         
+        # If we previously created a fallback TWO_STAGE_PIPELINE, attach the
+        # loaded LSTM checkpoint and model to it so predict_mental_health can
+        # run the full two-stage flow.
+        try:
+            if isinstance(globals().get('TWO_STAGE_PIPELINE'), dict) and globals().get('TWO_STAGE_PIPELINE').get('type') == 'fallback':
+                TWO_STAGE_PIPELINE = globals().get('TWO_STAGE_PIPELINE')
+                TWO_STAGE_PIPELINE['lstm_checkpoint'] = checkpoint
+                TWO_STAGE_PIPELINE['lstm_model'] = model
+                TWO_STAGE_PIPELINE['lstm_scaler_mean'] = scaler_mean
+                TWO_STAGE_PIPELINE['lstm_scaler_std'] = scaler_scale
+                globals()['TWO_STAGE_PIPELINE'] = TWO_STAGE_PIPELINE
+        except Exception:
+            pass
+
         return PROJECT_ROOT, job_config, thresholds, model, scaler_mean, scaler_scale
         
     except FileNotFoundError as e:
@@ -377,51 +415,241 @@ def predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale, app
     `safety_override` metadata inserted by conservative post-processing.
     """
     try:
-        # If a two-stage pipeline (GRU -> LSTM) is available, use it for every generation.
-        if 'TWO_STAGE_PIPELINE' in globals() and globals().get('TWO_STAGE_PIPELINE') is not None:
-            pipeline = globals().get('TWO_STAGE_PIPELINE')
-            # Build a (7,6) behavioral history expected by the GRU.
-            behavioral_names = ['sleep_hours', 'exercise_minutes', 'steps_count', 'screen_time_hours', 'social_interactions', 'work_hours']
-            # Attempt to extract these from the provided `behavioral_data` using GLOBAL_FEATURE_INDEX mapping.
+        # If both Stage-1 GRU and Stage-2 LSTM checkpoints exist in models/saved,
+        # run an explicit two-stage inference (GRU -> LSTM) so every generation
+        # uses `best_behavioral_model.pt` and `mental_health_lstm.pt` when available.
+        gru_path = MODEL_DIR / 'best_behavioral_model.pt'
+        lstm_path = MODEL_DIR / 'mental_health_lstm.pt'
+        if gru_path.exists() and lstm_path.exists():
             try:
+                # Build 7x6 behavioral history from provided behavioral_data
                 seq = np.array(behavioral_data)
-                # If seq has shape (7,17) or (days, features)
+                behavioral_names = ['sleep_hours', 'exercise_minutes', 'steps_count', 'screen_time_hours', 'social_interactions', 'work_hours']
                 if hasattr(seq, 'shape') and len(seq.shape) == 2 and seq.shape[1] >= 1:
-                    # For each behavioral feature, try to extract a 7-day series; fallback to repeating last value
                     history = []
                     for name in behavioral_names:
                         idx = GLOBAL_FEATURE_INDEX.get(name)
                         if idx is not None and seq.shape[1] > idx:
-                            # If we have at least 7 days, take last 7, else pad by repeating last
                             col = seq[-7:, idx] if seq.shape[0] >= 7 else np.concatenate([np.repeat(seq[-1, idx], 7)])
                         else:
-                            # Missing mapping: use zeros
                             col = np.zeros(7)
-                        # Ensure column is length 7
                         if len(col) < 7:
                             col = np.pad(col, (7 - len(col), 0), mode='edge')
                         history.append(col)
-                    # history currently list of 6 arrays length 7 -> transpose to (7,6)
                     history_np = np.vstack(history).T
                 else:
-                    # behavioral_data is single-day vector of 17 features -> repeat last day into 7 rows
                     vec = np.array(behavioral_data)
                     last = vec[-1] if len(vec.shape) == 2 else vec
                     history_np = np.tile(last[:6] if last.shape[0] >= 6 else np.zeros(6), (7,1))
 
-                # Run pipeline prediction
-                pipeline_result = pipeline.predict(history_np)
-                mental = pipeline_result.get('mental_health', {})
-                # Convert to expected predictions format
-                predictions = {}
-                for target, info in mental.items():
-                    value = info.get('value', float(info)) if isinstance(info, dict) else float(info)
-                    at_risk_prob = info.get('confidence', 0.5) if isinstance(info, dict) else 0.5
-                    predictions[target] = {'value': float(value), 'at_risk_prob': float(at_risk_prob)}
-                return predictions
+                # Load GRU checkpoint and model (CPU)
+                from scripts.two_stage_models import GRUModel
+                gru_ckpt = torch.load(str(gru_path), map_location='cpu')
+                gru_kwargs = gru_ckpt.get('model_kwargs', {})
+                gru_model = GRUModel(**gru_kwargs)
+                gru_model.load_state_dict(gru_ckpt['model_state'])
+                gru_model.eval()
+
+                # Normalize for GRU and predict
+                mean_X = np.array(gru_ckpt.get('scaler_mean_X', np.zeros((history_np.shape[0], history_np.shape[1]))))
+                std_X = np.array(gru_ckpt.get('scaler_std_X', np.ones((history_np.shape[0], history_np.shape[1]))))
+                if mean_X.ndim == 1:
+                    mean_X = np.tile(mean_X, (history_np.shape[0], 1))
+                if std_X.ndim == 1:
+                    std_X = np.tile(std_X, (history_np.shape[0], 1))
+                X_gru_norm = (history_np - mean_X) / (std_X + 1e-8)
+
+                with torch.no_grad():
+                    X_tensor = torch.FloatTensor(X_gru_norm).unsqueeze(0)
+                    pred_norm = gru_model(X_tensor).cpu().numpy()[0]
+
+                # Denormalize GRU output
+                mean_y = np.array(gru_ckpt.get('scaler_mean_y', np.zeros_like(pred_norm)))
+                std_y = np.array(gru_ckpt.get('scaler_std_y', np.ones_like(pred_norm)))
+                behavioral_forecast = pred_norm * std_y + mean_y
+
+                # Align behavioral forecast to LSTM input features
+                lstm_ckpt = torch.load(str(lstm_path), map_location='cpu')
+                mental_features = lstm_ckpt.get('feature_cols', [])
+                behavioral_features = gru_ckpt.get('feature_cols', [])
+                mental_input = np.zeros(len(mental_features))
+                for i, bf in enumerate(behavioral_features):
+                    for j, mf in enumerate(mental_features):
+                        if bf.replace('_','') in mf.replace('_','').lower():
+                            mental_input[j] = behavioral_forecast[i]
+                            break
+
+                # Normalize for LSTM and run inference
+                lstm_mean = np.array(lstm_ckpt.get('scaler_mean', np.zeros(len(mental_input))))
+                lstm_std = np.array(lstm_ckpt.get('scaler_std', np.ones(len(mental_input))))
+                X_lstm = (mental_input - lstm_mean) / (lstm_std + 1e-8)
+                X_lstm_tensor = torch.FloatTensor(X_lstm).unsqueeze(0).unsqueeze(0)
+
+                # Build LSTM model using MentalHealthPredictor (same as single-model path)
+                hidden_dim = lstm_ckpt.get('hidden_dim', 128)
+                encoder_type = lstm_ckpt.get('model_type', 'lstm')
+                targets = lstm_ckpt.get('targets', [])
+                lstm_model = MentalHealthPredictor(
+                    input_dim=len(mental_features),
+                    hidden_dim=hidden_dim,
+                    num_layers=2,
+                    encoder_type=encoder_type,
+                    targets=targets
+                )
+                lstm_model.load_state_dict(lstm_ckpt['model_state'])
+                lstm_model.eval()
+
+                outputs = {}
+                with torch.no_grad():
+                    raw_outs = lstm_model(X_lstm_tensor)
+                # normalize outputs into same structure as single-model mode
+                for t, out in raw_outs.items():
+                    if isinstance(out, dict):
+                        outputs[t] = out
+                    elif isinstance(out, tuple):
+                        reg, cls = out
+                        outputs[t] = {'regression': reg.squeeze(1), 'classification': cls.squeeze(1)}
+                    else:
+                        outputs[t] = out
+
+                # continue processing below using 'outputs' variable
             except Exception:
-                # Fall back to single-model path on any pipeline error
-                pass
+                # fallback to single-model flow if any two-stage step fails
+                outputs = None
+        else:
+            outputs = None
+
+        # If a two-stage pipeline (GRU -> LSTM) is available, use it for every generation.
+        pipeline = globals().get('TWO_STAGE_PIPELINE')
+        if pipeline is not None:
+            # If pipeline is an instance of TwoStagePipeline (from scripts), prefer its predict()
+            if hasattr(pipeline, 'predict'):
+                try:
+                    # Build history as (7,17) -> pipeline expects (7,6) internally
+                    seq = np.array(behavioral_data)
+                    # Try to construct a 7x6 history using GLOBAL_FEATURE_INDEX mapping
+                    behavioral_names = ['sleep_hours', 'exercise_minutes', 'steps_count', 'screen_time_hours', 'social_interactions', 'work_hours']
+                    if hasattr(seq, 'shape') and len(seq.shape) == 2 and seq.shape[1] >= 1:
+                        history = []
+                        for name in behavioral_names:
+                            idx = GLOBAL_FEATURE_INDEX.get(name)
+                            if idx is not None and seq.shape[1] > idx:
+                                col = seq[-7:, idx] if seq.shape[0] >= 7 else np.concatenate([np.repeat(seq[-1, idx], 7)])
+                            else:
+                                col = np.zeros(7)
+                            if len(col) < 7:
+                                col = np.pad(col, (7 - len(col), 0), mode='edge')
+                            history.append(col)
+                        history_np = np.vstack(history).T
+                    else:
+                        vec = np.array(behavioral_data)
+                        last = vec[-1] if len(vec.shape) == 2 else vec
+                        history_np = np.tile(last[:6] if last.shape[0] >= 6 else np.zeros(6), (7,1))
+
+                    pipeline_result = pipeline.predict(history_np)
+                    mental = pipeline_result.get('mental_health', {})
+                    predictions = {}
+                    for target, info in mental.items():
+                        if isinstance(info, dict):
+                            value = info.get('value', 0.0)
+                            at_risk_prob = info.get('confidence', 0.5)
+                        else:
+                            value = float(info)
+                            at_risk_prob = 0.5
+                        predictions[target] = {'value': float(value), 'at_risk_prob': float(at_risk_prob)}
+                    return predictions
+                except Exception:
+                    # fall through to dict-style handling or single-model
+                    pass
+
+            # If pipeline is a fallback dict created here, run a manual GRU->LSTM flow
+            if isinstance(pipeline, dict) and pipeline.get('type') == 'fallback':
+                try:
+                    # Build 7x6 history as above
+                    seq = np.array(behavioral_data)
+                    behavioral_names = ['sleep_hours', 'exercise_minutes', 'steps_count', 'screen_time_hours', 'social_interactions', 'work_hours']
+                    if hasattr(seq, 'shape') and len(seq.shape) == 2 and seq.shape[1] >= 1:
+                        history = []
+                        for name in behavioral_names:
+                            idx = GLOBAL_FEATURE_INDEX.get(name)
+                            if idx is not None and seq.shape[1] > idx:
+                                col = seq[-7:, idx] if seq.shape[0] >= 7 else np.concatenate([np.repeat(seq[-1, idx], 7)])
+                            else:
+                                col = np.zeros(7)
+                            if len(col) < 7:
+                                col = np.pad(col, (7 - len(col), 0), mode='edge')
+                            history.append(col)
+                        history_np = np.vstack(history).T
+                    else:
+                        vec = np.array(behavioral_data)
+                        last = vec[-1] if len(vec.shape) == 2 else vec
+                        history_np = np.tile(last[:6] if last.shape[0] >= 6 else np.zeros(6), (7,1))
+
+                    # Normalize for GRU using checkpoint scalers
+                    gru_ckpt = pipeline.get('gru_checkpoint', {})
+                    mean_X = np.array(gru_ckpt.get('scaler_mean_X', np.zeros((history_np.shape[0], history_np.shape[1]))))
+                    std_X = np.array(gru_ckpt.get('scaler_std_X', np.ones((history_np.shape[0], history_np.shape[1]))))
+                    # If scalers are 1D, broadcast
+                    if mean_X.ndim == 1:
+                        mean_X = np.tile(mean_X, (history_np.shape[0], 1))
+                    if std_X.ndim == 1:
+                        std_X = np.tile(std_X, (history_np.shape[0], 1))
+                    X_gru_norm = (history_np - mean_X) / (std_X + 1e-8)
+
+                    # Run GRU model
+                    gru_model = pipeline.get('gru_model')
+                    import torch as _torch
+                    with _torch.no_grad():
+                        X_tensor = _torch.FloatTensor(X_gru_norm).unsqueeze(0)
+                        pred_norm = gru_model(X_tensor).cpu().numpy()[0]
+
+                    # Denormalize GRU output
+                    mean_y = np.array(gru_ckpt.get('scaler_mean_y', np.zeros_like(pred_norm)))
+                    std_y = np.array(gru_ckpt.get('scaler_std_y', np.ones_like(pred_norm)))
+                    behavioral_forecast = pred_norm * std_y + mean_y
+
+                    # Align behavioral forecast to LSTM inputs (simple substring mapping)
+                    lstm_ckpt = pipeline.get('lstm_checkpoint', {})
+                    mental_features = lstm_ckpt.get('feature_cols', [])
+                    behavioral_features = gru_ckpt.get('feature_cols', [])
+                    mental_input = np.zeros(len(mental_features))
+                    for i, bf in enumerate(behavioral_features):
+                        for j, mf in enumerate(mental_features):
+                            if bf.replace('_','') in mf.replace('_','').lower():
+                                mental_input[j] = behavioral_forecast[i]
+                                break
+
+                    # Normalize for LSTM
+                    lstm_mean = np.array(lstm_ckpt.get('scaler_mean', np.zeros(len(mental_input))))
+                    lstm_std = np.array(lstm_ckpt.get('scaler_std', np.ones(len(mental_input))))
+                    X_lstm = (mental_input - lstm_mean) / (lstm_std + 1e-8)
+                    X_lstm_tensor = _torch.FloatTensor(X_lstm).unsqueeze(0).unsqueeze(0)
+
+                    # Run LSTM model attached in pipeline or passed model
+                    lstm_model = pipeline.get('lstm_model') or model
+                    with _torch.no_grad():
+                        outputs = lstm_model(X_lstm_tensor)
+
+                    # Extract predictions similar to single-model path
+                    predictions = {}
+                    for target, output in outputs.items():
+                        if isinstance(output, dict):
+                            reg = output.get('regression') or output.get('value')
+                            cls = output.get('classification') or output.get('at_risk')
+                            raw_value = reg.item() if hasattr(reg, 'item') else float(reg)
+                            at_risk_prob = cls.item() if hasattr(cls, 'item') else float(cls)
+                        elif isinstance(output, tuple):
+                            reg, cls = output
+                            raw_value = reg.item() if hasattr(reg, 'item') else float(reg)
+                            at_risk_prob = _torch.sigmoid(cls).item() if hasattr(cls, 'item') else 0.5
+                        else:
+                            raw_value = output.item() if hasattr(output, 'item') else float(output)
+                            at_risk_prob = 0.5
+                        predictions[target] = {'value': float(raw_value), 'at_risk_prob': float(at_risk_prob)}
+
+                    return predictions
+                except Exception:
+                    pass
         # Normalize
         normalized = (behavioral_data - scaler_mean) / scaler_scale
         
