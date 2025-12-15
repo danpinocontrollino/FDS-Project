@@ -3,12 +3,12 @@
 
 This `presentation_bundle` contains a focused, runnable subset of the full FDS project used for demos and presentations. The goal of the project is to predict per-day mental-wellness indicators from behavioural and time-series data and to provide HTML profile reports and an interactive demo.
 
-## Summary (precise)
+## Summary
 
 - Goal: given daily features (sleep, working hours, breaks, exercise, screen time, app usage, etc.) predict wellness indicators (stress, mood, job satisfaction) for the same day and short-term future using tabular and sequence models (ML baselines, LSTM/GRU/Transformer).
 - Deliverables in this bundle: an interactive Streamlit demo (`demo_app.py`), profile/report generation scripts, example reports in `reports/`, and minimal configs to reproduce the demo.
 
-## What we will need (software & hardware)
+## What we will need
 
 - Python 3.10 or newer.
 - A virtual environment (`venv` or `conda`) is recommended.
@@ -19,7 +19,7 @@ This `presentation_bundle` contains a focused, runnable subset of the full FDS p
    - `jinja2` / `beautifulsoup4` or similar – HTML report generation
 - Optional: CUDA-capable GPU + matching `torch` build to speed model training and evaluation.
 
-## Data (what we will use and where to put it)
+## Data
 
 - Source dataset: "Work-Life Balance Synthetic Daily Wellness Dataset" (Kaggle). This repository does not include the CSVs.
 - Place CSVs under `data/raw/` (create this directory). Expected pattern: `data/raw/*.csv` or `data/raw/<user>_7day.csv` for demo profiles.
@@ -32,7 +32,7 @@ This `presentation_bundle` contains a focused, runnable subset of the full FDS p
 
 Keep these files next to the bundle or in the same `presentation_bundle/config/` folder. The demo reads these configs at runtime.
 
-## How to run (quick, exact commands)
+## How to run
 
 1) Create and activate a virtual environment
 
@@ -63,7 +63,7 @@ python scripts/generate_profile.py --csv data/raw/martina_7day.csv --html --outp
 
 ## Reproducibility & training
 
-- Training scripts (if present) use deterministic seeds in the top of each script; check `scripts/` for exact commands.
+- Training scripts use deterministic seeds in the top of each script; check `scripts/` for exact commands.
 - To retrain models end-to-end you will need the full dataset and sufficient compute; use `scripts/train_*` entry points and monitor GPU memory.
 
 ## Files of interest in this bundle
@@ -78,5 +78,3 @@ python scripts/generate_profile.py --csv data/raw/martina_7day.csv --html --outp
 - Add a small sample CSV to `data/raw/` for quick demo runs.
 - If you want reproducible exact experiments, add a `run_experiment.sh` wrapper that pins seeds and logs config files.
 - For presentation, prefer running the demo on a machine with a stable Python environment or build a lightweight Docker image.
-
-If you want, I can also: (a) add a sample `requirements.txt` tuned for CPU-only demo runs, (b) commit these changes, or (c) create a minimal `Dockerfile` to run the Streamlit demo.
