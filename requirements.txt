@@ -2,38 +2,38 @@
 # FDS Project - University
 
 # Core Deep Learning
-torch==2.1.0
-torchvision==0.16.0
+torch
+torchvision
 
 # Data Processing
-pandas==2.1.3
-numpy==1.24.3
-scikit-learn==1.3.2
-joblib==1.3.2
+pandas
+numpy
+scikit-learn
+joblib
 
 # Visualization (for notebooks)
-matplotlib==3.8.2
-seaborn==0.13.0
-plotly==5.18.0
+matplotlib
+seaborn
+plotly
 
 # Interactive Demo
-streamlit==1.29.0
+streamlit
 
 # Utilities
-tqdm==4.66.1
-python-dateutil==2.8.2
+tqdm
+python-dateutil
 
 # Kaggle API (for dataset download)
-kaggle==1.5.16
+kaggle
 
 # Optional: Notebook support
-jupyter==1.0.0
-ipykernel==6.27.1
-ipywidgets==8.1.1
+jupyter
+ipykernel
+ipywidgets
 
 # Testing & Quality
-pytest==7.4.3
-black==23.12.0
-flake8==6.1.0
+pytest
+black
+flake8
 
 # Note: Chart.js is loaded via CDN in HTML reports (no Python package needed)
