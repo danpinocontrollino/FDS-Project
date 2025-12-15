@@ -224,7 +224,59 @@ def load_model_and_config():
     try:
         global GLOBAL_THRESHOLDS
         GLOBAL_THRESHOLDS = thresholds
+        global GLOBAL_FEATURE_INDEX
     except Exception:
+        pass
+
+    # Attempt to load the two-stage pipeline (GRU + LSTM) if available.
+    # This looks for `best_behavioral_model.pt` (Stage 1 GRU) and
+    # `mental_health_lstm.pt` (Stage 2 LSTM) under `models/saved` and
+    # falls back to heuristic matching if filenames differ slightly.
+    try:
+        global TWO_STAGE_PIPELINE
+        TWO_STAGE_PIPELINE = None
+        if 'TWO_STAGE_AVAILABLE' in globals() and TWO_STAGE_AVAILABLE:
+            gru_candidate = MODEL_DIR / "best_behavioral_model.pt"
+            lstm_candidate = MODEL_DIR / "mental_health_lstm.pt"
+
+            # Heuristic search if exact filenames are not present
+            if not (gru_candidate.exists() and lstm_candidate.exists()):
+                try:
+                    pt_files = list(MODEL_DIR.glob('*.pt')) + list(MODEL_DIR.glob('*.pth'))
+                    for p in pt_files:
+                        name = p.name.lower()
+                        if 'best_behavioral' in name or 'behavioral' in name or 'gru' in name:
+                            gru_candidate = p
+                        if 'mental' in name or 'lstm' in name or 'mental_health' in name:
+                            lstm_candidate = p
+                except Exception:
+                    pass
+
+            if gru_candidate.exists() and lstm_candidate.exists():
+                try:
+                    # load_pipeline expects paths (strings)
+                    TWO_STAGE_PIPELINE = load_pipeline(str(gru_candidate), str(lstm_candidate))
+
+                    # For compatibility with the rest of the demo, expose the
+                    # Stage-2 LSTM model and its scaler params so existing code
+                    # that expects a single `model` still works.
+                    model = TWO_STAGE_PIPELINE.lstm_model
+                    scaler_mean = np.array(TWO_STAGE_PIPELINE.lstm_checkpoint.get('scaler_mean', np.zeros(len(TWO_STAGE_PIPELINE.targets))))
+                    scaler_scale = np.array(TWO_STAGE_PIPELINE.lstm_checkpoint.get('scaler_std', np.ones(len(TWO_STAGE_PIPELINE.targets))))
+
+                    # Populate feature index mapping from the LSTM checkpoint
+                    try:
+                        feature_cols = TWO_STAGE_PIPELINE.lstm_checkpoint.get('feature_cols', []) or []
+                        GLOBAL_FEATURE_INDEX = {name: idx for idx, name in enumerate(feature_cols)}
+                    except Exception:
+                        GLOBAL_FEATURE_INDEX = {}
+
+                    return PROJECT_ROOT, job_config, thresholds, model, scaler_mean, scaler_scale
+                except Exception as e:
+                    # Non-fatal: continue to attempt single-model load below
+                    st.warning(f"Could not initialize two-stage pipeline: {e}")
+    except Exception:
+        # Keep load tolerant to any issues here
         pass
 
     # Load model (simplified version)
@@ -258,7 +310,6 @@ def load_model_and_config():
         # Populate global feature name -> index map for safety rules
         feature_cols = checkpoint.get('feature_cols', []) or []
         try:
-            global GLOBAL_FEATURE_INDEX
             GLOBAL_FEATURE_INDEX = {name: idx for idx, name in enumerate(feature_cols)}
         except Exception:
             GLOBAL_FEATURE_INDEX = {}
@@ -326,6 +377,51 @@ def predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale, app
     `safety_override` metadata inserted by conservative post-processing.
     """
     try:
+        # If a two-stage pipeline (GRU -> LSTM) is available, use it for every generation.
+        if 'TWO_STAGE_PIPELINE' in globals() and globals().get('TWO_STAGE_PIPELINE') is not None:
+            pipeline = globals().get('TWO_STAGE_PIPELINE')
+            # Build a (7,6) behavioral history expected by the GRU.
+            behavioral_names = ['sleep_hours', 'exercise_minutes', 'steps_count', 'screen_time_hours', 'social_interactions', 'work_hours']
+            # Attempt to extract these from the provided `behavioral_data` using GLOBAL_FEATURE_INDEX mapping.
+            try:
+                seq = np.array(behavioral_data)
+                # If seq has shape (7,17) or (days, features)
+                if hasattr(seq, 'shape') and len(seq.shape) == 2 and seq.shape[1] >= 1:
+                    # For each behavioral feature, try to extract a 7-day series; fallback to repeating last value
+                    history = []
+                    for name in behavioral_names:
+                        idx = GLOBAL_FEATURE_INDEX.get(name)
+                        if idx is not None and seq.shape[1] > idx:
+                            # If we have at least 7 days, take last 7, else pad by repeating last
+                            col = seq[-7:, idx] if seq.shape[0] >= 7 else np.concatenate([np.repeat(seq[-1, idx], 7)])
+                        else:
+                            # Missing mapping: use zeros
+                            col = np.zeros(7)
+                        # Ensure column is length 7
+                        if len(col) < 7:
+                            col = np.pad(col, (7 - len(col), 0), mode='edge')
+                        history.append(col)
+                    # history currently list of 6 arrays length 7 -> transpose to (7,6)
+                    history_np = np.vstack(history).T
+                else:
+                    # behavioral_data is single-day vector of 17 features -> repeat last day into 7 rows
+                    vec = np.array(behavioral_data)
+                    last = vec[-1] if len(vec.shape) == 2 else vec
+                    history_np = np.tile(last[:6] if last.shape[0] >= 6 else np.zeros(6), (7,1))
+
+                # Run pipeline prediction
+                pipeline_result = pipeline.predict(history_np)
+                mental = pipeline_result.get('mental_health', {})
+                # Convert to expected predictions format
+                predictions = {}
+                for target, info in mental.items():
+                    value = info.get('value', float(info)) if isinstance(info, dict) else float(info)
+                    at_risk_prob = info.get('confidence', 0.5) if isinstance(info, dict) else 0.5
+                    predictions[target] = {'value': float(value), 'at_risk_prob': float(at_risk_prob)}
+                return predictions
+            except Exception:
+                # Fall back to single-model path on any pipeline error
+                pass
         # Normalize
         normalized = (behavioral_data - scaler_mean) / scaler_scale
         
