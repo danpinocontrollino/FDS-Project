@@ -36,26 +36,26 @@ class GRUModel(nn.Module):
 
 
 class PredictionHead(nn.Module):
-    """Multi-task prediction head for mental health outcomes"""
-    def __init__(self, input_dim, hidden_dim=32, dropout=0.2):
+    """Single prediction head for one target (matches checkpoint structure)"""
+    def __init__(self, input_dim, hidden_dim=64):
         super().__init__()
-        self.fc1 = nn.Linear(input_dim, hidden_dim)
-        self.bn1 = nn.BatchNorm1d(hidden_dim)
-        self.dropout = nn.Dropout(dropout)
-        self.fc_regression = nn.Linear(hidden_dim, 1)
-        self.fc_classification = nn.Linear(hidden_dim, 1)
-        self.relu = nn.ReLU()
+        self.shared = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+        )
+        self.regression = nn.Linear(hidden_dim, 1)
+        self.classification = nn.Linear(hidden_dim, 1)
     
     def forward(self, x):
-        x = self.relu(self.bn1(self.fc1(x)))
-        x = self.dropout(x)
-        regression = self.fc_regression(x)
-        classification = torch.sigmoid(self.fc_classification(x))
-        return regression, classification
+        h = self.shared(x)
+        reg = self.regression(h).squeeze(-1)
+        cls = self.classification(h).squeeze(-1)
+        return reg, cls
 
 
 class MentalHealthPredictor(nn.Module):
-    """LSTM model for mental health prediction (Stage 2)"""
+    """LSTM model for mental health prediction (Stage 2) - matches checkpoint structure"""
     def __init__(self, input_dim, hidden_dim=128, encoder_type="lstm", targets=None):
         super().__init__()
         self.name = "MentalHealthLSTM"
@@ -64,28 +64,40 @@ class MentalHealthPredictor(nn.Module):
         
         if encoder_type == "lstm":
             self.encoder = nn.LSTM(input_dim, hidden_dim, num_layers=2, 
-                                  batch_first=True, dropout=0.3)
+                                  batch_first=True, dropout=0.2)
         elif encoder_type == "gru":
             self.encoder = nn.GRU(input_dim, hidden_dim, num_layers=2,
-                                 batch_first=True, dropout=0.3)
+                                 batch_first=True, dropout=0.2)
         else:
             raise ValueError(f"Unknown encoder: {encoder_type}")
         
-        self.prediction_heads = nn.ModuleDict({
-            target: PredictionHead(hidden_dim) for target in self.targets
+        # Shared representation layer (matches checkpoint: shared_repr.0, shared_repr.1)
+        self.shared_repr = nn.Sequential(
+            nn.LayerNorm(hidden_dim),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+        )
+        
+        # Prediction heads (matches checkpoint: heads.{target}.shared, .regression, .classification)
+        self.heads = nn.ModuleDict({
+            target: PredictionHead(hidden_dim, hidden_dim // 2) for target in self.targets
         })
     
     def forward(self, x):
         if self.encoder_type == "lstm":
-            _, (hidden, _) = self.encoder(x)
+            out, _ = self.encoder(x)
         else:
-            _, hidden = self.encoder(x)
+            out, _ = self.encoder(x)
         
-        hidden = hidden[-1]
+        # Use last timestep
+        hidden = out[:, -1, :]
+        hidden = self.shared_repr(hidden)
+        
         outputs = {}
-        for target, head in self.prediction_heads.items():
-            reg, cls = head(hidden)
-            outputs[target] = {'regression': reg.squeeze(1), 'classification': cls.squeeze(1)}
+        for target in self.targets:
+            reg, cls = self.heads[target](hidden)
+            outputs[target] = (reg, cls)
         return outputs
 
 

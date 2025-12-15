@@ -19,7 +19,7 @@ signals that require clinical corroboration.
 """
 
 import streamlit as st
-st.write("DEBUG: demo loaded")
+import os
 import pandas as pd
 import numpy as np
 import torch
@@ -45,6 +45,8 @@ MODEL_PATH = BASE_DIR / "models" / "saved" / "mental_health_lstm.pt"
 GLOBAL_THRESHOLDS = None
 # Global feature name -> index mapping (populated in load_model_and_config)
 GLOBAL_FEATURE_INDEX = {}
+# Global two-stage pipeline (if available)
+TWO_STAGE_PIPELINE = None
 
 # Import model definitions (try package path first, fall back to top-level module)
 try:
@@ -938,25 +940,6 @@ def predict_mental_health(model, behavioral_data, scaler_mean, scaler_scale, app
         return None
 
 
-def run_script_blocking(script_rel_path: str, project_root: Path, timeout: int = 600) -> tuple:
-    """Run a Python script relative to `project_root` and return (success, output).
-
-    Uses the current Python interpreter to run the target script and captures
-    stdout/stderr. Designed for synchronous runs with a UI spinner; not for
-    very long background jobs.
-    """
-    script_path = project_root / script_rel_path
-    if not script_path.exists():
-        return False, f"Script not found: {script_path}"
-
-    cmd = [sys.executable, str(script_path)]
-    try:
-        proc = subprocess.run(cmd, cwd=project_root, capture_output=True, text=True, timeout=timeout)
-        output = (proc.stdout or "") + "\n" + (proc.stderr or "")
-        return proc.returncode == 0, output
-    except Exception as e:
-        return False, str(e)
-
 # ============================================================================
 # UI COMPONENTS
 # ============================================================================
@@ -1724,265 +1707,59 @@ def render_risk_assessment(inputs, predictions, thresholds):
         else:
             st.info("Building healthy habits...")
 
-def load_studentlife_profiles():
-    """Load StudentLife-derived student profiles when present.
-
-    I attempt to locate and parse auxiliary StudentLife profile exports to
-    enrich demo scenarios. Missing StudentLife data is treated as
-    non-fatal and the UI falls back to synthetic or example profiles.
-    """
-    profile_dir = Path("reports/studentlife_profiles")
-    
-    if not profile_dir.exists():
-        return {}
-    
-    profiles = {}
-    for profile_file in profile_dir.glob("profile_*.json"):
-        try:
-            with open(profile_file, 'r') as f:
-                profile = json.load(f)
-                student_id = profile.get('student_id', profile_file.stem.replace('profile_', ''))
-                profiles[student_id] = profile
-        except Exception as e:
-            continue
-    
-    return profiles
-
 def render_case_studies():
-    """Render interactive StudentLife case studies."""
+    """Render interactive StudentLife case studies using pre-generated HTML profiles."""
     st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
     st.header("📚 Real Student Case Studies")
     st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
     
-    # Load profiles
-    profiles = load_studentlife_profiles()
+    # Check for pre-generated HTML profiles
+    html_profile_dir = Path("reports/two_stage_html")
+    html_files = sorted(html_profile_dir.glob("two_stage_profile_*.html")) if html_profile_dir.exists() else []
     
-    if not profiles:
+    if not html_files:
         st.info("""
-        **Real student profiles not yet generated.**
+        **Student profile reports not found.**
         
-        These case studies show predictions on real StudentLife data - 10 students 
-        tracked over 10 weeks with smartphone sensors.
-        
-        To generate profiles:
-        1. Run `scripts/generate_studentlife_profiles_kaggle.py` on Kaggle
-        2. Download JSON files to `reports/studentlife_profiles/`
-        3. Refresh this page
-        
-        This demonstrates how the model performs on real-world sparse data!
+        Pre-generated HTML profiles should be in `reports/two_stage_html/`.
+        These show two-stage pipeline predictions for 10 students from StudentLife.
         """)
         return
     
-    st.success(f"✓ Loaded {len(profiles)} real student profiles from StudentLife dataset")
+    st.success(f"✓ Found {len(html_files)} student profile reports")
     
-    # Student selector
-    student_ids = sorted(profiles.keys())
-    selected_student = st.selectbox(
-        "Select Student to Explore:",
-        student_ids,
-        format_func=lambda x: f"Student {x.upper()} ({profiles[x].get('total_days', 0)} days of predictions)"
+    # Extract student IDs from filenames
+    student_ids = [f.stem.replace('two_stage_profile_', '').upper() for f in html_files]
+    
+    selected_idx = st.selectbox(
+        "Select Student to View:",
+        range(len(student_ids)),
+        format_func=lambda i: f"Student {student_ids[i]}"
     )
     
-    if not selected_student:
-        return
-    
-    profile = profiles[selected_student]
-    
-    # Student overview
-    st.markdown("---")
-    st.subheader(f"📋 Student {selected_student.upper()} Overview")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric("Total Days", profile.get('total_days', 0))
-    
-    with col2:
-        date_range = profile.get('statistics', {}).get('date_range', {})
-        start = date_range.get('start', 'N/A')
-        st.metric("Study Start", start[:10] if start != 'N/A' else 'N/A')
-    
-    with col3:
-        date_range = profile.get('statistics', {}).get('date_range', {})
-        end = date_range.get('end', 'N/A')
-        st.metric("Study End", end[:10] if end != 'N/A' else 'N/A')
-    
-    with col4:
-        data_quality = profile.get('statistics', {}).get('data_quality_summary', {})
-        completeness = data_quality.get('overall_completeness', 0)
-        st.metric("Data Quality", f"{completeness:.0f}%")
-    
-    # Prediction timeline
-    st.markdown("---")
-    st.subheader("📈 Mental Health Prediction Timeline")
-    
-    daily_preds = profile.get('daily_predictions', [])
-    
-    if daily_preds:
-        # Extract time series data
-        dates = [pred['date'] for pred in daily_preds]
+    if selected_idx is not None:
+        selected_file = html_files[selected_idx]
         
-        # Create dataframe for plotting
-        plot_data = []
-        for pred in daily_preds:
-            row = {'date': pred['date']}
-            for target, values in pred['predictions'].items():
-                row[target] = values['value']
-            plot_data.append(row)
+        st.markdown("---")
+        st.subheader(f"📋 Student {student_ids[selected_idx]} Profile")
         
-        df_plot = pd.DataFrame(plot_data)
-        df_plot['date'] = pd.to_datetime(df_plot['date'])
-        df_plot = df_plot.set_index('date')
+        # Show download link for the HTML report
+        with open(selected_file, 'r') as f:
+            html_content = f.read()
         
-        # Plot selector
-        metric_to_plot = st.selectbox(
-            "Select metric to visualize:",
-            ['stress_level', 'anxiety_score', 'mood_score', 'depression_score', 
-             'energy_level', 'perceived_stress_scale', 'focus_score', 'job_satisfaction'],
-            format_func=lambda x: x.replace('_', ' ').title()
+        st.download_button(
+            label="📥 Download Full HTML Report",
+            data=html_content,
+            file_name=selected_file.name,
+            mime="text/html"
         )
         
-        if metric_to_plot in df_plot.columns:
-            st.line_chart(df_plot[metric_to_plot])
-            
-            # Statistics
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric("Average", f"{df_plot[metric_to_plot].mean():.2f}")
-            with col2:
-                st.metric("Min", f"{df_plot[metric_to_plot].min():.2f}")
-            with col3:
-                st.metric("Max", f"{df_plot[metric_to_plot].max():.2f}")
-            with col4:
-                trend = "📈 Increasing" if df_plot[metric_to_plot].iloc[-1] > df_plot[metric_to_plot].iloc[0] else "📉 Decreasing"
-                st.metric("Trend", trend)
-    
-    # Detailed predictions table
-    st.markdown("---")
-    st.subheader("📊 Daily Predictions (Latest 10 Days)")
-    
-    if daily_preds:
-        # Show last 10 days
-        recent_preds = daily_preds[-10:]
+        st.info(f"💡 Click the download button above to view the complete interactive report for Student {student_ids[selected_idx]}")
         
-        table_data = []
-        for pred in recent_preds:
-            row = {'Date': pred['date'][:10]}
-            
-            # Add key predictions
-            preds = pred.get('predictions', {})
-            row['Stress'] = f"{preds.get('stress_level', {}).get('value', 0):.1f}"
-            row['Mood'] = f"{preds.get('mood_score', {}).get('value', 0):.1f}"
-            row['Anxiety'] = f"{preds.get('anxiety_score', {}).get('value', 0):.1f}"
-            row['Energy'] = f"{preds.get('energy_level', {}).get('value', 0):.1f}"
-            
-            # Data quality indicator
-            quality = pred.get('data_quality', {}).get('overall_completeness', 100)
-            row['Data Quality'] = f"{quality:.0f}%"
-            
-            table_data.append(row)
-        
-        st.dataframe(pd.DataFrame(table_data), use_container_width=True)
-    
-    # Comparison with actual survey data
-    st.markdown("---")
-    st.subheader("🔍 Prediction vs Actual Survey Responses")
-    
-    stats = profile.get('statistics', {})
-    actual_vs_pred = stats.get('actual_vs_predicted', {})
-    
-    if actual_vs_pred and actual_vs_pred.get('count', 0) > 0:
-        comparisons = actual_vs_pred.get('comparisons', [])
-        avg_error = actual_vs_pred.get('average_error', 0)
-        
-        st.success(f"✓ Found {len(comparisons)} days with actual survey responses!")
-        st.metric("Average Prediction Error", f"{avg_error:.2f} points")
-        
-        # Show comparison table
-        comp_data = []
-        for comp in comparisons[:10]:  # Show first 10
-            comp_data.append({
-                'Date': comp['date'][:10],
-                'Target': comp['target'].replace('_', ' ').title(),
-                'Actual': f"{comp['actual']:.1f}",
-                'Predicted': f"{comp['predicted']:.1f}",
-                'Error': f"{comp['error']:.1f}"
-            })
-        
-        if comp_data:
-            st.dataframe(pd.DataFrame(comp_data), use_container_width=True)
-    else:
-        st.warning("""
-        ⚠️ **No survey responses available for this student**
-        
-        This is the real-world data challenge: students rarely fill out daily mental 
-        health surveys. This student provided behavioral sensor data (sleep, exercise, etc.) 
-        but didn't complete mental health self-reports.
-        
-        **This demonstrates why sensor-based prediction is valuable** - we can still 
-        generate mental health insights even when surveys aren't filled.
-        """)
-    
-    # Key insights
-    st.markdown("---")
-    st.subheader("💡 Key Insights")
-    
-    pred_summary = stats.get('predictions_summary', {})
-    
-    if pred_summary:
-        insights = []
-        
-        # Check stress
-        if 'stress_level' in pred_summary:
-            stress_mean = pred_summary['stress_level']['mean']
-            stress_trend = pred_summary['stress_level']['trend']
-            if stress_mean > 6:
-                insights.append(f"🔴 High average stress ({stress_mean:.1f}/10) - {stress_trend}")
-            elif stress_mean < 4:
-                insights.append(f"🟢 Low average stress ({stress_mean:.1f}/10) - {stress_trend}")
-            else:
-                insights.append(f"🟡 Moderate stress ({stress_mean:.1f}/10) - {stress_trend}")
-        
-        # Check mood
-        if 'mood_score' in pred_summary:
-            mood_mean = pred_summary['mood_score']['mean']
-            mood_trend = pred_summary['mood_score']['trend']
-            if mood_mean >= 7:
-                insights.append(f"🟢 Good mood ({mood_mean:.1f}/10) - {mood_trend}")
-            elif mood_mean < 5:
-                insights.append(f"🔴 Low mood ({mood_mean:.1f}/10) - {mood_trend}")
-            else:
-                insights.append(f"🟡 Fair mood ({mood_mean:.1f}/10) - {mood_trend}")
-        
-        # Check anxiety
-        if 'anxiety_score' in pred_summary:
-            anx_mean = pred_summary['anxiety_score']['mean']
-            anx_trend = pred_summary['anxiety_score']['trend']
-            if anx_mean > 14:
-                insights.append(f"🔴 High anxiety ({anx_mean:.1f}/21) - {anx_trend}")
-            elif anx_mean < 10:
-                insights.append(f"🟢 Low anxiety ({anx_mean:.1f}/21) - {anx_trend}")
-            else:
-                insights.append(f"🟡 Moderate anxiety ({anx_mean:.1f}/21) - {anx_trend}")
-        
-        for insight in insights:
-            st.markdown(f"- {insight}")
-    
-    # Educational note
-    st.markdown("---")
-    st.info("""
-    **Educational Purpose:**
-    
-    This case study demonstrates how our two-stage pipeline (GRU→LSTM) performs on real student data 
-    with realistic data quality challenges:
-    - ✅ Behavioral sensors work well (85-90% coverage)
-    - ⚠️ Mental health surveys sparse (10-20% coverage)  
-    - 🎯 Predictions enable continuous monitoring even without daily surveys
-    
-    In deployment, this approach could provide early warnings when behavioral patterns 
-    suggest declining mental health - even when users don't fill out surveys.
-    """)
+        # Show a preview using an iframe
+        st.markdown("#### Preview:")
+        st.components.v1.html(html_content, height=600, scrolling=True)
+
 
 def render_data_quality_insights():
     """Render data quality comparison: Synthetic vs Real-world data insights."""
@@ -2588,214 +2365,123 @@ def render_two_stage_pipeline_demo(model, scaler_mean, scaler_scale, thresholds)
 # ============================================================================
 
 def render_model_comparison_viewer():
-    """Interactive viewer comparing synthetic vs real-trained models."""
-    st.header("🔬 Model Comparison: Training Data Quality Matters")
+    """Interactive viewer comparing model architectures on StudentLife data."""
+    st.header("🔬 Model Architecture Comparison")
     
-    comparison_path = Path("reports/dual_comparison/dual_predictions_comparison.json")
+    # Always show the correlation comparison chart if it exists
+    correlation_chart = Path("reports/comparison_correlations.png")
+    if correlation_chart.exists():
+        st.image(str(correlation_chart), caption="Correlation Strength: Clinical vs Synthetic vs Real", use_container_width=True)
+        st.markdown("---")
+    
+    # Show confrontation dashboard if it exists
+    dashboard_dir = Path("reports/confrontation_dashboard")
+    summary_path = dashboard_dir / "summary_dashboard.png"
+    if summary_path.exists():
+        st.image(str(summary_path), caption="Model Confrontation Dashboard", use_container_width=True)
+        st.markdown("---")
+    
+    # Load the actual model comparison results
+    comparison_path = Path("models/saved/model_comparison_results.json")
     
     if not comparison_path.exists():
-        with st.expander("📊 About Model Comparison", expanded=False):
-            st.markdown("""
-            **Coming Soon**: Interactive comparison of two models trained on different data:
-            
-            - **Synthetic Model**: Trained on 1.5M synthetic records
-            - **Real Model**: Trained on 674 real StudentLife records
-            
-            This will demonstrate how training data quality affects predictions on the same students!
-            """)
+        st.info("Model comparison results not found. Run the model comparison script on Kaggle.")
         return
     
-    # Load comparison data
     with open(comparison_path) as f:
         comparison_data = json.load(f)
     
-    with st.expander("🎯 View Model Comparison", expanded=True):
-        # Show summary stats
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Total Comparisons", comparison_data['total_comparisons'])
-        
-        with col2:
-            synthetic_wins = comparison_data['model_performance']['synthetic_model']['wins']
-            synthetic_rate = comparison_data['model_performance']['synthetic_model']['win_rate']
-            st.metric("Synthetic Wins", f"{synthetic_wins} ({synthetic_rate:.0%})")
-        
-        with col3:
-            real_wins = comparison_data['model_performance']['real_model']['wins']
-            real_rate = comparison_data['model_performance']['real_model']['win_rate']
-            st.metric("Real Wins", f"{real_wins} ({real_rate:.0%})")
-        
-        with col4:
-            with_gt = comparison_data['total_predictions_with_ground_truth']
-            st.metric("With Ground Truth", with_gt)
-        
-        st.markdown("---")
-        
-        # Extract student IDs
-        comparisons = comparison_data['comparisons']
-        student_ids = sorted(set(c['student_id'] for c in comparisons))
-        
-        # Student selector
-        selected_student = st.selectbox(
-            "Select Student",
-            student_ids,
-            help="Choose a student to see how both models predicted their mental health"
-        )
-        
-        # Filter to selected student
-        student_comparisons = [c for c in comparisons if c['student_id'] == selected_student]
-        
-        st.markdown(f"### 📅 Timeline for {selected_student}")
-        st.markdown(f"*Showing {len(student_comparisons)} days of predictions*")
-        
-        # Target selector
-        target_options = {
-            'stress_level': 'Stress Level (0-10)',
-            'mood_score': 'Mood Score (0-10)',
-            'energy_level': 'Energy Level (0-10)',
-            'focus_score': 'Focus Score (0-10)',
-            'perceived_stress_scale': 'Perceived Stress Scale (0-40)',
-            'anxiety_score': 'Anxiety Score (0-21)',
-            'depression_score': 'Depression Score (0-27)',
-            'job_satisfaction': 'Job Satisfaction (0-10)'
-        }
-        
-        selected_target = st.selectbox(
-            "Select Mental Health Target",
-            options=list(target_options.keys()),
-            format_func=lambda x: target_options[x],
-            help="Choose which mental health metric to compare"
-        )
-        
-        # Show first few days with predictions
-        st.markdown(f"#### Sample Predictions: {target_options[selected_target]}")
-        
-        # All values will be normalized to 1-10 for consistent display
-        st.caption(f"All values normalized to 1-10 scale (original: {get_original_range_str(selected_target)})")
-        
-        for i, comp in enumerate(student_comparisons[:5]):
-            date = comp['date']
-            
-            with st.container():
-                st.markdown(f"**Date: {date}**")
-                
-                # Get selected target predictions
-                target_pred = comp['predictions'][selected_target]
-                pred_synth_raw = target_pred['synthetic_prediction']
-                pred_real_raw = target_pred['real_prediction']
-                actual_raw = target_pred['actual_value']
-                
-                # Normalize all values to 1-10 scale
-                pred_synth = normalize_to_1_10(pred_synth_raw, selected_target)
-                pred_real = normalize_to_1_10(pred_real_raw, selected_target)
-                actual = normalize_to_1_10(actual_raw, selected_target) if actual_raw is not None else None
-                
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    synth_label = "🔵 Synthetic"
-                    # Calculate normalized error if actual exists
-                    if actual is not None:
-                        error = abs(pred_synth - actual)
-                        st.metric(synth_label, f"{pred_synth:.1f}/10", delta=f"Error: {error:.1f}")
-                    else:
-                        st.metric(synth_label, f"{pred_synth:.1f}/10")
-                
-                with col2:
-                    # Check if real model is stuck on defaults (label scarcity artifact)
-                    is_default = abs(pred_real_raw - 5.0) < 0.1 or abs(pred_real_raw - 6.0) < 0.1 or abs(pred_real_raw - 8.0) < 0.1 or abs(pred_real_raw - 20.0) < 0.1
-                    warning = " ⚠️" if is_default else ""
-                    if actual is not None:
-                        error = abs(pred_real - actual)
-                        st.metric(f"🟢 Real Model{warning}", f"{pred_real:.1f}/10", delta=f"Error: {error:.1f}")
-                    else:
-                        st.metric(f"🟢 Real Model{warning}", f"{pred_real:.1f}/10")
-                
-                with col3:
-                    if actual is not None:
-                        winner = target_pred['winner']
-                        winner_emoji = "🔵" if winner == 'synthetic' else "🟢"
-                        st.metric(f"⭐ Actual", f"{actual:.1f}/10", 
-                                 delta=f"{winner_emoji} {winner.capitalize()} wins!")
-                    else:
-                        st.metric("⭐ Actual", "No data", delta="No ground truth")
-                
-                # Show behavioral context
-                with st.expander("📊 Behavioral Context"):
-                    features = comp['behavioral_features']
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        st.markdown(f"**Sleep:** {features['sleep_hours']:.1f}h")
-                        st.markdown(f"**Exercise:** {features['exercise_minutes']:.0f}min")
-                    
-                    with col2:
-                        st.markdown(f"**Work:** {features['work_hours']:.1f}h")
-                        st.markdown(f"**Screen:** {features['screen_time_hours']:.1f}h")
-                    
-                    with col3:
-                        st.markdown(f"**Social:** {features['social_interactions']:.0f}")
-                        st.markdown(f"**Caffeine:** {features['caffeine_mg']:.0f}mg")
-                
-                st.markdown("---")
-        
-        # Summary insights
-        st.markdown("#### 🔍 Key Insights")
-        st.markdown(f"""
-        - **Synthetic model** (1.5M training samples): {synthetic_rate:.0%} accuracy on ground truth
-        - **Real model** (674 training samples): {real_rate:.0%} accuracy on ground truth
-        - **Interesting**: Despite 2000× less training data, real model performs competitively
-        - **Why**: Real data has stronger behavioral correlations than synthetic data
-        """)
-        
-        st.warning("""
-        **⚠️ Real Model Limitation Discovered**: The real model outputs constant predictions (5.0, 6.0, 8.0) 
-        because the StudentLife dataset has very sparse mental health labels - most days have NO EMA responses. 
-        The model learned to predict the training set defaults rather than actual patterns.
-        
-        **Key Takeaway**: This demonstrates that **data quality** includes both:
-        1. ✅ Strong behavioral correlations (StudentLife has this)
-        2. ❌ Sufficient ground truth labels (StudentLife lacks this - only 10 days with actual responses!)
-        
-        For a fair comparison, we would need a dataset with both real behavioral sensors AND frequent mental health surveys.
-        """)
-        
-        st.markdown("---")
-        
-        # Confrontation Dashboard Visualizations
-        st.markdown("#### 📊 Confrontation Dashboard")
-        st.markdown("*Visual comparison of model performance*")
-        
-        dashboard_dir = Path("reports/confrontation_dashboard")
-        
-        if dashboard_dir.exists():
-            # Show summary dashboard
-            summary_path = dashboard_dir / "summary_dashboard.png"
-            if summary_path.exists():
-                st.image(str(summary_path), caption="Overall Confrontation Dashboard", use_container_width=True)
-            
-            # Show detailed charts in columns
-            st.markdown("##### Detailed Analysis")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                error_dist_path = dashboard_dir / "error_distribution.png"
-                if error_dist_path.exists():
-                    st.image(str(error_dist_path), caption="Error Distribution Comparison", use_container_width=True)
-            
-            with col2:
-                target_heatmap_path = dashboard_dir / "target_heatmap.png"
-                if target_heatmap_path.exists():
-                    st.image(str(target_heatmap_path), caption="Win Rate by Target", use_container_width=True)
-            
-            # Student breakdown (full width)
-            student_breakdown_path = dashboard_dir / "student_breakdown.png"
-            if student_breakdown_path.exists():
-                st.image(str(student_breakdown_path), caption="Performance by Student", use_container_width=True)
-        else:
-            st.info("💡 Run `python scripts/generate_confrontation_dashboard.py` to create visualizations")
+    st.subheader("🏆 Architecture Comparison on StudentLife (Stage 1)")
+    st.markdown(f"""
+    **Dataset**: {comparison_data['dataset']['total_sequences']:,} sequences from {comparison_data['dataset']['num_students']} students  
+    **Task**: Behavioral forecasting (predict next-day sleep, exercise, steps, etc.)  
+    **Evaluation**: 5-fold cross-validation with R², MAE, RMSE metrics
+    """)
+    
+    # Summary metrics
+    best = comparison_data['best_model']
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("🥇 Best Model", best['name'])
+    with col2:
+        st.metric("Best R²", f"{best['r2']:.3f}")
+    with col3:
+        st.metric("Best MAE", f"{best['mae']:.1f}")
+    with col4:
+        st.metric("Models Tested", len(comparison_data['models_tested']))
+    
+    st.markdown("---")
+    
+    # Ranking table
+    st.subheader("📊 Model Ranking (by R²)")
+    
+    ranking_data = []
+    for rank, (model_name, r2) in enumerate(comparison_data['ranking'], 1):
+        results = comparison_data['results'][model_name]
+        ranking_data.append({
+            'Rank': f"#{rank}",
+            'Model': model_name,
+            'R² Score': f"{r2:.4f}",
+            'MAE': f"{results['mae_mean']:.2f} ± {results['mae_std']:.2f}",
+            'RMSE': f"{results['rmse_mean']:.2f}"
+        })
+    
+    df_ranking = pd.DataFrame(ranking_data)
+    st.dataframe(df_ranking, use_container_width=True, hide_index=True)
+    
+    # Detailed comparison
+    st.markdown("---")
+    st.subheader("📈 Detailed Performance Analysis")
+    
+    # Create bar chart data
+    models = list(comparison_data['results'].keys())
+    r2_scores = [comparison_data['results'][m]['r2_mean'] for m in models]
+    r2_stds = [comparison_data['results'][m]['r2_std'] for m in models]
+    
+    # Display as metrics in columns
+    cols = st.columns(3)
+    for i, model in enumerate(models):
+        with cols[i % 3]:
+            results = comparison_data['results'][model]
+            emoji = "🥇" if model == best['name'] else "🔹"
+            st.metric(
+                f"{emoji} {model}",
+                f"R² = {results['r2_mean']:.3f}",
+                delta=f"MAE: {results['mae_mean']:.1f}"
+            )
+    
+    # Key insights
+    st.markdown("---")
+    st.subheader("🔍 Key Insights")
+    
+    st.success(f"""
+    **Winner: {best['name']}** with R² = {best['r2']:.3f}
+    
+    - GRU outperforms LSTM by ~1.4% on behavioral forecasting
+    - Transformer competitive but higher variance (σ = 0.034 vs 0.030)
+    - CNN-LSTM underperforms (-3.7% vs GRU) despite added complexity
+    - MLP baseline surprisingly close to recurrent models
+    """)
+    
+    st.info("""
+    **Why GRU for Stage 1?**
+    
+    We selected GRU for the two-stage pipeline because:
+    1. **Best R² score** (0.483) on real StudentLife behavioral data
+    2. **Lower complexity** than LSTM (fewer parameters, faster training)
+    3. **Stable performance** (σ = 0.030, lower than Transformer)
+    
+    This GRU model's behavioral predictions feed into Stage 2 (synthetic LSTM) 
+    for mental health inference.
+    """)
+    
+    # Show features used
+    with st.expander("📋 Features Used in Comparison"):
+        st.markdown("**Behavioral features predicted by Stage 1 models:**")
+        for feat in comparison_data['dataset']['features']:
+            st.markdown(f"- `{feat}`")
+        st.caption(f"Experiment date: {comparison_data['experiment_date'][:10]}")
+
 
 # ============================================================================
 # MAIN APP
@@ -2851,7 +2537,7 @@ def main():
 
         if bypass or agree_side or agree_main:
             st.session_state['ack_disclaimer'] = True
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.stop()
 
@@ -2930,74 +2616,23 @@ def main():
                 "Research visuals not found in `reports/two_stage_analysis`.\n"
                 "Place the pre-generated PNGs in `reports/two_stage_analysis` to display them here."
             )
-            st.code("ls -la reports/two_stage_analysis || true", language="bash")
 
-        tabs = st.tabs(["Overview", "Two-Stage Pipeline", "Model Comparison", "Case Studies", "Data Quality"])
-
-        # Overview: summary + quick actions
-        with tabs[0]:
-            st.header("Overview")
-            st.markdown("Brief summary of research artifacts and key findings")
-            st.markdown(f"- **Total predictions:** {total_preds}")
-            st.markdown(f"- **Students:** {num_students}")
-            st.markdown(f"- **Avg Stage 1 Uncertainty:** {avg_unc_pct:.1f}%" if avg_unc_pct is not None else "- Avg uncertainty: N/A")
-
-            col_a, col_b = st.columns(2)
-            with col_a:
-                st.info("Research visuals are loaded from `reports/two_stage_analysis` when present.")
-            with col_b:
-                st.info("Confrontation visuals are loaded from `reports/confrontation_dashboard` when present.")
-
-            # Show key research overview images (thumbnails) if they exist
-            img1 = Path("reports/two_stage_analysis/pipeline_summary_dashboard.png")
-            img2 = Path("reports/confrontation_dashboard/summary_dashboard.png")
-            img3 = Path("reports/comparison_correlations.png")
-
-            show_images = st.button("Show Research Images")
-            if 'show_research_images' not in st.session_state:
-                st.session_state['show_research_images'] = False
-            if show_images:
-                st.session_state['show_research_images'] = True
-
-            if st.session_state['show_research_images']:
-                if img1.exists() or img2.exists() or img3.exists():
-                    st.markdown("---")
-                    st.subheader("Research Snapshot")
-                    cols = st.columns(3)
-                    images = [img1, img2, img3]
-                    captions = [
-                        "Two-Stage Pipeline Summary",
-                        "Confrontation Summary Dashboard",
-                        "Correlation Comparison"
-                    ]
-
-                    for col, img, cap in zip(cols, images, captions):
-                        with col:
-                            if img.exists():
-                                st.image(str(img), caption=cap, use_container_width=True)
-                            else:
-                                st.write(f"Missing: {img}")
-                else:
-                    st.info("No research images found in reports directories.")
+        tabs = st.tabs(["Two-Stage Pipeline", "Model Comparison", "Case Studies", "Data Quality"])
 
         # Two-Stage Pipeline: detailed explorer
-        with tabs[1]:
-            st.header("Two-Stage Pipeline")
+        with tabs[0]:
             render_two_stage_pipeline_demo(model, scaler_mean, scaler_scale, thresholds)
 
         # Model Comparison
-        with tabs[2]:
-            st.header("Model Comparison")
+        with tabs[1]:
             render_model_comparison_viewer()
 
         # Case Studies
-        with tabs[3]:
-            st.header("Case Studies")
+        with tabs[2]:
             render_case_studies()
 
         # Data Quality
-        with tabs[4]:
-            st.header("Data Quality")
+        with tabs[3]:
             render_data_quality_insights()
 
         # Early exit for research view (no profile controls shown)
@@ -3105,7 +2740,7 @@ def main():
             healthy_target = 9.0  # Healthy anxiety (0-9 range)
             progress = max(0, min(100, (1 - current_anxiety / 21) * 100))
             color = "🟢" if current_anxiety < 10 else "🟠" if current_anxiety <= 14 else "🔴"
-            st.metric(f"{color} Anxiety", f"{current_anxiety:.1f}/21", f"Target: <{healthy_target:.0f}")
+            st.metric(f"{color} Anxiety", f"{current_anxiety:.1f}/10", f"Target: <{healthy_target:.0f}")
             st.progress(progress / 100 if progress > 0 else 0)
         
         with col3:
@@ -3134,19 +2769,7 @@ def main():
         
         # Download option
         st.markdown("---")
-        st.info("💡 **Tip:** For full detailed report with charts and history tracking, use `python scripts/generate_profile.py --csv your_data.csv --html`")
-    
-    # Data Quality Insights section (always show - valuable for presentation)
-    st.markdown("---")
-    render_data_quality_insights()
-    
-    # Two-Stage Pipeline Demo (NEW!)
-    st.markdown("---")
-    render_two_stage_pipeline_demo(model, scaler_mean, scaler_scale, thresholds)
-    
-    # Model Comparison Viewer (NEW!)
-    st.markdown("---")
-    render_model_comparison_viewer()
+        st.info("💡 **Tip:** Switch to **Research** view in the sidebar to explore the Two-Stage Pipeline, Model Comparisons, and Data Quality insights.")
     
     if st.session_state.predictions is None:
         st.info("👈 Adjust behavioral inputs in the sidebar, then click **Generate Profile** to see predictions!")
@@ -3157,21 +2780,18 @@ def main():
         st.markdown("""
         1. **Input**: Enter 7-day average behavioral data (sleep, work, exercise, etc.)
         2. **Model**: Stage 2 LSTM with 2 layers (128 hidden dims) processes the sequence
-        3. **Output**: 8  risk assessment and personalized advice
-        mental health predictions in <100ms
-        4. **Analysis**: Automatic
+        3. **Output**: 8 mental health predictions in <100ms
+        4. **Analysis**: Automatic risk assessment and personalized advice
+        
         **Model Performance:**
         - Job Satisfaction: 98.5% accuracy
-        - Depression: 98% accuracy
+        - Depression: 98% accuracy  
         - Anxiety: 97% accuracy
-        - Trained on 500K+ samples
+        - Trained on 1.5M+ synthetic samples
         """)
         
-        col1, col2 = st.columns(2)
-        with col1:
-            st.image("https://via.placeholder.com/300x200?text=Stage+2+LSTM", caption="Multi-Task LSTM Model (Stage 2: Mental Health Inference)")
-        with col2:
-            st.image("https://via.placeholder.com/300x200?text=Training+Data", caption="1.5M+ Training Records")
+        st.info("👈 Adjust the sliders in the sidebar and click **Generate Profile** to see your predictions!")
 
-    if __name__ == "__main__":
-        main()
+
+# Entry point - always call main() for Streamlit
+main()
