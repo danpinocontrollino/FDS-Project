@@ -1,4 +1,3 @@
-*** Begin Patch
 # FDS Project – Deep Learning for Daily Mental Wellness
 
 This `presentation_bundle` contains a focused, runnable subset of the full FDS project used for demos and presentations. The goal of the project is to predict per-day mental-wellness indicators from behavioural and time-series data and to provide HTML profile reports and an interactive demo.
