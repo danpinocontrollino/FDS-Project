@@ -68,7 +68,7 @@ python scripts/generate_profile.py --csv data/raw/martina_7day.csv --html --outp
 ## Files of interest in this bundle
 
 - `demo_app.py` — Streamlit demo and entry point for interactive exploration.
-- `scripts/generate_profile.py` — single-user HTML profile generator.
+- `scripts/ggenerate_two_stage_html.py` — single-user HTML profile generator.
 - `reports/` — example generated HTML reports and assets.
 - `requirements.txt` — Python dependencies.
 
