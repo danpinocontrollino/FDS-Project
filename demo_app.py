@@ -67,11 +67,16 @@ except Exception:
         TWO_STAGE_AVAILABLE = True
     except Exception:
         TWO_STAGE_AVAILABLE = False
-        print("⚠️  Two-stage models not available - some features disabled")
+        print("  Two-stage models not available - some features disabled")
 
 # ============================================================================
 # CONSTANTS
 # ============================================================================
+
+# GIF paths for result feedback
+GIF_HAPPY = "Happy The Office GIF.gif"      # Good results
+GIF_SAD = "Cry Crying GIF by Sad Hamster.gif"  # Bad results (high stress/depression)
+GIF_AWKWARD = "Awkward The Office GIF.gif"  # Errors or unrealistic values
 
 # Inverted targets (higher = better)
 INVERTED_TARGETS = {"mood_score", "energy_level", "focus_score", "job_satisfaction"}
@@ -91,6 +96,27 @@ TARGET_RANGES = {
 
 # Legacy: kept for backward compatibility
 TARGET_SCALES = {k: v[1] for k, v in TARGET_RANGES.items()}
+
+# Cache for GIF base64 encoding (to avoid re-reading files)
+_GIF_CACHE = {}
+
+def get_gif_base64(gif_path: str) -> str:
+    """
+    Convert a GIF file to base64 string for HTML embedding.
+    This allows animated GIFs to play in Streamlit.
+    """
+    import base64
+    
+    if gif_path in _GIF_CACHE:
+        return _GIF_CACHE[gif_path]
+    
+    try:
+        with open(gif_path, "rb") as f:
+            data = base64.b64encode(f.read()).decode()
+        _GIF_CACHE[gif_path] = data
+        return data
+    except FileNotFoundError:
+        return ""
 
 # ============================================================================
 # NORMALIZATION UTILITIES
@@ -166,9 +192,100 @@ def denormalize_from_1_10(normalized_value: float, target: str) -> float:
     original = min_val + (normalized_value - 1.0) / 9.0 * (max_val - min_val)
     return round(original, 1)
 
+
+def evaluate_prediction_quality(predictions: dict, inputs: dict = None) -> tuple:
+    """
+    Evaluate prediction quality and return appropriate GIF and status.
+    
+    Args:
+        predictions: Model predictions dict
+        inputs: User behavioral inputs (optional, for extreme condition detection)
+    
+    Returns:
+        tuple: (gif_path, status, message)
+        - status: 'good', 'bad', 'warning', or 'error'
+    """
+    if predictions is None:
+        return GIF_AWKWARD, 'error', "No predictions available"
+    
+    # Check for extreme input conditions FIRST (before predictions)
+    if inputs is not None:
+        extreme_conditions = []
+        
+        # Sleep extremes
+        if inputs.get('sleep_hours', 7) <= 4:
+            extreme_conditions.append("severe sleep deprivation")
+        
+        # Work extremes
+        if inputs.get('work_hours', 8) >= 10:
+            extreme_conditions.append("extreme work hours")
+        
+        # Zero exercise with long work
+        if inputs.get('exercise_minutes', 30) == 0 and inputs.get('work_hours', 8) >= 10:
+            extreme_conditions.append("no exercise with overwork")
+        
+        # Extreme caffeine
+        if inputs.get('caffeine_mg', 200) >= 600:
+            extreme_conditions.append("dangerous caffeine levels")
+        
+        # Social isolation
+        if inputs.get('social_interactions', 3) == 0:
+            extreme_conditions.append("complete social isolation")
+        
+        if extreme_conditions:
+            conditions_str = ", ".join(extreme_conditions)
+            return GIF_AWKWARD, 'warning', f"Extreme conditions detected: {conditions_str}. If you're serious, you need help ASAP."
+    
+    # Check for unrealistic/error values (out of reasonable bounds)
+    for target, data in predictions.items():
+        if isinstance(data, dict) and 'value' in data:
+            value = data['value']
+            min_val, max_val = TARGET_RANGES.get(target, (0, 10))
+            # Allow 20% buffer for neural network extrapolation
+            buffer = (max_val - min_val) * 0.2
+            if value < min_val - buffer or value > max_val + buffer:
+                return GIF_AWKWARD, 'error', f"Unusual prediction detected for {target.replace('_', ' ')}"
+    
+    # Score the predictions (normalized to 1-10)
+    bad_indicators = 0
+    good_indicators = 0
+    
+    # Check stress-related metrics (lower is better)
+    stress_targets = ['stress_level', 'perceived_stress_scale', 'anxiety_score', 'depression_score']
+    for target in stress_targets:
+        if target in predictions:
+            raw = predictions[target]['value']
+            norm = normalize_to_1_10(raw, target)
+            if norm >= 7:  # High stress/anxiety/depression
+                bad_indicators += 1
+            elif norm <= 4:  # Low stress/anxiety/depression
+                good_indicators += 1
+    
+    # Check positive metrics (higher is better)
+    positive_targets = ['mood_score', 'energy_level', 'focus_score', 'job_satisfaction']
+    for target in positive_targets:
+        if target in predictions:
+            raw = predictions[target]['value']
+            norm = normalize_to_1_10(raw, target)
+            if norm >= 6:  # Good mood/energy/focus
+                good_indicators += 1
+            elif norm <= 3:  # Poor mood/energy/focus
+                bad_indicators += 1
+    
+    # Decide based on balance
+    if bad_indicators >= 3:
+        return GIF_SAD, 'bad', "HEEEEEEEEELP!!! (joking, but for real seek support)"
+    elif good_indicators >= 4 and bad_indicators <= 1:
+        return GIF_HAPPY, 'good', "Amazing! You did good (even if it's not a test)"
+    elif bad_indicators >= 2:
+        return GIF_SAD, 'bad', "Something's not going good, isn't it darling?"
+    else:
+        return GIF_HAPPY, 'good', "Nice work! You look balanced (even if you're not)"
+
+
 st.set_page_config(
     page_title="Mental Health Profiling Demo",
-    page_icon="🧠",
+    page_icon=None,
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -347,7 +464,7 @@ def load_model_and_config():
         # stores these as numpy arrays matching the feature_cols order.
         if scaler_mean is None or scaler_scale is None:
             st.warning(
-                "⚠️ Scaler parameters not found in checkpoint. "
+                " Scaler parameters not found in checkpoint. "
                 "Using identity scaling - predictions may be unreliable."
             )
             scaler_mean = np.zeros(num_features)
@@ -370,7 +487,7 @@ def load_model_and_config():
         return PROJECT_ROOT, job_config, thresholds, model, scaler_mean, scaler_scale
         
     except FileNotFoundError as e:
-        st.error(f"⚠️ Model file not found: {model_path}")
+        st.error(f" Model file not found: {model_path}")
         st.info("""
         **To use this demo, you need to train the Stage 2 LSTM model first:**
         
@@ -959,48 +1076,48 @@ def get_color_and_delta(target: str, value: float, thresholds: dict) -> tuple:
     # Clinical thresholds for color coding
     if target == 'anxiety_score':
         if value < 10:
-            return "🟢", "normal"
+            return "", "normal"
         elif value <= 14:
             return "🟠", "normal"
         else:
-            return "🔴", "inverse"
+            return "", "inverse"
     elif target == 'depression_score':
         if value < 11:
-            return "🟢", "normal"
+            return "", "normal"
         elif value <= 18:
             return "🟠", "normal"
         else:
-            return "🔴", "inverse"
+            return "", "inverse"
     elif target == 'perceived_stress_scale':
         if value < 14:
-            return "🟢", "normal"
+            return "", "normal"
         elif value <= 26:
             return "🟠", "normal"
         else:
-            return "🔴", "inverse"
+            return "", "inverse"
     elif target == 'job_satisfaction':
         if value >= 7:
-            return "🟢", "normal"
+            return "", "normal"
         elif value >= 5:
             return "🟠", "normal"
         else:
-            return "🔴", "inverse"
+            return "", "inverse"
     else:
         # Daily metrics
         if not inverted:
             if value < 4:
-                return "🟢", "normal"
+                return "", "normal"
             elif value <= 6:
                 return "🟠", "normal"
             else:
-                return "🔴", "inverse"
+                return "", "inverse"
         else:
             if value >= 7:
-                return "🟢", "normal"
+                return "", "normal"
             elif value >= 5:
                 return "🟠", "normal"
             else:
-                return "🔴", "inverse"
+                return "", "inverse"
 
 def generate_prediction_explanation(target: str, value: float, inputs: dict, thresholds: dict) -> dict:
     """Generate detailed explanation for why a prediction has this value."""
@@ -1099,7 +1216,7 @@ def detect_input_contradictions(inputs: dict) -> list:
         contradictions.append({
             'type': 'caffeine_sleep_paradox',
             'message': (
-                f"⚠️ **Caffeine Paradox Detected**: {inputs['caffeine_mg']}mg caffeine/day "
+                f" **Caffeine Paradox Detected**: {inputs['caffeine_mg']}mg caffeine/day "
                 f"with {inputs['sleep_quality']:.1f}/10 sleep quality is physiologically unusual. "
                 "Caffeine's 5-6hr half-life typically disrupts sleep architecture even if "
                 "subjectively rated as 'good'. This may indicate: (1) tolerance built over time, "
@@ -1113,7 +1230,7 @@ def detect_input_contradictions(inputs: dict) -> list:
         contradictions.append({
             'type': 'severe_sleep_deprivation',
             'message': (
-                f"⚠️ **Severe Sleep Deprivation**: {inputs['sleep_hours']:.1f}h/night is below "
+                f" **Severe Sleep Deprivation**: {inputs['sleep_hours']:.1f}h/night is below "
                 "the minimum threshold for cognitive function. Model confidence decreases "
                 "significantly at this extreme. CDC recommends 7+ hours for adults."
             ),
@@ -1125,7 +1242,7 @@ def detect_input_contradictions(inputs: dict) -> list:
         contradictions.append({
             'type': 'sedentary_sleep_deprived',
             'message': (
-                "⚠️ **Compounding Risk Factors**: Sedentary lifestyle (<15min exercise) "
+                " **Compounding Risk Factors**: Sedentary lifestyle (<15min exercise) "
                 "combined with sleep deprivation. This combination significantly elevates "
                 "cardiovascular and mental health risks beyond either factor alone."
             ),
@@ -1137,7 +1254,7 @@ def detect_input_contradictions(inputs: dict) -> list:
         contradictions.append({
             'type': 'extreme_overwork',
             'message': (
-                f"⚠️ **Extreme Work Hours**: {inputs['work_hours']:.1f}h/day exceeds "
+                f" **Extreme Work Hours**: {inputs['work_hours']:.1f}h/day exceeds "
                 "sustainable limits. Research shows >55h/week increases stroke risk by 33%. "
                 "Model predictions may underestimate long-term health impacts."
             ),
@@ -1160,20 +1277,20 @@ def render_input_sidebar():
     Each slider includes evidence-based defaults and ranges derived from
     the training data distribution and clinical guidelines.
     """
-    st.sidebar.header("📊 Behavioral Inputs")
+    st.sidebar.header(" Behavioral Inputs")
     st.sidebar.markdown("*Enter 7-day average values. Extreme inputs trigger warnings.*")
 
     # ==========================================================================
     # PHYSIOLOGICAL FACTORS (Primary biological drivers)
     # ==========================================================================
-    with st.sidebar.expander("😴 Physiological (Sleep & Rest)", expanded=True):
+    with st.sidebar.expander(" Physiological (Sleep & Rest)", expanded=True):
         sleep_hours = st.slider(
             "Sleep Hours/Night", 3.0, 12.0, 7.0, 0.5,
             help="CDC recommends 7-9h for adults. <6h = significant impairment."
         )
         # Immediate warning for extreme values
         if sleep_hours < 4:
-            st.warning("⚠️ Extreme sleep deprivation - model confidence decreases")
+            st.warning(" Extreme sleep deprivation - model confidence decreases")
         elif sleep_hours < 6:
             st.info("ℹ️ Below recommended minimum (7h) - elevated health risks")
             
@@ -1185,7 +1302,7 @@ def render_input_sidebar():
     # ==========================================================================
     # PROFESSIONAL FACTORS (Occupational stressors)
     # ==========================================================================
-    with st.sidebar.expander("💼 Professional (Work & Meetings)", expanded=False):
+    with st.sidebar.expander(" Professional (Work & Meetings)", expanded=False):
         work_hours = st.slider(
             "Work Hours/Day", 0.0, 16.0, 8.0, 0.5,
             help="8h/day = 40h/week standard. >10h/day associated with burnout risk."
@@ -1194,14 +1311,14 @@ def render_input_sidebar():
         if work_hours > 12:
             st.error("🚨 Extreme overwork - elevated burnout and stroke risk")
         elif work_hours > 10:
-            st.warning("⚠️ Long hours - monitor for burnout symptoms")
+            st.warning(" Long hours - monitor for burnout symptoms")
             
         meetings = st.slider(
             "Meetings/Day", 0, 15, 3, 1,
             help="Microsoft research: >5 meetings/day correlates with reduced deep work."
         )
         if meetings > 6:
-            st.warning("⚠️ Meeting overload - limited time for deep work")
+            st.warning(" Meeting overload - limited time for deep work")
             
         tasks_completed = st.slider("Tasks Completed/Day", 0, 20, 6, 1)
         work_pressure = st.select_slider("Work Pressure", ["low", "medium", "high"], "medium")
@@ -1209,14 +1326,14 @@ def render_input_sidebar():
     # ==========================================================================
     # PHYSICAL HEALTH FACTORS
     # ==========================================================================
-    with st.sidebar.expander("🏃 Physical Health", expanded=False):
+    with st.sidebar.expander(" Physical Health", expanded=False):
         exercise_minutes = st.slider(
             "Exercise Minutes/Day", 0, 180, 30, 5,
             help="WHO: 150min/week moderate or 75min/week vigorous. <15min/day triggers safety layer."
         )
         # Sedentary warning
         if exercise_minutes < 15:
-            st.warning("⚠️ Sedentary (<15min) - safety layer will cap energy predictions")
+            st.warning(" Sedentary (<15min) - safety layer will cap energy predictions")
         elif exercise_minutes < 20:
             st.info("ℹ️ Below WHO minimum - consider increasing activity")
             
@@ -1228,7 +1345,7 @@ def render_input_sidebar():
         if caffeine_mg > 600:
             st.error("🚨 Very high caffeine - exceeds safe limits, anxiety/sleep effects likely")
         elif caffeine_mg > 400:
-            st.warning("⚠️ High caffeine - at FDA safety threshold")
+            st.warning(" High caffeine - at FDA safety threshold")
 
     # ==========================================================================
     # SOCIAL & LIFESTYLE FACTORS (Psychosocial buffers)
@@ -1239,7 +1356,7 @@ def render_input_sidebar():
             help="Meaningful conversations/interactions. <2/day = social isolation risk."
         )
         if social_interactions < 2:
-            st.warning("⚠️ Social isolation risk - strong predictor of depression")
+            st.warning(" Social isolation risk - strong predictor of depression")
             
         outdoor_time = st.slider(
             "Outdoor Time (min/day)", 0, 180, 30, 5,
@@ -1254,7 +1371,7 @@ def render_input_sidebar():
             help="Non-work screen time. >8h/day associated with anxiety/depression."
         )
         if screen_time > 10:
-            st.warning("⚠️ High screen time - associated with sleep and mood issues")
+            st.warning(" High screen time - associated with sleep and mood issues")
 
     # Job Category
     with st.sidebar.expander("👔 Job Category", expanded=False):
@@ -1297,16 +1414,37 @@ def render_input_sidebar():
         'weather_mood_impact': weather_impact
     }
 
-def render_predictions(predictions, thresholds):
-    """Render prediction results with color coding."""
+def render_predictions(predictions, thresholds, inputs=None):
+    """Render prediction results with color coding and feedback GIF."""
     if predictions is None:
+        # Show animated GIF using HTML
+        gif_html = f'<div style="text-align: center;"><img src="data:image/gif;base64,{get_gif_base64(GIF_AWKWARD)}" width="250"></div>'
+        st.markdown(gif_html, unsafe_allow_html=True)
         st.error("No predictions available")
         return
     
-    st.header("📈 Predictions")
+    # Evaluate predictions and show appropriate GIF (now with inputs for extreme condition check)
+    gif_path, status, message = evaluate_prediction_quality(predictions, inputs)
+    
+    # Show animated GIF centered at top of predictions using HTML
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        # Use HTML to display animated GIF
+        gif_html = f'<div style="text-align: center;"><img src="data:image/gif;base64,{get_gif_base64(gif_path)}" width="250"></div>'
+        st.markdown(gif_html, unsafe_allow_html=True)
+        if status == 'good':
+            st.success(message)
+        elif status == 'bad':
+            st.warning(message)
+        elif status == 'warning':
+            st.error(message)
+        else:
+            st.error(message)
+    
+    st.header("Predictions")
     
     # Daily predictions
-    st.subheader("🔹 Daily Predictions (Next Day)")
+    st.subheader("Daily Predictions (Next Day)")
     st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
     daily_cols = st.columns(4)
     daily_targets = ['stress_level', 'mood_score', 'energy_level', 'focus_score']
@@ -1324,7 +1462,7 @@ def render_predictions(predictions, thresholds):
             
             with col:
                 st.metric(
-                    f"{color} {target.replace('_', ' ').title()}",
+                    f"{target.replace('_', ' ').title()}",
                     f"{normalized_value:.1f}/10",
                     delta=f"{at_risk_prob*100:.0f}% confidence",
                     delta_color=delta_color
@@ -1334,7 +1472,7 @@ def render_predictions(predictions, thresholds):
     st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
     
     # Weekly predictions
-    st.subheader("🔹 Weekly Predictions (End of Week)")
+    st.subheader("Weekly Predictions (End of Week)")
     st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
     weekly_cols = st.columns(4)
     weekly_targets = ['perceived_stress_scale', 'anxiety_score', 'depression_score', 'job_satisfaction']
@@ -1352,7 +1490,7 @@ def render_predictions(predictions, thresholds):
             
             with col:
                 st.metric(
-                    f"{color} {target.replace('_', ' ').title()}",
+                    f"{target.replace('_', ' ').title()}",
                     f"{normalized_value:.1f}/10",
                     delta=f"{at_risk_prob*100:.0f}% confidence",
                     delta_color=delta_color
@@ -1361,7 +1499,7 @@ def render_predictions(predictions, thresholds):
 def render_prediction_explanations(predictions, inputs, thresholds):
     """Render detailed explanations for each prediction."""
     st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
-    st.header("🔍 Understanding Your Predictions")
+    st.header(" Understanding Your Predictions")
     st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
     
     st.markdown("**Click on any metric below to understand what's driving it:**")
@@ -1377,12 +1515,12 @@ def render_prediction_explanations(predictions, inputs, thresholds):
             explanation = generate_prediction_explanation(target, raw_value, inputs, thresholds)
             
             # Create expander with normalized 1-10 value
-            with st.expander(f"📊 {target.replace('_', ' ').title()} = {normalized_value:.1f}/10", expanded=False):
+            with st.expander(f" {target.replace('_', ' ').title()} = {normalized_value:.1f}/10", expanded=False):
                 col1, col2 = st.columns(2)
                 
                 # Left: Contributing factors
                 with col1:
-                    st.subheader("📍 Contributing Factors")
+                    st.subheader(" Contributing Factors")
                     if explanation['factors']:
                         for factor_name, current, target_val, percentage in explanation['factors']:
                             st.markdown(f"**{factor_name}**")
@@ -1394,7 +1532,7 @@ def render_prediction_explanations(predictions, inputs, thresholds):
                 
                 # Right: What can help
                 with col2:
-                    st.subheader("💡 What Can Help")
+                    st.subheader(" What Can Help")
                     if explanation['recommendations']:
                         for i, rec in enumerate(explanation['recommendations'][:3], 1):
                             st.markdown(f"**{i}. {rec['action']}**")
@@ -1405,7 +1543,7 @@ def render_prediction_explanations(predictions, inputs, thresholds):
 def render_what_if_simulator(predictions, inputs, model, scaler_mean, scaler_scale, thresholds):
     """Render What-If simulator for exploring behavioral changes."""
     st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
-    st.header("🔄 What-If Simulator")
+    st.header(" What-If Simulator")
     st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
     st.markdown("**Explore how changing your behaviors would affect your mental health predictions:**")
     st.markdown("")
@@ -1566,7 +1704,7 @@ def render_what_if_simulator(predictions, inputs, model, scaler_mean, scaler_sca
         
             
             st.markdown("---")
-            st.subheader("📊 Impact Analysis")
+            st.subheader(" Impact Analysis")
             
             # Show before/after comparison
             col1, col2, col3 = st.columns(3)
@@ -1607,9 +1745,9 @@ def render_what_if_simulator(predictions, inputs, model, scaler_mean, scaler_sca
             if abs(prediction_change) < 0.1:
                 st.info("ℹ️ This change would have minimal impact on your mental health predictions.")
             elif is_improvement:
-                st.success(f"✅ **Positive Impact!** Changing {selected_behavior.replace('_', ' ')} from {current_behavior_value:.1f} to {new_behavior_value:.1f} would improve your {selected_target.replace('_', ' ')} by {abs(prediction_change):.2f} points.")
+                st.success(f" **Positive Impact!** Changing {selected_behavior.replace('_', ' ')} from {current_behavior_value:.1f} to {new_behavior_value:.1f} would improve your {selected_target.replace('_', ' ')} by {abs(prediction_change):.2f} points.")
             else:
-                st.warning(f"⚠️ **Negative Impact!** Changing {selected_behavior.replace('_', ' ')} from {current_behavior_value:.1f} to {new_behavior_value:.1f} would worsen your {selected_target.replace('_', ' ')} by {abs(prediction_change):.2f} points.")
+                st.warning(f" **Negative Impact!** Changing {selected_behavior.replace('_', ' ')} from {current_behavior_value:.1f} to {new_behavior_value:.1f} would worsen your {selected_target.replace('_', ' ')} by {abs(prediction_change):.2f} points.")
             
             # Show effect on other metrics
             st.markdown("---")
@@ -1642,7 +1780,7 @@ def render_what_if_simulator(predictions, inputs, model, scaler_mean, scaler_sca
 def render_risk_assessment(inputs, predictions, thresholds):
     """Render risk factors and positive factors."""
     st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
-    st.header("⚠️ Risk Assessment")
+    st.header(" Risk Assessment")
     st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
     
     risk_factors = []
@@ -1692,7 +1830,7 @@ def render_risk_assessment(inputs, predictions, thresholds):
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("🔴 Risk Factors")
+        st.subheader(" Risk Factors")
         if risk_factors:
             for i, factor in enumerate(risk_factors[:5], 1):
                 st.write(f"{i}. {factor}")
@@ -1700,7 +1838,7 @@ def render_risk_assessment(inputs, predictions, thresholds):
             st.success("No major risk factors detected!")
     
     with col2:
-        st.subheader("✅ Positive Factors")
+        st.subheader(" Positive Factors")
         if positive_factors:
             for i, factor in enumerate(positive_factors[:5], 1):
                 st.write(f"{i}. {factor}")
@@ -1741,7 +1879,7 @@ def render_case_studies():
         selected_file = html_files[selected_idx]
         
         st.markdown("---")
-        st.subheader(f"📋 Student {student_ids[selected_idx]} Profile")
+        st.subheader(f" Student {student_ids[selected_idx]} Profile")
         
         # Show download link for the HTML report
         with open(selected_file, 'r') as f:
@@ -1754,7 +1892,7 @@ def render_case_studies():
             mime="text/html"
         )
         
-        st.info(f"💡 Click the download button above to view the complete interactive report for Student {student_ids[selected_idx]}")
+        st.info(f" Click the download button above to view the complete interactive report for Student {student_ids[selected_idx]}")
         
         # Show a preview using an iframe
         st.markdown("#### Preview:")
@@ -1764,7 +1902,7 @@ def render_case_studies():
 def render_data_quality_insights():
     """Render data quality comparison: Synthetic vs Real-world data insights."""
     st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
-    st.header("📊 Data Quality Insights")
+    st.header(" Data Quality Insights")
     st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
     
     # Introduction
@@ -1777,7 +1915,7 @@ def render_data_quality_insights():
     st.markdown("---")
     
     # Key Finding 1: Data Availability
-    st.subheader("🔍 Finding 1: Data Availability Gap")
+    st.subheader(" Finding 1: Data Availability Gap")
     
     col1, col2 = st.columns(2)
     
@@ -1785,24 +1923,24 @@ def render_data_quality_insights():
         st.markdown("**Synthetic Data (Training)**")
         st.metric("Behavioral Features", "100%", "Perfect daily coverage")
         st.metric("Mental Health Targets", "100%", "Perfect daily coverage")
-        st.caption("✅ 1.5M daily records with complete feature alignment")
+        st.caption(" 1.5M daily records with complete feature alignment")
     
     with col2:
         st.markdown("**Real Data (StudentLife)**")
         st.metric("Behavioral Features", "85-90%", "Excellent sensor coverage")
-        st.metric("Mental Health Targets", "10-20%", "⚠️ Sparse self-reports")
-        st.caption("⚠️ Students filled mental health surveys 4-47 times over 10 weeks")
+        st.metric("Mental Health Targets", "10-20%", " Sparse self-reports")
+        st.caption(" Students filled mental health surveys 4-47 times over 10 weeks")
     
-    with st.expander("📈 View Detailed Comparison"):
+    with st.expander(" View Detailed Comparison"):
         st.markdown("""
         **StudentLife Data Breakdown (10 students):**
-        - 🟢 **Sleep data**: 36-43 days per student (excellent)
-        - 🟢 **Exercise data**: 55-66 days per student (excellent)
-        - 🟢 **Screen time**: 51-62 days per student (excellent)
-        - 🟢 **Social interactions**: 60-85 days per student (excellent)
-        - 🟢 **Work hours**: 60-84 days per student (excellent)
-        - 🔴 **Stress surveys**: 4-47 days per student (very sparse)
-        - 🔴 **Mood surveys**: 0-9 days per student (extremely sparse)
+        -  **Sleep data**: 36-43 days per student (excellent)
+        -  **Exercise data**: 55-66 days per student (excellent)
+        -  **Screen time**: 51-62 days per student (excellent)
+        -  **Social interactions**: 60-85 days per student (excellent)
+        -  **Work hours**: 60-84 days per student (excellent)
+        -  **Stress surveys**: 4-47 days per student (very sparse)
+        -  **Mood surveys**: 0-9 days per student (extremely sparse)
         
         **Why This Matters:**
         Real students don't fill out mental health surveys daily. This is the real-world 
@@ -1812,7 +1950,7 @@ def render_data_quality_insights():
     st.markdown("---")
     
     # Key Finding 2: Correlation Strength
-    st.subheader("🔍 Finding 2: Correlation Weakness in Synthetic Data")
+    st.subheader(" Finding 2: Correlation Weakness in Synthetic Data")
     
     st.markdown("We discovered the synthetic training data has **unrealistically weak correlations**:")
     
@@ -1828,16 +1966,16 @@ def render_data_quality_insights():
     with col2:
         st.markdown("**Synthetic (Our Data)**")
         st.caption("What model learned")
-        st.markdown("- Sleep → Stress: **r = -0.07** 🔴")
-        st.markdown("- Exercise → Mood: **r = +0.09** 🔴")
+        st.markdown("- Sleep → Stress: **r = -0.07** ")
+        st.markdown("- Exercise → Mood: **r = +0.09** ")
         st.markdown("- Work → Stress: **r = +0.20** 🟡")
     
     with col3:
         st.markdown("**Real (StudentLife)**")
         st.caption("Validation attempt")
-        st.markdown("- Sleep → Stress: **N/A** 🔴")
-        st.markdown("- Exercise → Mood: **r = -0.04** 🔴")
-        st.markdown("- Work → Stress: **N/A** 🔴")
+        st.markdown("- Sleep → Stress: **N/A** ")
+        st.markdown("- Exercise → Mood: **r = -0.04** ")
+        st.markdown("- Work → Stress: **N/A** ")
     
     with st.expander("🧠 What This Means"):
         st.markdown("""
@@ -1862,7 +2000,7 @@ def render_data_quality_insights():
     st.markdown("---")
     
     # Key Finding 3: Feature Variance
-    st.subheader("🔍 Finding 3: Real Data Shows Excellent Behavioral Variance")
+    st.subheader(" Finding 3: Real Data Shows Excellent Behavioral Variance")
     
     st.markdown("""
     Good news: **Behavioral feature extraction from real sensors works perfectly!**
@@ -1871,7 +2009,7 @@ def render_data_quality_insights():
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("**✅ High Variance (Good)**")
+        st.markdown("** High Variance (Good)**")
         st.markdown("- Sleep: 406 unique values")
         st.markdown("- Exercise: 431 unique values")
         st.markdown("- Screen time: 417 unique values")
@@ -1879,7 +2017,7 @@ def render_data_quality_insights():
         st.caption("Real behavioral sensors capture rich variation")
     
     with col2:
-        st.markdown("**❌ Low Variance (Problem)**")
+        st.markdown("** Low Variance (Problem)**")
         st.markdown("- Stress: 1 unique value only")
         st.markdown("- Mood: 8 unique values only")
         st.markdown("- Energy: Not available")
@@ -1889,7 +2027,7 @@ def render_data_quality_insights():
     st.markdown("---")
     
     # Key Takeaway
-    st.subheader("💡 Key Takeaway: The Real-World Problem")
+    st.subheader(" Key Takeaway: The Real-World Problem")
     
     st.info("""
     **What we discovered:**
@@ -1901,16 +2039,16 @@ def render_data_quality_insights():
     **The opportunity:**
     
     This is exactly the problem our architecture can solve in deployment:
-    - ✅ Collect behavioral data passively (sleep, exercise, screen time)
-    - ✅ Predict mental health when users don't fill surveys
-    - ✅ Alert when patterns suggest intervention needed
+    -  Collect behavioral data passively (sleep, exercise, screen time)
+    -  Predict mental health when users don't fill surveys
+    -  Alert when patterns suggest intervention needed
     
     Rather than a limitation, this finding validates the need for automated 
     mental health prediction from behavioral sensors.
     """)
     
     # Call to action - Display charts directly
-    with st.expander("📊 View Comparison Visualizations", expanded=False):
+    with st.expander(" View Comparison Visualizations", expanded=False):
         st.markdown("**Comparison charts showing synthetic vs real-world data trade-offs:**")
         st.markdown("")
         
@@ -1934,7 +2072,7 @@ def render_data_quality_insights():
                 st.image(chart_path, use_container_width=True)
                 st.markdown("---")
             
-            st.caption("💡 Charts generated by `scripts/generate_comparison_visuals.py`")
+            st.caption(" Charts generated by `scripts/generate_comparison_visuals.py`")
         else:
             st.warning("Charts not yet generated. Run the following command to create them:")
             st.code("python scripts/generate_comparison_visuals.py", language="bash")
@@ -1949,7 +2087,7 @@ def render_data_quality_insights():
 def render_quick_advice(inputs):
     """Render quick actionable advice."""
     st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
-    st.header("💡 Quick Recommendations")
+    st.header(" Quick Recommendations")
     st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
     
     advice = []
@@ -1988,12 +2126,12 @@ def render_quick_advice(inputs):
     
     if advice:
         for item in advice[:3]:
-            priority_color = "🔴" if item['priority'] == 'HIGH' else "🟡"
+            priority_color = "" if item['priority'] == 'HIGH' else "🟡"
             with st.expander(f"{priority_color} {item['category']} - {item['priority']} Priority"):
                 st.write(f"**Recommendation:** {item['advice']}")
                 st.write(f"**Action:** {item['action']}")
     else:
-        st.success("Your behavioral patterns look healthy! Keep it up. 🎉")
+        st.success("Your behavioral patterns look healthy! Keep it up. ")
 
 # NOTE: render_prediction_explanations is defined earlier in the file (line ~846)
 # This duplicate definition was removed during cleanup.
@@ -2019,7 +2157,7 @@ def render_two_stage_pipeline_demo(model, scaler_mean, scaler_scale, thresholds)
     results_path = Path("models/saved/two_stage_predictions.json")
     
     if not results_path.exists():
-        with st.expander("📊 About Two-Stage Pipeline", expanded=False):
+        with st.expander(" About Two-Stage Pipeline", expanded=False):
             st.markdown("""
             **Coming Soon**: Interactive exploration of 598 predictions from the two-stage pipeline.
             
@@ -2045,7 +2183,7 @@ def render_two_stage_pipeline_demo(model, scaler_mean, scaler_scale, thresholds)
     if 'two_stage_date_index' not in st.session_state:
         st.session_state.two_stage_date_index = 0
     
-    with st.expander("🎯 Explore Two-Stage Pipeline Results", expanded=True):
+    with st.expander(" Explore Two-Stage Pipeline Results", expanded=True):
         num_predictions = metadata.get('total_predictions', len(results))
         num_students = metadata.get('num_students', len(set(r['student_id'] for r in results)))
         st.markdown(f"**Total Predictions**: {num_predictions} across {num_students} students")
@@ -2076,7 +2214,7 @@ def render_two_stage_pipeline_demo(model, scaler_mean, scaler_scale, thresholds)
         if st.session_state.two_stage_date_index < 0:
             st.session_state.two_stage_date_index = 0
         
-        st.markdown(f"### 📅 Timeline for {selected_student}")
+        st.markdown(f"###  Timeline for {selected_student}")
         st.markdown(f"*Showing {len(student_results)} days of two-stage predictions*")
         
         # Navigation buttons (at top)
@@ -2105,7 +2243,7 @@ def render_two_stage_pipeline_demo(model, scaler_mean, scaler_scale, thresholds)
         prediction = next(r for r in student_results if r['date'] == selected_date)
         
         st.markdown("---")
-        st.markdown(f"#### 🔍 Detailed Breakdown: {selected_date}")
+        st.markdown(f"####  Detailed Breakdown: {selected_date}")
         
         # Stage 1: Behavioral Predictions
         st.markdown("##### 🟦 Stage 1: Behavioral Forecasting (Real Model)")
@@ -2131,25 +2269,25 @@ def render_two_stage_pipeline_demo(model, scaler_mean, scaler_scale, thresholds)
             unc = behavioral_uncs['sleep_hours']
             # SMAPE-style calculation
             unc_pct = (abs(unc) / max(abs(sleep), 1e-6)) * 100
-            st.metric("😴 Sleep", f"{sleep:.1f}h", delta=f"±{unc_pct:.0f}%")
+            st.metric(" Sleep", f"{sleep:.1f}h", delta=f"±{unc_pct:.0f}%")
         
         with col2:
             exercise = behavioral_preds['exercise_minutes']
             unc = behavioral_uncs['exercise_minutes']
             unc_pct = (abs(unc) / max(abs(exercise), 1e-6)) * 100
-            st.metric("🏃 Exercise", f"{exercise:.0f}min", delta=f"±{unc_pct:.0f}%")
+            st.metric(" Exercise", f"{exercise:.0f}min", delta=f"±{unc_pct:.0f}%")
         
         with col3:
             screen = behavioral_preds['screen_time_hours']
             unc = behavioral_uncs['screen_time_hours']
             unc_pct = (abs(unc) / max(abs(screen), 1e-6)) * 100
-            st.metric("📱 Screen", f"{screen:.1f}h", delta=f"±{unc_pct:.0f}%")
+            st.metric(" Screen", f"{screen:.1f}h", delta=f"±{unc_pct:.0f}%")
         
         with col4:
             social = behavioral_preds['social_interactions']
             unc = behavioral_uncs['social_interactions']
             unc_pct = (abs(unc) / max(abs(social), 1e-6)) * 100
-            st.metric("👥 Social", f"{social:.0f}", delta=f"±{unc_pct:.0f}%")
+            st.metric(" Social", f"{social:.0f}", delta=f"±{unc_pct:.0f}%")
         
         with col5:
             steps = behavioral_preds['steps_count']
@@ -2232,7 +2370,7 @@ def render_two_stage_pipeline_demo(model, scaler_mean, scaler_scale, thresholds)
         st.markdown("---")
         
         # Error Propagation Analysis
-        st.markdown("##### ⚠️ Error Propagation Analysis")
+        st.markdown("#####  Error Propagation Analysis")
         
         error_prop = prediction['error_propagation']
         confidence_msg = error_prop['confidence_reduction']
@@ -2240,7 +2378,7 @@ def render_two_stage_pipeline_demo(model, scaler_mean, scaler_scale, thresholds)
         col1, col2 = st.columns(2)
         
         with col1:
-            st.metric("🔹 Average Stage 1 Uncertainty", f"±{avg_uncertainty_pct:.1f}%")
+            st.metric(" Average Stage 1 Uncertainty", f"±{avg_uncertainty_pct:.1f}%")
             st.caption("Average relative uncertainty across behavioral predictions")
         
         with col2:
@@ -2264,7 +2402,7 @@ def render_two_stage_pipeline_demo(model, scaler_mean, scaler_scale, thresholds)
         
         # Stage 2 Note
         st.warning("""
-        **⚠️ Known Limitations in Current Pipeline**:
+        ** Known Limitations in Current Pipeline**:
         
         1. **Distribution Mismatch**: Stage 2 (synthetic model) was trained on behavioral patterns different from StudentLife. 
            This causes predictions to cluster around mid-range values (5-6 for most metrics).
@@ -2276,17 +2414,17 @@ def render_two_stage_pipeline_demo(model, scaler_mean, scaler_scale, thresholds)
            because StudentLife has only 10 days with mental health labels - insufficient for robust training.
         
         **Research Value**: Despite these issues, the pipeline demonstrates:
-        - ✅ Two-stage architecture feasibility
-        - ✅ Uncertainty propagation tracking (±12.3% average on GRU behavioral forecasts)
-        - ✅ Error compounding through cascaded systems
-        - ✅ Challenges of mixing real + synthetic training data
+        -  Two-stage architecture feasibility
+        -  Uncertainty propagation tracking (±12.3% average on GRU behavioral forecasts)
+        -  Error compounding through cascaded systems
+        -  Challenges of mixing real + synthetic training data
         
         For production use, both stages would need training on the same distribution with sufficient labels.
         """)
         
         # Visualizations
         st.markdown("---")
-        st.markdown("#### 📈 Pipeline Visualizations")
+        st.markdown("####  Pipeline Visualizations")
         
         viz_dir = Path("reports/two_stage_analysis")
         
@@ -2294,8 +2432,8 @@ def render_two_stage_pipeline_demo(model, scaler_mean, scaler_scale, thresholds)
             tab1, tab2, tab3, tab4 = st.tabs([
                 "🌊 Uncertainty Waterfall",
                 "📉 Error Propagation",
-                "📊 Behavioral Trends",
-                "🎯 Summary Dashboard"
+                " Behavioral Trends",
+                " Summary Dashboard"
             ])
             
             with tab1:
@@ -2335,11 +2473,11 @@ def render_two_stage_pipeline_demo(model, scaler_mean, scaler_scale, thresholds)
                     uncertainty distributions, and error propagation patterns across all 598 predictions.
                     """)
         else:
-            st.info("💡 Run `python scripts/analyze_two_stage_pipeline.py` to generate visualizations")
+            st.info(" Run `python scripts/analyze_two_stage_pipeline.py` to generate visualizations")
         
         # Key Insights
         st.markdown("---")
-        st.markdown("#### 🔍 Key Research Insights")
+        st.markdown("####  Key Research Insights")
         
         st.success("""
         **Main Findings from 598 Two-Stage Predictions:**
@@ -2366,7 +2504,7 @@ def render_two_stage_pipeline_demo(model, scaler_mean, scaler_scale, thresholds)
 
 def render_model_comparison_viewer():
     """Interactive viewer comparing model architectures on StudentLife data."""
-    st.header("🔬 Model Architecture Comparison")
+    st.header(" Model Architecture Comparison")
     
     # Always show the correlation comparison chart if it exists
     correlation_chart = Path("reports/comparison_correlations.png")
@@ -2391,7 +2529,7 @@ def render_model_comparison_viewer():
     with open(comparison_path) as f:
         comparison_data = json.load(f)
     
-    st.subheader("🏆 Architecture Comparison on StudentLife (Stage 1)")
+    st.subheader(" Architecture Comparison on StudentLife (Stage 1)")
     st.markdown(f"""
     **Dataset**: {comparison_data['dataset']['total_sequences']:,} sequences from {comparison_data['dataset']['num_students']} students  
     **Task**: Behavioral forecasting (predict next-day sleep, exercise, steps, etc.)  
@@ -2402,7 +2540,7 @@ def render_model_comparison_viewer():
     best = comparison_data['best_model']
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("🥇 Best Model", best['name'])
+        st.metric(" Best Model", best['name'])
     with col2:
         st.metric("Best R²", f"{best['r2']:.3f}")
     with col3:
@@ -2413,7 +2551,7 @@ def render_model_comparison_viewer():
     st.markdown("---")
     
     # Ranking table
-    st.subheader("📊 Model Ranking (by R²)")
+    st.subheader(" Model Ranking (by R²)")
     
     ranking_data = []
     for rank, (model_name, r2) in enumerate(comparison_data['ranking'], 1):
@@ -2431,7 +2569,7 @@ def render_model_comparison_viewer():
     
     # Detailed comparison
     st.markdown("---")
-    st.subheader("📈 Detailed Performance Analysis")
+    st.subheader(" Detailed Performance Analysis")
     
     # Create bar chart data
     models = list(comparison_data['results'].keys())
@@ -2443,7 +2581,7 @@ def render_model_comparison_viewer():
     for i, model in enumerate(models):
         with cols[i % 3]:
             results = comparison_data['results'][model]
-            emoji = "🥇" if model == best['name'] else "🔹"
+            emoji = "" if model == best['name'] else ""
             st.metric(
                 f"{emoji} {model}",
                 f"R² = {results['r2_mean']:.3f}",
@@ -2452,7 +2590,7 @@ def render_model_comparison_viewer():
     
     # Key insights
     st.markdown("---")
-    st.subheader("🔍 Key Insights")
+    st.subheader(" Key Insights")
     
     st.success(f"""
     **Winner: {best['name']}** with R² = {best['r2']:.3f}
@@ -2476,7 +2614,7 @@ def render_model_comparison_viewer():
     """)
     
     # Show features used
-    with st.expander("📋 Features Used in Comparison"):
+    with st.expander(" Features Used in Comparison"):
         st.markdown("**Behavioral features predicted by Stage 1 models:**")
         for feat in comparison_data['dataset']['features']:
             st.markdown(f"- `{feat}`")
@@ -2511,7 +2649,7 @@ def main():
         # Sidebar expander (preferred UI)
         agree_side = False
         try:
-            with st.sidebar.expander('⚠️ Demo Disclaimer (Required)', expanded=True):
+            with st.sidebar.expander(' Demo Disclaimer (Required)', expanded=True):
                 st.markdown(
                     """
                     **This research demo is NOT a clinical tool.** Do not input real PII or
@@ -2580,16 +2718,22 @@ def main():
                 total_preds = len(entries)
                 num_students = len(set(r.get('student_id') for r in entries))
 
-                # estimate avg uncertainty if present
-                unc_list = []
+                # Calculate average uncertainty across all predictions
+                # For each prediction, calculate its average uncertainty, then average those
+                prediction_avg_uncs = []
                 for r in entries:
                     uncs = r.get('stage1_uncertainties', {})
                     preds = r.get('stage1_behavioral_predictions', {})
-                    for k, u in uncs.items():
-                        denom = max(abs(preds.get(k, 0)), 1e-6)
-                        unc_list.append(abs(u) / denom * 100)
-                if unc_list:
-                    avg_unc_pct = float(np.mean(unc_list))
+                    if uncs and preds:
+                        unc_pcts = []
+                        for k, u in uncs.items():
+                            pred_val = preds.get(k, 0)
+                            denom = max(abs(pred_val), 1e-6)
+                            unc_pcts.append(abs(u) / denom * 100)
+                        if unc_pcts:
+                            prediction_avg_uncs.append(np.mean(unc_pcts))
+                if prediction_avg_uncs:
+                    avg_unc_pct = float(np.mean(prediction_avg_uncs))
             except Exception:
                 total_preds = total_preds or 0
 
@@ -2677,7 +2821,7 @@ def main():
         # ======================================================================
         contradictions = detect_input_contradictions(display_inputs)
         if contradictions:
-            st.markdown("### ⚠️ Input Contradictions Detected")
+            st.markdown("###  Input Contradictions Detected")
             st.markdown("*The following patterns warrant review:*")
             for c in contradictions:
                 if c['severity'] == 'high':
@@ -2707,8 +2851,8 @@ def main():
                         val_str = ""
                     st.markdown(f"- **{t}**: {reason}{val_str}")
         
-        # Render results
-        render_predictions(predictions, thresholds)
+        # Render results (pass display_inputs for extreme condition detection)
+        render_predictions(predictions, thresholds, display_inputs)
         st.markdown("---")
         render_prediction_explanations(predictions, display_inputs, thresholds)
         st.markdown("---")
@@ -2721,7 +2865,7 @@ def main():
         
         # Clinical benchmark progress tracking
         st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
-        st.header("🎯 Progress Toward Clinical Benchmarks")
+        st.header(" Progress Toward Clinical Benchmarks")
         st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
         st.markdown("*Based on clinical thresholds and evidence-based recommendations*")
         
@@ -2731,7 +2875,7 @@ def main():
             current_stress = predictions.get('stress_level', {}).get('value', 5)
             healthy_target = 3.0  # Healthy stress level
             progress = max(0, min(100, (1 - (current_stress - healthy_target) / (10 - healthy_target)) * 100))
-            color = "🟢" if current_stress < 4 else "🟠" if current_stress <= 6 else "🔴"
+            color = "" if current_stress < 4 else "🟠" if current_stress <= 6 else ""
             st.metric(f"{color} Stress", f"{current_stress:.1f}/10", f"Target: <{healthy_target:.0f}")
             st.progress(progress / 100 if progress > 0 else 0)
         
@@ -2739,7 +2883,7 @@ def main():
             current_anxiety = predictions.get('anxiety_score', {}).get('value', 8)
             healthy_target = 9.0  # Healthy anxiety (0-9 range)
             progress = max(0, min(100, (1 - current_anxiety / 21) * 100))
-            color = "🟢" if current_anxiety < 10 else "🟠" if current_anxiety <= 14 else "🔴"
+            color = "" if current_anxiety < 10 else "🟠" if current_anxiety <= 14 else ""
             st.metric(f"{color} Anxiety", f"{current_anxiety:.1f}/10", f"Target: <{healthy_target:.0f}")
             st.progress(progress / 100 if progress > 0 else 0)
         
@@ -2747,7 +2891,7 @@ def main():
             current_mood = predictions.get('mood_score', {}).get('value', 5)
             healthy_target = 7.0  # Good mood level
             progress = max(0, min(100, (current_mood / 10) * 100))
-            color = "🟢" if current_mood >= 7 else "🟠" if current_mood >= 5 else "🔴"
+            color = "" if current_mood >= 7 else "🟠" if current_mood >= 5 else ""
             st.metric(f"{color} Mood", f"{current_mood:.1f}/10", f"Target: >{healthy_target:.0f}")
             st.progress(progress / 100)
         
@@ -2755,7 +2899,7 @@ def main():
             sleep_current = display_inputs.get('sleep_hours', 7)
             healthy_target = 8.0  # Optimal sleep
             progress = min(100, (sleep_current / 9) * 100)  # 9h is upper optimal
-            color = "🟢" if sleep_current >= 7 else "🟠" if sleep_current >= 6 else "🔴"
+            color = "" if sleep_current >= 7 else "🟠" if sleep_current >= 6 else ""
             st.metric(f"{color} Sleep", f"{sleep_current:.1f}h", f"Target: 7-9h")
             st.progress(progress / 100)
         
@@ -2763,13 +2907,13 @@ def main():
             exercise_current = display_inputs.get('exercise_minutes', 30)
             healthy_target = 45  # Recommended exercise
             progress = min(100, (exercise_current / healthy_target) * 100)
-            color = "🟢" if exercise_current >= 30 else "🟠" if exercise_current >= 20 else "🔴"
+            color = "" if exercise_current >= 30 else "🟠" if exercise_current >= 20 else ""
             st.metric(f"{color} Exercise", f"{exercise_current}min", f"Target: {healthy_target}min")
             st.progress(progress / 100)
         
         # Download option
         st.markdown("---")
-        st.info("💡 **Tip:** Switch to **Research** view in the sidebar to explore the Two-Stage Pipeline, Model Comparisons, and Data Quality insights.")
+        st.info(" **Tip:** Switch to **Research** view in the sidebar to explore the Two-Stage Pipeline, Model Comparisons, and Data Quality insights.")
     
     if st.session_state.predictions is None:
         st.info("👈 Adjust behavioral inputs in the sidebar, then click **Generate Profile** to see predictions!")
