@@ -208,33 +208,32 @@ def evaluate_prediction_quality(predictions: dict, inputs: dict = None) -> tuple
     if predictions is None:
         return GIF_AWKWARD, 'error', "No predictions available"
     
-    # Check for extreme input conditions FIRST (before predictions)
+    # Check for TRULY EXTREME/DANGEROUS input conditions (reserve for life-threatening scenarios)
+    # These thresholds are intentionally strict to allow SAD to appear for "bad but not extreme" cases
     if inputs is not None:
         extreme_conditions = []
         
-        # Sleep extremes
-        if inputs.get('sleep_hours', 7) <= 4:
-            extreme_conditions.append("severe sleep deprivation")
+        # Sleep extremes - only flag if critically dangerous
+        if inputs.get('sleep_hours', 7) <= 2:
+            extreme_conditions.append("critically low sleep (<=2h)")
         
-        # Work extremes
-        if inputs.get('work_hours', 8) >= 10:
-            extreme_conditions.append("extreme work hours")
+        # Work extremes - only flag if burnout territory
+        if inputs.get('work_hours', 8) >= 14:
+            extreme_conditions.append("extreme overwork (>=14h)")
         
-        # Zero exercise with long work
-        if inputs.get('exercise_minutes', 30) == 0 and inputs.get('work_hours', 8) >= 10:
-            extreme_conditions.append("no exercise with overwork")
+        # Dangerous caffeine - medical emergency levels
+        if inputs.get('caffeine_mg', 200) >= 800:
+            extreme_conditions.append("toxic caffeine levels (>=800mg)")
         
-        # Extreme caffeine
-        if inputs.get('caffeine_mg', 200) >= 600:
-            extreme_conditions.append("dangerous caffeine levels")
-        
-        # Social isolation
-        if inputs.get('social_interactions', 3) == 0:
-            extreme_conditions.append("complete social isolation")
+        # Complete shutdown scenario - multiple critical factors
+        if (inputs.get('sleep_hours', 7) <= 3 and 
+            inputs.get('work_hours', 8) >= 12 and 
+            inputs.get('exercise_minutes', 30) == 0):
+            extreme_conditions.append("burnout triad (no sleep/no exercise/overwork)")
         
         if extreme_conditions:
             conditions_str = ", ".join(extreme_conditions)
-            return GIF_AWKWARD, 'warning', f"Extreme conditions detected: {conditions_str}. If you're serious, you need help ASAP."
+            return GIF_AWKWARD, 'warning', f"DANGER ZONE: {conditions_str}. If you're serious, you need help ASAP."
     
     # Check for unrealistic/error values (out of reasonable bounds)
     for target, data in predictions.items():
@@ -250,6 +249,31 @@ def evaluate_prediction_quality(predictions: dict, inputs: dict = None) -> tuple
     bad_indicators = 0
     good_indicators = 0
     
+    # FIRST: Check input-based bad indicators (these patterns are objectively concerning)
+    if inputs is not None:
+        # Insufficient sleep (3-6h range)
+        if 3 <= inputs.get('sleep_hours', 7) <= 6:
+            bad_indicators += 1
+        elif inputs.get('sleep_hours', 7) < 3:
+            bad_indicators += 2  # Very concerning
+        
+        # Overwork (9-13h range)
+        if 9 <= inputs.get('work_hours', 8) <= 13:
+            bad_indicators += 1
+        
+        # No exercise
+        if inputs.get('exercise_minutes', 30) <= 10:
+            bad_indicators += 1
+        
+        # High caffeine dependency
+        if inputs.get('caffeine_mg', 200) >= 400:
+            bad_indicators += 1
+        
+        # Social isolation
+        if inputs.get('social_interactions', 3) <= 1:
+            bad_indicators += 1
+    
+    # THEN: Add prediction-based indicators
     # Check stress-related metrics (lower is better)
     stress_targets = ['stress_level', 'perceived_stress_scale', 'anxiety_score', 'depression_score']
     for target in stress_targets:
@@ -1285,7 +1309,7 @@ def render_input_sidebar():
     # ==========================================================================
     with st.sidebar.expander(" Physiological (Sleep & Rest)", expanded=True):
         sleep_hours = st.slider(
-            "Sleep Hours/Night", 3.0, 12.0, 7.0, 0.5,
+            "Sleep Hours/Night", 1.0, 12.0, 7.0, 0.5,
             help="CDC recommends 7-9h for adults. <6h = significant impairment."
         )
         # Immediate warning for extreme values
@@ -2402,7 +2426,7 @@ def render_two_stage_pipeline_demo(model, scaler_mean, scaler_scale, thresholds)
         
         # Stage 2 Note
         st.warning("""
-        ** Known Limitations in Current Pipeline**:
+        Known Limitations in Current Pipeline:
         
         1. **Distribution Mismatch**: Stage 2 (synthetic model) was trained on behavioral patterns different from StudentLife. 
            This causes predictions to cluster around mid-range values (5-6 for most metrics).
